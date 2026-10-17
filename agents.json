@@ -12,7 +12,7 @@
       "No live signal (default: Coordinating teams)"
     ],
     "output": [
-      "TEVA_COMPANY_BACKLOG.md (3m ago)"
+      "TEVA_COMPANY_BACKLOG.md (0m ago)"
     ],
     "signal": false,
     "source": null,
@@ -25,14 +25,14 @@
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792268084946
+        "mtime": 1792269661598
       }
     ],
     "docsOwned": false,
     "stats": {
       "tasksDone": 0,
       "active": 0,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.7,
     "typing": false,
@@ -52,19 +52,19 @@
       "Latest done: SA-GDT-1. GenericDataTable unlocked props — CRITICAL — DONE / SA PASS-"
     ],
     "output": [
-      "TEVA_WORK_PLAN.md (3m ago)",
-      "TEVA_COMPANY_BACKLOG.md (3m ago)"
+      "TEVA_WORK_PLAN.md (0m ago)",
+      "TEVA_COMPANY_BACKLOG.md (0m ago)"
     ],
     "signal": true,
     "source": {
       "file": "TEVA_WORK_PLAN.md",
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_WORK_PLAN.md",
       "line": null,
-      "text": "File modified 3m ago",
-      "at": 1792268086002,
-      "atText": "2026-10-17 22:14 SAST"
+      "text": "File modified 0m ago",
+      "at": 1792269662278,
+      "atText": "2026-10-17 22:41 SAST"
     },
-    "updatedAt": 1792268086002,
+    "updatedAt": 1792269662278,
     "blocked": false,
     "blockedSource": null,
     "channel": "grok",
@@ -73,19 +73,19 @@
       {
         "name": "TEVA_WORK_PLAN.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_WORK_PLAN.md",
-        "mtime": 1792268086002
+        "mtime": 1792269662278
       },
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792268084946
+        "mtime": 1792269661598
       }
     ],
     "docsOwned": true,
     "stats": {
       "tasksDone": 2,
       "active": 1,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.9,
     "typing": true,
@@ -104,19 +104,19 @@
       "Writing TEVA_HIGHS_PARALLEL_PACK.md"
     ],
     "output": [
-      "TEVA_HIGHS_PARALLEL_PACK.md (3m ago)",
-      "TEVA_TIMELINE_PRIORITIES.md (3m ago)"
+      "TEVA_HIGHS_PARALLEL_PACK.md (0m ago)",
+      "TEVA_TIMELINE_PRIORITIES.md (0m ago)"
     ],
     "signal": true,
     "source": {
       "file": "TEVA_HIGHS_PARALLEL_PACK.md",
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_HIGHS_PARALLEL_PACK.md",
       "line": null,
-      "text": "File modified 3m ago",
-      "at": 1792268090873,
-      "atText": "2026-10-17 22:14 SAST"
+      "text": "File modified 0m ago",
+      "at": 1792269665180,
+      "atText": "2026-10-17 22:41 SAST"
     },
-    "updatedAt": 1792268090873,
+    "updatedAt": 1792269665180,
     "blocked": false,
     "blockedSource": null,
     "channel": "grok",
@@ -125,19 +125,19 @@
       {
         "name": "TEVA_HIGHS_PARALLEL_PACK.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_HIGHS_PARALLEL_PACK.md",
-        "mtime": 1792268090873
+        "mtime": 1792269665180
       },
       {
         "name": "TEVA_TIMELINE_PRIORITIES.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_TIMELINE_PRIORITIES.md",
-        "mtime": 1792268087592
+        "mtime": 1792269663849
       }
     ],
     "docsOwned": true,
     "stats": {
       "tasksDone": 2,
       "active": 1,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.9,
     "typing": true,
@@ -162,12 +162,12 @@
     "source": {
       "file": "TEVA_COMPANY_BACKLOG.md",
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-      "line": 402,
+      "line": 495,
       "text": "LE IDLE + LE2 IDLE. No commit/push until Steve asks",
-      "at": 1792268084946,
-      "atText": "2026-10-17 22:14 SAST"
+      "at": 1792269661598,
+      "atText": "2026-10-17 22:41 SAST"
     },
-    "updatedAt": 1792268084946,
+    "updatedAt": 1792269661598,
     "blocked": false,
     "blockedSource": null,
     "channel": "cursor",
@@ -183,7 +183,7 @@
     "stats": {
       "tasksDone": 1,
       "active": 0,
-      "hours": 34.4
+      "hours": 34.7
     },
     "mood": 0.7,
     "typing": false,
@@ -210,12 +210,12 @@
     "source": {
       "file": "TEVA_COMPANY_BACKLOG.md",
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-      "line": 30,
+      "line": 35,
       "text": "LE2 ENG IN on HR-3 payroll export + (b) unpaid_days (updated 2026-10-17 22:05 SAST; HR-GAP + R-ERD-001 P2 ENG DONE → SA REVIEW). Rea",
-      "at": 1792268084946,
-      "atText": "2026-10-17 22:14 SAST"
+      "at": 1792269661598,
+      "atText": "2026-10-17 22:41 SAST"
     },
-    "updatedAt": 1792268084946,
+    "updatedAt": 1792269661598,
     "blocked": false,
     "blockedSource": null,
     "channel": "cursor",
@@ -241,7 +241,7 @@
     "stats": {
       "tasksDone": 3,
       "active": 1,
-      "hours": 34.4
+      "hours": 34.7
     },
     "mood": 0.9,
     "typing": true,
@@ -255,31 +255,51 @@
     "color": "#DC2626",
     "home": "sa",
     "status": "working",
-    "task": "Writing SA_BILLING1_2026-10-17.md",
+    "task": "Writing SA_DBG_small_batch_2026-10-17.md",
     "tasks": [
-      "Writing SA_BILLING1_2026-10-17.md"
+      "Writing SA_DBG_small_batch_2026-10-17.md"
     ],
     "output": [
-      "SA_BILLING1_2026-10-17.md (8m ago)",
-      "SA_SEED1_2026-10-17.md (22m ago)",
-      "SA_inventory_scope_2026-10-17.md (49m ago)",
-      "SA_PSET_P1_2026-10-17.md (1h ago)"
+      "SA_DBG_small_batch_2026-10-17.md (2m ago)",
+      "SA_BTS_403_2026-10-17.md (3m ago)",
+      "SA_HR_GAP_2026-10-17.md (12m ago)",
+      "SA_P3_spec_2026-10-17.md (18m ago)"
     ],
     "signal": true,
     "source": {
-      "file": "SA_BILLING1_2026-10-17.md",
-      "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_BILLING1_2026-10-17.md",
+      "file": "SA_DBG_small_batch_2026-10-17.md",
+      "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DBG_small_batch_2026-10-17.md",
       "line": null,
-      "text": "File modified 8m ago",
-      "at": 1792267802972,
-      "atText": "2026-10-17 22:10 SAST"
+      "text": "File modified 2m ago",
+      "at": 1792269529797,
+      "atText": "2026-10-17 22:38 SAST"
     },
-    "updatedAt": 1792267802972,
+    "updatedAt": 1792269529797,
     "blocked": false,
     "blockedSource": null,
     "channel": "cursor",
     "research": [],
     "docs": [
+      {
+        "name": "SA_DBG_small_batch_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DBG_small_batch_2026-10-17.md",
+        "mtime": 1792269529797
+      },
+      {
+        "name": "SA_BTS_403_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_BTS_403_2026-10-17.md",
+        "mtime": 1792269484147
+      },
+      {
+        "name": "SA_HR_GAP_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_HR_GAP_2026-10-17.md",
+        "mtime": 1792268951117
+      },
+      {
+        "name": "SA_P3_spec_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_P3_spec_2026-10-17.md",
+        "mtime": 1792268581097
+      },
       {
         "name": "SA_BILLING1_2026-10-17.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_BILLING1_2026-10-17.md",
@@ -309,33 +329,13 @@
         "name": "SA_disabled_login_impersonate_2026-10-17.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_disabled_login_impersonate_2026-10-17.md",
         "mtime": 1792262283716
-      },
-      {
-        "name": "SA_HR_selfapprove_2026-10-17.md",
-        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_HR_selfapprove_2026-10-17.md",
-        "mtime": 1792261747216
-      },
-      {
-        "name": "SA_DT_1_2026-10-17.md",
-        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DT_1_2026-10-17.md",
-        "mtime": 1792260000099
-      },
-      {
-        "name": "SA_GDT_1_2026-10-17.md",
-        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_GDT_1_2026-10-17.md",
-        "mtime": 1792255548637
-      },
-      {
-        "name": "SA_8t_HR2_2026-10-17.md",
-        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_8t_HR2_2026-10-17.md",
-        "mtime": 1792253146893
       }
     ],
     "docsOwned": true,
     "stats": {
-      "tasksDone": 19,
+      "tasksDone": 23,
       "active": 1,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.9,
     "typing": true,
@@ -354,7 +354,7 @@
       "No live signal (default: On call for bugfixes and DB resets)"
     ],
     "output": [
-      "TEVA_COMPANY_BACKLOG.md (3m ago)"
+      "TEVA_COMPANY_BACKLOG.md (0m ago)"
     ],
     "signal": false,
     "source": null,
@@ -367,14 +367,14 @@
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792268084946
+        "mtime": 1792269661598
       }
     ],
     "docsOwned": false,
     "stats": {
       "tasksDone": 0,
       "active": 0,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.7,
     "typing": false,
@@ -414,7 +414,7 @@
     "stats": {
       "tasksDone": 1,
       "active": 0,
-      "hours": 1.5
+      "hours": 1.9
     },
     "mood": 0.7,
     "typing": false,
@@ -540,7 +540,7 @@
     "stats": {
       "tasksDone": 5,
       "active": 0,
-      "hours": 34.4
+      "hours": 34.7
     },
     "mood": 0.7,
     "typing": false,
@@ -560,8 +560,8 @@
     ],
     "output": [
       "ERP_HR4_HR5_data_model_2026-10-17.md (1h ago)",
-      "ERP_P2_restock_data_model_2026-10-17.md (1h ago)",
-      "ERP_HR3_payroll_rules_2026-10-17.md (1h ago)",
+      "ERP_P2_restock_data_model_2026-10-17.md (2h ago)",
+      "ERP_HR3_payroll_rules_2026-10-17.md (2h ago)",
       "ERP_POSTURE_DECISION_DIGEST.md (1d ago)"
     ],
     "signal": true,
@@ -661,7 +661,7 @@
     "stats": {
       "tasksDone": 4,
       "active": 0,
-      "hours": 1.5
+      "hours": 1.9
     },
     "mood": 0.7,
     "typing": false,
@@ -791,7 +791,7 @@
     "stats": {
       "tasksDone": 21,
       "active": 0,
-      "hours": 2.3
+      "hours": 2.7
     },
     "mood": 0.7,
     "typing": false,
@@ -842,7 +842,7 @@
     "stats": {
       "tasksDone": 3,
       "active": 0,
-      "hours": 34.4
+      "hours": 34.7
     },
     "mood": 0.7,
     "typing": false,
@@ -929,7 +929,7 @@
     "stats": {
       "tasksDone": 18,
       "active": 0,
-      "hours": 1.4
+      "hours": 1.8
     },
     "mood": 0.7,
     "typing": false,
@@ -948,7 +948,7 @@
       "No research WIP. Latest: R-VO-002 Done"
     ],
     "output": [
-      "Board updated 2026-10-17 22:14 SAST"
+      "Board updated 2026-10-17 22:40 SAST"
     ],
     "signal": true,
     "source": {
@@ -999,7 +999,7 @@
   },
   {
     "id": "needs-steve",
-    "name": "Needs Steve (3)",
+    "name": "Needs Steve (4)",
     "role": "Waiting on you",
     "emoji": "🔴",
     "color": "#FF3B30",
@@ -1008,22 +1008,23 @@
     "task": "Tell Laravel Expert in its chat: go on P2",
     "tasks": [
       "Tell Laravel Expert in its chat: go on P2",
-      "Reseed after SEED1-H1 passes SA; Debugger will tell you",
-      "Tell Debugger in its chat: yes to additive php artisan migrate for HR-GAP columns (not fresh)"
+      "Reseed after SEED1-H1 passes SA; Debugger will tell you (also loads MySQL ticket permissions; also restores owners' payroll access)",
+      "Tell Debugger in its chat: yes to additive php artisan migrate (not fresh) — HR-GAP 213000/213010, HR-3 230000..230030, and the live-subscri",
+      "Commit the 19 fail-closed identity files (no decision needed; the SEED1-H1 test fails at HEAD until committed)"
     ],
     "output": [
-      "From the NEEDS STEVE section, board 2026-10-17 22:14 SAST"
+      "From the NEEDS STEVE section, board 2026-10-17 22:40 SAST"
     ],
     "signal": true,
     "source": {
       "file": "TEVA_COMPANY_BACKLOG.md",
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-      "line": 1083,
+      "line": 1195,
       "text": "NEEDS STEVE section",
-      "at": 1792268084946,
-      "atText": "2026-10-17 22:14 SAST"
+      "at": 1792269661598,
+      "atText": "2026-10-17 22:41 SAST"
     },
-    "updatedAt": 1792268084946,
+    "updatedAt": 1792269661598,
     "channel": "grok",
     "blocked": false,
     "blockedSource": null,
@@ -1032,13 +1033,13 @@
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792268084946
+        "mtime": 1792269661598
       }
     ],
     "docsOwned": true,
     "stats": {
       "tasksDone": 0,
-      "active": 3,
+      "active": 4,
       "hours": 0
     },
     "mood": 0.5,
@@ -1046,36 +1047,43 @@
     "position": null,
     "needsSteve": [
       "Tell Laravel Expert in its chat: go on P2",
-      "Reseed after SEED1-H1 passes SA; Debugger will tell you",
-      "Tell Debugger in its chat: yes to additive php artisan migrate for HR-GAP columns (not fresh)"
+      "Reseed after SEED1-H1 passes SA; Debugger will tell you (also loads MySQL ticket permissions; also restores owners' payroll access)",
+      "Tell Debugger in its chat: yes to additive php artisan migrate (not fresh) — HR-GAP 213000/213010, HR-3 230000..230030, and the live-subscri",
+      "Commit the 19 fail-closed identity files (no decision needed; the SEED1-H1 test fails at HEAD until committed)"
     ],
     "needsSteveItems": [
       {
         "text": "Tell Laravel Expert in its chat: go on P2",
-        "line": 1083,
+        "line": 1195,
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
         "owner": "le"
       },
       {
-        "text": "Reseed after SEED1-H1 passes SA; Debugger will tell you",
-        "line": 1084,
+        "text": "Reseed after SEED1-H1 passes SA; Debugger will tell you (also loads MySQL ticket permissions; also restores owners' payroll access)",
+        "line": 1196,
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
         "owner": null
       },
       {
-        "text": "Tell Debugger in its chat: yes to additive php artisan migrate for HR-GAP columns (not fresh)",
-        "line": 1085,
+        "text": "Tell Debugger in its chat: yes to additive php artisan migrate (not fresh) — HR-GAP 213000/213010, HR-3 230000..230030, and the live-subscri",
+        "line": 1197,
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
         "owner": "debugger"
+      },
+      {
+        "text": "Commit the 19 fail-closed identity files (no decision needed; the SEED1-H1 test fails at HEAD until committed)",
+        "line": 1198,
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
+        "owner": null
       }
     ],
     "board": {
-      "updated": "2026-10-17 22:14 SAST",
+      "updated": "2026-10-17 22:40 SAST",
       "updatedLine": 3,
       "backlogPath": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
       "researchPath": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_RESEARCH_BACKLOG.md",
       "repo": "/Users/stevenayensu/Documents/GitHub/template_1",
-      "syncedAt": 1792268286548,
+      "syncedAt": 1792269685173,
       "syncIntervalSeconds": 180,
       "researchCounts": {
         "Done": 19,
@@ -1088,329 +1096,357 @@
           "doc": "backlog",
           "id": "1",
           "owner": "le",
-          "line": 22,
+          "line": 27,
           "title": "1. Critical #1 — Unauthenticated GET /api/v1/mobile/search email/ID enumeration"
         },
         {
           "doc": "backlog",
           "id": "3",
           "owner": "le",
-          "line": 36,
+          "line": 41,
           "title": "3. Criticals #1–#4 — Tenant authorization hardening — COMPLETE"
         },
         {
           "doc": "backlog",
           "id": "SA-GDT-1",
           "owner": "le2",
-          "line": 45,
+          "line": 50,
           "title": "SA-GDT-1. GenericDataTable unlocked props — CRITICAL — DONE / SA PASS-with-resid"
         },
         {
           "doc": "backlog",
           "id": "SA-DT-1",
           "owner": "le2",
-          "line": 64,
+          "line": 69,
           "title": "SA-DT-1. Base App\\Livewire\\DataTable — writable $userId + unauthorized deleteSel"
         },
         {
           "doc": "backlog",
           "id": "SA-DT-1-C",
           "owner": "le2",
-          "line": 86,
+          "line": 91,
           "title": "SA-DT-1-C. LE2 cleanup — HR1-T1 backfill test, DT-R4 ViewBankingDetail authorize"
+        },
+        {
+          "doc": "backlog",
+          "id": "IMP-H1",
+          "owner": "debugger",
+          "line": 147,
+          "title": "IMP-H1. ImportController::retry has no authorization — HIGH (confirmed, not Crit"
+        },
+        {
+          "doc": "backlog",
+          "id": "GOV-SALON",
+          "owner": "debugger",
+          "line": 163,
+          "title": "GOV-SALON. Governance create paths trust request salon_id — HIGH if confirmed (p"
         },
         {
           "doc": "backlog",
           "id": "SEC-DL1",
           "owner": "debugger",
-          "line": 142,
+          "line": 173,
           "title": "SEC-DL1. Disabled users keep live sessions — HIGH — DONE / SA PASS-with-residual"
         },
         {
           "doc": "backlog",
           "id": "SEED-1",
           "owner": "debugger",
-          "line": 161,
+          "line": 192,
           "title": "SEED-1. CoverageSeeder replaces role permissions — HIGH — SEED1-H1 fix ENG DONE "
         },
         {
           "doc": "backlog",
           "id": "BILLING-1",
           "owner": "debugger",
-          "line": 181,
+          "line": 216,
           "title": "BILLING-1. Unpaid/cancelled subscription grants plan; checkout doesn't end old s"
         },
         {
           "doc": "backlog",
           "id": "B1-H1",
           "owner": "debugger",
-          "line": 202,
-          "title": "B1-H1. PayFast ITN doesn't verify amount or merchant — HIGH — ENG IN → Debugger "
+          "line": 237,
+          "title": "B1-H1. PayFast ITN doesn't verify amount or merchant — HIGH — ENG DONE → SA REVI"
         },
         {
           "doc": "backlog",
           "id": "SEC-SERIES",
           "owner": "debugger",
-          "line": 225,
+          "line": 266,
           "title": "SEC-SERIES. POST /calendar/series lacks authorization + unscoped exists rules — "
         },
         {
           "doc": "backlog",
           "id": "MT-TENANCY",
           "owner": "debugger",
-          "line": 238,
+          "line": 281,
           "title": "MT-TENANCY. MessageTemplate saved with salon_id NULL (cross-salon) — MEDIUM unti"
+        },
+        {
+          "doc": "backlog",
+          "id": "DELEG-REVOKE",
+          "owner": "debugger",
+          "line": 296,
+          "title": "DELEG-REVOKE. DelegationService::revoke has no salon match — MEDIUM — ENG DONE →"
+        },
+        {
+          "doc": "backlog",
+          "id": "TENANT-JOB-CTX",
+          "owner": "debugger",
+          "line": 304,
+          "title": "TENANT-JOB-CTX. ReconcileLeaveAttendanceJob binds no tenant context (HR-GAP R2) "
         },
         {
           "doc": "backlog",
           "id": "SERIES-1",
           "owner": "product",
-          "line": 251,
+          "line": 319,
           "title": "SERIES-1. AppointmentSeries never generates appointment rows — AC READY — Eng HO"
         },
         {
           "doc": "backlog",
           "id": "5b",
           "owner": "le",
-          "line": 297,
+          "line": 390,
           "title": "5b. Owner branch UX (Steve ask via Debugger, Features lane)"
         },
         {
           "doc": "backlog",
           "id": "5c",
           "owner": "le2",
-          "line": 307,
+          "line": 400,
           "title": "5c. Parallel Eng — R-FD reporting chart-reuse (Steve dual-LE)"
         },
         {
           "doc": "backlog",
           "id": "7",
           "owner": "grok",
-          "line": 323,
+          "line": 416,
           "title": "7. TEVA system memory chat inject"
         },
         {
           "doc": "backlog",
           "id": "8b",
           "owner": "ui-docs",
-          "line": 332,
+          "line": 425,
           "title": "8b. UI Glassmorphism + Components Inventory (Steve ask 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8",
           "owner": "ui-docs",
-          "line": 342,
+          "line": 435,
           "title": "8. UI Docs — living UI/flow map (Template 1)"
         },
         {
           "doc": "backlog",
           "id": "8c",
           "owner": "ui-docs",
-          "line": 357,
+          "line": 450,
           "title": "8c. UI System Guide (Steve ask 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8d",
           "owner": "ui-docs",
-          "line": 366,
+          "line": 459,
           "title": "8d. UI Docs v2 — staff navbar + modal crawl (Steve / PM GO 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8e",
           "owner": "ui-docs",
-          "line": 380,
+          "line": 473,
           "title": "8e. UI Docs — route:list + PermissionSeeder pivot (PM GO 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8e-Eng",
           "owner": "le",
-          "line": 397,
+          "line": 490,
           "title": "8e-Eng. Permission Eng C1 — pivot gaps (PM GO after AgentHost C1 PASS)"
         },
         {
           "doc": "backlog",
           "id": "8e-Eng-C2",
           "owner": "le",
-          "line": 406,
+          "line": 499,
           "title": "8e-Eng-C2. Permission Eng C2 — expand can: pilots (DONE / SA PASS-with-residuals"
         },
         {
           "doc": "backlog",
           "id": "8f",
           "owner": "ui-docs",
-          "line": 415,
+          "line": 508,
           "title": "8f. UI Docs — super-admin icon nav audit (Steve Business / PM GO 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8g",
           "owner": "ui-docs",
-          "line": 426,
+          "line": 519,
           "title": "8g. UI Docs — owner branch nav mount map (PM assist 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8h",
           "owner": "ui-docs",
-          "line": 436,
+          "line": 529,
           "title": "8h. UI Docs — reporting chart surfaces (PM GO for LE2, 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8i",
           "owner": "le2",
-          "line": 448,
+          "line": 541,
           "title": "8i. Data-table Eng C1 — all-branches canonical table (PM GO after Icon Eng C1 PA"
         },
         {
           "doc": "backlog",
           "id": "8j",
           "owner": "le2",
-          "line": 461,
+          "line": 554,
           "title": "8j. Icon Eng C2 — Steve icon widen (queued after Data-table Eng C1)"
         },
         {
           "doc": "backlog",
           "id": "8k",
           "owner": "ui-docs",
-          "line": 471,
+          "line": 564,
           "title": "8k. UI Docs — data-table standard pack (PM GO 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8l",
           "owner": "ui-docs",
-          "line": 483,
+          "line": 576,
           "title": "8l. UI Docs — icon nav audit expand (multi-role) (PM GO 2026-09-24)"
         },
         {
           "doc": "backlog",
           "id": "8m",
           "owner": "pm",
-          "line": 495,
+          "line": 588,
           "title": "8m. Owner app-bar icon differentiation — strategy/KPI/hiring/performance set (St"
         },
         {
           "doc": "backlog",
           "id": "8n",
           "owner": "pm",
-          "line": 508,
+          "line": 601,
           "title": "8n. Owner branch contacts — dedicated owner-area page; out of nav bar (decision "
         },
         {
           "doc": "backlog",
           "id": "8o",
           "owner": "le",
-          "line": 518,
+          "line": 611,
           "title": "8o. Appearance-images — Eng C1 DONE / SA PASS-with-residuals (Steve ask 2026-09-"
         },
         {
           "doc": "backlog",
           "id": "8o-Eng-C2",
           "owner": "le",
-          "line": 541,
+          "line": 634,
           "title": "8o-Eng-C2. Appearance Eng C2 — paginate Personalize background-image grouping (D"
         },
         {
           "doc": "backlog",
           "id": "8p",
           "owner": "ui-docs",
-          "line": 560,
+          "line": 653,
           "title": "8p. Appearance Branding — research CLOSED (Steve GO 2026-09-28 ~10:48; BA resear"
         },
         {
           "doc": "backlog",
           "id": "8p-Eng-C3",
           "owner": "le",
-          "line": 581,
+          "line": 674,
           "title": "8p-Eng-C3. Appearance Branding Eng C3 — deep-links + panel polish (DONE / SA PAS"
         },
         {
           "doc": "backlog",
           "id": "8q",
           "owner": "le2",
-          "line": 603,
+          "line": 696,
           "title": "8q. Platform settings — DONE / SA PASS-with-residuals (2026-10-03)"
         },
         {
           "doc": "backlog",
           "id": "8r",
           "owner": "ui-docs",
-          "line": 628,
+          "line": 721,
           "title": "8r. Catalog reuse how-to + .cursor/rules — DOC DONE (2026-10-03)"
         },
         {
           "doc": "backlog",
           "id": "8s",
           "owner": "le",
-          "line": 641,
+          "line": 734,
           "title": "8s. System settings index completeness — DONE / SA PASS-with-residuals (2026-10-"
         },
         {
           "doc": "backlog",
           "id": "8t",
           "owner": "ui-docs",
-          "line": 667,
+          "line": 760,
           "title": "8t. R-PSET-001 — PSET vs Template 1 module map — Research FILED; §8t-LV DONE / S"
         },
         {
           "doc": "backlog",
           "id": "R-SET-001",
           "owner": "le2",
-          "line": 695,
+          "line": 788,
           "title": "R-SET-001. Salon settings taxonomy — DONE / SA PASS-with-residuals (2026-10-03)"
         },
         {
           "doc": "backlog",
           "id": "9",
           "owner": "le",
-          "line": 706,
+          "line": 799,
           "title": "9. Multi-tenant tool auth (agent/MCP) — AgentHost/ToolBroker"
         },
         {
           "doc": "backlog",
           "id": "10",
           "owner": "research-mgr",
-          "line": 725,
+          "line": 818,
           "title": "10. Research pipeline (Research Manager)"
         },
         {
           "doc": "backlog",
           "id": "11",
           "owner": "ba",
-          "line": 743,
+          "line": 836,
           "title": "11. Work plan & timeline priorities (Business Analyst)"
         },
         {
           "doc": "backlog",
           "id": "§8x",
           "owner": "pm",
-          "line": 979,
+          "line": 1086,
           "title": "§8x UI Docs: Role access matrix — DOC FILED (2026-10-17)"
         },
         {
           "doc": "backlog",
           "id": "R-ERD-001",
           "owner": "le2",
-          "line": 983,
+          "line": 1090,
           "title": "R-ERD-001 Phase 1. Database ERD explorer — ENG DONE → SA REVIEW (2026-10-17)"
         },
         {
           "doc": "backlog",
           "id": "HR-GAP",
           "owner": "le2",
-          "line": 1008,
-          "title": "HR-GAP. HR leave/attendance gap fix pack — ENG DONE → SA REVIEW (2026-10-17)"
+          "line": 1115,
+          "title": "HR-GAP. HR leave/attendance gap fix pack — DONE / SA PASS-with-residuals (2026-1"
         },
         {
           "doc": "backlog",
           "id": "BILL-1",
           "owner": "product",
-          "line": 1045,
+          "line": 1154,
           "title": "BILL-1. Merge the two feature systems + enforce plan limits — AC READY — Eng HOL"
         },
         {
@@ -1587,26 +1623,110 @@
         {
           "name": "TEVA_HIGHS_PARALLEL_PACK.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_HIGHS_PARALLEL_PACK.md",
-          "mtime": 1792268090873,
+          "mtime": 1792269665180,
           "owner": "ba"
         },
         {
           "name": "TEVA_TIMELINE_PRIORITIES.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_TIMELINE_PRIORITIES.md",
-          "mtime": 1792268087592,
+          "mtime": 1792269663849,
           "owner": "ba"
         },
         {
           "name": "TEVA_WORK_PLAN.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_WORK_PLAN.md",
-          "mtime": 1792268086002,
+          "mtime": 1792269662278,
           "owner": "pm"
         },
         {
           "name": "TEVA_COMPANY_BACKLOG.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-          "mtime": 1792268084946,
+          "mtime": 1792269661598,
           "owner": "pm"
+        },
+        {
+          "name": "NEW_SALON_TEMPLATES_SUB_CANCEL_eng_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/NEW_SALON_TEMPLATES_SUB_CANCEL_eng_2026-10-17.md",
+          "mtime": 1792269592900,
+          "owner": null
+        },
+        {
+          "name": "B1_H1_payfast_itn_eng_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/B1_H1_payfast_itn_eng_2026-10-17.md",
+          "mtime": 1792269580534,
+          "owner": null
+        },
+        {
+          "name": "SA_DBG_small_batch_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DBG_small_batch_2026-10-17.md",
+          "mtime": 1792269529797,
+          "owner": "sa"
+        },
+        {
+          "name": "GOV_SALON_eng_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/GOV_SALON_eng_2026-10-17.md",
+          "mtime": 1792269490320,
+          "owner": null
+        },
+        {
+          "name": "SA_BTS_403_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_BTS_403_2026-10-17.md",
+          "mtime": 1792269484147,
+          "owner": "sa"
+        },
+        {
+          "name": "SEED1_H1_identity_directory_eng_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SEED1_H1_identity_directory_eng_2026-10-17.md",
+          "mtime": 1792269246971,
+          "owner": null
+        },
+        {
+          "name": "SEC_SERIES_eng_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SEC_SERIES_eng_2026-10-17.md",
+          "mtime": 1792269246971,
+          "owner": null
+        },
+        {
+          "name": "IMP_H1_import_authz_eng_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/IMP_H1_import_authz_eng_2026-10-17.md",
+          "mtime": 1792269216519,
+          "owner": null
+        },
+        {
+          "name": "SA_HR_GAP_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_HR_GAP_2026-10-17.md",
+          "mtime": 1792268951117,
+          "owner": "sa"
+        },
+        {
+          "name": "HR3_payroll_export_eng_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/HR3_payroll_export_eng_2026-10-17.md",
+          "mtime": 1792268918203,
+          "owner": null
+        },
+        {
+          "name": "SERIES1_appointment_series_spec_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SERIES1_appointment_series_spec_2026-10-17.md",
+          "mtime": 1792268731119,
+          "owner": null
+        },
+        {
+          "name": "BILL1_feature_limits_spec_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/BILL1_feature_limits_spec_2026-10-17.md",
+          "mtime": 1792268729469,
+          "owner": null
+        },
+        {
+          "name": "P3_impersonation_spec_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/P3_impersonation_spec_2026-10-17.md",
+          "mtime": 1792268638070,
+          "owner": null
+        },
+        {
+          "name": "SA_P3_spec_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_P3_spec_2026-10-17.md",
+          "mtime": 1792268581097,
+          "owner": "sa"
         },
         {
           "name": "Debugger_small_batch_eng_2026-10-17.md",
@@ -1633,21 +1753,9 @@
           "owner": null
         },
         {
-          "name": "SEC_SERIES_eng_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SEC_SERIES_eng_2026-10-17.md",
-          "mtime": 1792267907453,
-          "owner": null
-        },
-        {
           "name": "DL1_R2_R3_eng_2026-10-17.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/DL1_R2_R3_eng_2026-10-17.md",
           "mtime": 1792267907453,
-          "owner": null
-        },
-        {
-          "name": "SEED1_H1_identity_directory_eng_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SEED1_H1_identity_directory_eng_2026-10-17.md",
-          "mtime": 1792267907442,
           "owner": null
         },
         {
@@ -1675,12 +1783,6 @@
           "owner": "sa"
         },
         {
-          "name": "BILL1_feature_limits_spec_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/BILL1_feature_limits_spec_2026-10-17.md",
-          "mtime": 1792266167265,
-          "owner": null
-        },
-        {
           "name": "P5_maintenance_spec_2026-10-17.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/P5_maintenance_spec_2026-10-17.md",
           "mtime": 1792266167265,
@@ -1693,75 +1795,9 @@
           "owner": null
         },
         {
-          "name": "SERIES1_appointment_series_spec_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SERIES1_appointment_series_spec_2026-10-17.md",
-          "mtime": 1792266167263,
-          "owner": null
-        },
-        {
           "name": "Debugger_wide_suite_triage_2026-10-17.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/Debugger_wide_suite_triage_2026-10-17.md",
           "mtime": 1792265637136,
-          "owner": null
-        },
-        {
-          "name": "R_ERD_001_P2_eng_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/R_ERD_001_P2_eng_2026-10-17.md",
-          "mtime": 1792265586589,
-          "owner": null
-        },
-        {
-          "name": "P2_restock_to_max_spec_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/P2_restock_to_max_spec_2026-10-17.md",
-          "mtime": 1792265523006,
-          "owner": null
-        },
-        {
-          "name": "SA_inventory_scope_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_inventory_scope_2026-10-17.md",
-          "mtime": 1792265289832,
-          "owner": "sa"
-        },
-        {
-          "name": "BILLING1_entitlements_eng_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/BILLING1_entitlements_eng_2026-10-17.md",
-          "mtime": 1792264309155,
-          "owner": null
-        },
-        {
-          "name": "SA_PSET_P1_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_PSET_P1_2026-10-17.md",
-          "mtime": 1792264297529,
-          "owner": "sa"
-        },
-        {
-          "name": "SA_DL1_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DL1_2026-10-17.md",
-          "mtime": 1792264235489,
-          "owner": "sa"
-        },
-        {
-          "name": "PSET_P1_eng_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/PSET_P1_eng_2026-10-17.md",
-          "mtime": 1792263915333,
-          "owner": null
-        },
-        {
-          "name": "HR6_scorecard_spec_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/HR6_scorecard_spec_2026-10-17.md",
-          "mtime": 1792263822757,
-          "owner": null
-        },
-        {
-          "name": "HR5_training_spec_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/HR5_training_spec_2026-10-17.md",
-          "mtime": 1792263822756,
-          "owner": null
-        },
-        {
-          "name": "DL1_session_revocation_eng_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/DL1_session_revocation_eng_2026-10-17.md",
-          "mtime": 1792263527199,
           "owner": null
         }
       ]

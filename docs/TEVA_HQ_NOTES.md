@@ -58,6 +58,13 @@ Every motion is caused by a field in `/api/agents` or by a click/key from Steve.
 - `### <id>. …` headings with `- **Owner(s):** <codes>` give per-item owners. An owner change animates a folder hand-off A → B → A.
 - `cursor_activity.py` now reports `toolKind` (write/edit/read/search/fetch/shell/task/reply/other), `endStatus` and `endedAt`. The server rescans every 10 s (`CURSOR_SCAN_SECONDS`).
 
+### 3D office layout (2026-10-17)
+- **`public/office_layout.js`** — single source for room size (52×36 main), **TEVA seat coordinates**, zone labels, furniture anchors, and camera presets. Keep seat ids aligned with `scripts/teva_sync.py` `ROSTER` (+ `needs-steve`).
+- **Main floor** — zone edge strips (not filled color pads), glass/black-metal dividers, slim cool ceiling fixtures, light concrete floor, off-white walls with black skirting, front doorway into the wing.
+- **Collab terrace (wing)** — separate group south of the main floor; sidebar **🌿** or keys **`]`** / **`[`** (terrace / main) tween the camera. Agents stay on the main floor; unassigned Cursor chats label hot desks on the terrace (from `GET /api/cursor`, cosmetic only).
+- **Visual language** — bright modern glass/concrete HQ (not warm wood). ACES tone mapping, daylight sky dome, cool fog (`0xc8d0dc`). Minimal brand wall panels (“TEVA” / “HQ”) instead of emoji posters.
+- **Camera gestures** — drag to orbit, Shift-drag or right-drag to pan, scroll / pinch to zoom (`touch-action: none` on the canvas). Tap (not drag) still selects seats. Esc / sidebar presets reset pitch and view; `[` / `]` switch main floor vs terrace.
+
 ## Open items
 - **Seats read the inbox only after PM/Supervisor agree.** No seat (Cursor or Grok Bot) is wired to
   read `inbox/<seat>.jsonl` or write `inbox/<seat>.read` yet. Until PM/Supervisor adopt a convention
@@ -76,4 +83,5 @@ Every motion is caused by a field in `/api/agents` or by a click/key from Steve.
 Phase 3a:
 - `python3 -m unittest discover -s tests` (includes `tests/test_vo_events.js` through node when node is installed; it skips otherwise).
 - `node tests/test_vo_events.js` (event/state-machine logic).
+- `node tests/test_office_layout.js` (layout seats vs teva_sync roster).
 - `python3 tests/e2e_phase3a.py OUT_DIR [--quick] [--soak-min 10]` (Playwright acceptance test; starts its own server on a free port with a temp token and inbox).
