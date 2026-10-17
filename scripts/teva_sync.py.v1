@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Build VirtOffice agents.json from Template 1's TEVA board (docs/TEVA_COMPANY_BACKLOG.md).
+Read-only on Template 1. Writes only VirtOffice/agents.json (atomic replace)."""
+import json, os, re, sys, tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "agents.json"
+BACKLOG = Path(os.environ.get("TEVA_BACKLOG", "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md"))
+
+# id, name, role, emoji, color, home, default task
+ROSTER = [
+    ("supervisor", "Supervisor", "Leadership", "🧭", "#8B5CF6", "meeting", "Coordinating teams"),
+    ("pm", "Project Manager", "Leadership", "📋", "#A78BFA", "meeting", "Sequencing the board"),
+    ("ba", "Business Analyst", "Leadership", "📊", "#C4B5FD", "meeting", "Keeping the board current"),
+    ("le", "Laravel Expert", "Engineering", "🛠️", "#EF4444", "right", "Idle"),
+    ("le2", "Laravel Expert 2", "Engineering", "🧰", "#F97316", "right", "Idle"),
+    ("sa", "Security Auditor", "Engineering", "🛡️", "#DC2626", "right", "Ready for security reviews"),
+    ("debugger", "Debugger", "Engineering", "🐞", "#FB923C", "right2", "On call for bugfixes and DB resets"),
+    ("research-mgr", "Research Manager", "Research", "🗂️", "#3B82F6", "left", "Feeding the research backlog"),
+    ("ai-research", "AI Research", "Research", "🤖", "#60A5FA", "left", "Agent architecture research"),
+    ("erp-research", "ERP Research", "Research", "🏭", "#2563EB", "left", "Salon ERP domain research"),
+    ("product", "Product Research", "Business", "🎨", "#10B981", "center", "UX and JTBD research"),
+    ("competitor", "Competitor Intel", "Business", "🔭", "#34D399", "center", "Competitor tracking"),
+    ("ui-docs", "UI Docs", "Business", "📚", "#059669", "center", "Mapping flows and role access"),
+    ("grok", "Grok Bot", "Ingest", "🧠", "#F59E0B", "right2", "Board ingest to teva_memories"),
+]
+
+def clean(s):
+    s = re.sub(r"[*`]", "", s or "").strip(" .;:-—+")
+    return s[:90]
+
+def seat(text, who):
+    m = re.search(r"\*\*%s (ENG IN|IDLE)\*\*(?: on ([^+\n.;]+))?" % re.escape(who), text)
+    if not m:
+        return None
+    if m.group(1) == "IDLE":
+        return ("idle", "Idle")
+    return ("working", clean(m.group(2)) or "Engineering pack")
+
+def main():
+    try:
+        text = BACKLOG.read_text(encoding="utf-8")
+    except Exception as e:
+        print(f"backlog unreadable: {e}", file=sys.stderr)
+        return 1
+    updated = re.search(r"\*\*Last updated:\*\*\s*([^\n]+)", text)
+    updated = clean(updated.group(1)) if updated else "unknown"
+    seats = {"le": seat(text, "LE"), "le2": seat(text, "LE2")}
+    criticals = [clean(h) for h in re.findall(r"^### ([^\n]*CRITICAL[^\n]*ENG IN[^\n]*)$", text, re.M)]
+    done = [clean(h) for h in re.findall(r"^### ([^\n]*DONE[^\n]*)$", text, re.M)]
+
+    agents = []
+    for aid, name, role, emoji, color, home, task in ROSTER:
+        status, out = "idle", [f"Board updated {updated}"]
+        if aid in seats and seats[aid]:
+            status, task = seats[aid]
+        elif aid == "sa" and criticals:
+            status, task = "working", "Reviewing: " + criticals[0][:70]
+        elif role == "Leadership":
+            status = "meeting"
+        if aid == "pm" and done:
+            out.append("Latest done: " + done[0][:70])
+        agents.append({
+            "id": aid, "name": name, "role": role, "emoji": emoji, "color": color,
+            "home": home, "status": status, "task": task, "tasks": [task],
+            "output": out, "stats": {"tasksDone": 0, "active": 1 if status == "working" else 0, "hours": 0},
+            "mood": 0.9 if status == "working" else 0.7, "typing": status == "working", "position": None,
+        })
+    fd, tmp = tempfile.mkstemp(dir=str(ROOT), prefix=".agents.", suffix=".json")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(agents, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, OUT)
+    print(f"wrote {len(agents)} agents; board {updated}; LE={seats['le']}; LE2={seats['le2']}")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

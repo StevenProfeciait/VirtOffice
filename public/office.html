@@ -499,13 +499,13 @@ body {
 
 <div id="ui">
   <div class="header">
-    <div class="title">Hermes Headquarters</div>
+    <div class="title">TEVA Headquarters</div>
     <div class="user-bar" id="userBar"></div>
   </div>
 
-  <div class="notification">
-    <div class="notif-title"><span class="notif-pulse"></span> Gathering in meeting room...</div>
-    <div class="notif-sub" id="meetingSub">4/5 attending — Daily standup</div>
+  <div class="notification" id="needsSteveCard" style="cursor:pointer" onclick="selectAgent('needs-steve')">
+    <div class="notif-title"><span class="notif-pulse"></span> <span id="needsSteveTitle">Needs Steve</span></div>
+    <div class="notif-sub" id="meetingSub">Loading the board…</div>
   </div>
   <button class="standup-btn">Standup Board</button>
 
@@ -550,15 +550,15 @@ body {
     <div class="detail-grid">
       <div class="detail-stat">
         <div class="detail-stat-value" id="statTasks">12</div>
-        <div class="detail-stat-label">Tasks Done</div>
+        <div class="detail-stat-label" id="lblTasks">Tasks Done</div>
       </div>
       <div class="detail-stat">
         <div class="detail-stat-value" id="statActive">3</div>
-        <div class="detail-stat-label">Active</div>
+        <div class="detail-stat-label" id="lblActive">Active</div>
       </div>
       <div class="detail-stat">
         <div class="detail-stat-value" id="statHours">4.2h</div>
-        <div class="detail-stat-label">Today</div>
+        <div class="detail-stat-label" id="lblHours">Today</div>
       </div>
     </div>
     
@@ -570,6 +570,10 @@ body {
     <div class="detail-section">
       <div class="detail-section-title">Recent Output</div>
       <div class="detail-task-list" id="detailOutput"></div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">Docs (opens in Cursor)</div>
+      <div class="detail-task-list" id="detailDocs"></div>
     </div>
   </div>
 
@@ -634,9 +638,19 @@ let clock, selectedAgent = null;
 let lastMeetingUpdate = 0;
 let liveConfig = { mode: 'demo', enable_sse: true };
 
+let lastLiveJson = '', lastLiveIds = '';
 function applyLiveAgents(newAgents) {
-  // Update existing / add new agents
+  const json = JSON.stringify(newAgents);
+  if (json === lastLiveJson) return;
+  const firstSync = lastLiveJson === '';
+  lastLiveJson = json;
+  const ids = newAgents.map(a => a.id).join(',');
+  const rosterChanged = ids !== lastLiveIds;
+  lastLiveIds = ids;
+  if (rosterChanged) AGENTS.length = 0;
   newAgents.forEach(na => {
+    na.tasks = na.tasks || [];
+    na.live = true;
     const existing = AGENTS.find(a => a.id === na.id);
     if (existing) {
       Object.assign(existing, na);
@@ -652,11 +666,22 @@ function applyLiveAgents(newAgents) {
     }
     if (na.stats) agentStats[na.id] = na.stats;
   });
-  createAgents();
+  if (rosterChanged) createAgents();
   setupUI();
+  updateNeedsSteve();
+  updateBehavior();
   updateStatusBar();
   if (selectedAgent) selectAgent(selectedAgent.id);
-  showToast('Live agents synced');
+  showToast(firstSync ? 'TEVA team connected' : 'Board updated');
+}
+
+function updateNeedsSteve() {
+  const ns = AGENTS.find(a => a.id === 'needs-steve');
+  const items = (ns && ns.needsSteve) || [];
+  document.getElementById('needsSteveTitle').textContent = items.length
+    ? `${items.length} thing${items.length === 1 ? '' : 's'} need${items.length === 1 ? 's' : ''} Steve` : 'Nothing needs Steve';
+  document.getElementById('meetingSub').textContent = items.length ? items[0] + (items.length > 1 ? ` (+${items.length - 1} more)` : '') : 'All clear';
+  document.getElementById('needsSteveCard').style.borderColor = items.length ? 'rgba(255,59,48,0.8)' : 'rgba(255,255,255,0.1)';
 }
 
 async function fetchAgents() {
@@ -1117,17 +1142,12 @@ function createChair(x, z, rotation, color) {
 }
 
 function createWorkstations() {
-  const positions = [
-    { x: -10.5, z: -2.5, name: 'analyst', angle: Math.PI/2 },
-    { x: -4, z: 0, name: 'writer', angle: Math.PI },
-    { x: 5, z: -1, name: 'marketer', angle: Math.PI },
-    { x: 10.5, z: 2, name: 'coder', angle: -Math.PI/2 },
-    { x: -2, z: 7, name: 'open1', angle: 0 },
-    { x: 3, z: 6, name: 'open2', angle: 0 },
-    { x: 8, z: 7.5, name: 'open3', angle: 0 }
-  ];
-  
-  positions.forEach(pos => createDesk(pos.x, pos.z, pos.angle, pos.name));
+  // One desk per TEVA bot, just behind where it stands; Leadership uses the meeting table
+  Object.entries(TEVA_SEATS).forEach(([id, p]) => {
+    if (['supervisor', 'pm', 'ba'].includes(id)) return;
+    createDesk(p.x, p.z - 0.9, Math.PI, id);
+  });
+  createRoomSigns();
 }
 
 function createDesk(x, z, angle, ownerId) {
@@ -1580,7 +1600,31 @@ function createAgents() {
   });
 }
 
+const TEVA_SEATS = {
+  supervisor: { x: -2.4, z: -4.6 }, pm: { x: 0, z: -4.2 }, ba: { x: 2.4, z: -4.6 },
+  le: { x: 7, z: -2 }, le2: { x: 10, z: -2 }, sa: { x: 13, z: -2 }, debugger: { x: 10, z: 1.8 },
+  'research-mgr': { x: -13, z: -1.5 }, 'ai-research': { x: -10, z: -1.5 }, 'erp-research': { x: -7, z: -1.5 },
+  product: { x: -4, z: 3.5 }, competitor: { x: -1, z: 3.5 }, 'ui-docs': { x: 2, z: 3.5 },
+  grok: { x: 14, z: 3 }, 'needs-steve': { x: -6, z: 8.5 }
+};
+const TEVA_ROOMS = [
+  { name: 'Leadership', color: '#8B5CF6', x: 0, z: -ROOM_DEPTH/2 + 2.2 },
+  { name: 'Engineering', color: '#EF4444', x: 10, z: -4.6 },
+  { name: 'Research', color: '#3B82F6', x: -10, z: -4.4 },
+  { name: 'Business', color: '#10B981', x: -1, z: 1.2 },
+  { name: 'Ingest', color: '#F59E0B', x: 14, z: 5.4 },
+  { name: 'Needs Steve', color: '#FF3B30', x: -6, z: 10.6 }
+];
+function createRoomSigns() {
+  TEVA_ROOMS.forEach(r => {
+    const sign = createLabel(r.name, r.color);
+    sign.position.set(r.x, 3.1, r.z);
+    sign.scale.set(3.2, 0.8, 1);
+    scene.add(sign);
+  });
+}
 function getHomePosition(home) {
+  if (TEVA_SEATS[home]) return TEVA_SEATS[home];
   switch(home) {
     case 'meeting': return { x: 0, z: -ROOM_DEPTH/2 + 6.5 };
     case 'left': return { x: -10.5, z: -2.5 };
@@ -1693,6 +1737,11 @@ function selectAgent(agentId) {
   document.getElementById('statTasks').textContent = stats.tasksDone || 0;
   document.getElementById('statActive').textContent = stats.active || 0;
   document.getElementById('statHours').textContent = (stats.hours || 0) + 'h';
+  const isNS = agent.id === 'needs-steve';
+  document.getElementById('lblTasks').textContent = isNS ? 'Done' : 'Docs';
+  document.getElementById('lblActive').textContent = isNS ? 'Waiting on you' : 'Active';
+  document.getElementById('lblHours').textContent = isNS ? '' : 'Since last doc';
+  document.getElementById('statHours').textContent = isNS ? '' : (stats.hours || 0) + 'h';
   
   document.getElementById('detailTasks').innerHTML = (agent.tasks || []).map(t => `
     <div class="detail-task" style="color:${esc(agent.color)}">${esc(t)}</div>
@@ -1700,6 +1749,9 @@ function selectAgent(agentId) {
   document.getElementById('detailOutput').innerHTML = (agent.output || []).map(o => `
     <div class="detail-task">${esc(o)}</div>
   `).join('');
+  document.getElementById('detailDocs').innerHTML = (agent.docs || []).length ? agent.docs.map(d => `
+    <a class="detail-task" style="display:block;color:#93C5FD;text-decoration:none;pointer-events:auto" href="cursor://file${encodeURI(d.path)}" title="${esc(d.path)}">${esc(d.name)}</a>
+  `).join('') : '<div class="detail-task">No docs owned yet</div>';
   
   panel.classList.add('open');
   
@@ -1738,45 +1790,34 @@ function onMouseMove(e) {
 }
 
 function updateBehavior() {
-  const now = Date.now();
-  let meetingCount = 0;
-  
   AGENTS.forEach(agent => {
     const state = agentStates[agent.id];
-    const rand = Math.random();
-    
-    if (rand < 0.35) {
+    if (!state) return;
+    const home = getHomePosition(agent.home);
+    const real = agent.status || 'idle';
+    state.task = agent.task || (agent.tasks || [])[0] || 'Idle';
+    if (agent.id === 'needs-steve') {
+      state.status = real; state.targetX = home.x; state.targetZ = home.z; return;
+    }
+    if (real === 'meeting') {
       state.status = 'meeting';
-      const angle = Math.random() * Math.PI * 2;
-      state.targetX = Math.cos(angle) * 2;
-      state.targetZ = -ROOM_DEPTH/2 + 6.5 + Math.sin(angle) * 2;
-      state.task = ['In standup', 'Discussing roadmap', 'Sprint planning', 'Reviewing metrics'][Math.floor(Math.random() * 4)];
-      meetingCount++;
-    } else if (rand < 0.65) {
+      state.targetX = home.x + (Math.random() - 0.5) * 0.6;
+      state.targetZ = home.z + (Math.random() - 0.5) * 0.6;
+    } else if (real === 'working') {
       state.status = 'working';
-      const home = getHomePosition(agent.home);
-      state.targetX = home.x + (Math.random() - 0.5) * 1.2;
-      state.targetZ = home.z + (Math.random() - 0.5) * 1.2;
-      state.task = agent.tasks.length
-        ? agent.tasks[Math.floor(Math.random() * agent.tasks.length)]
-        : 'Working';
-    } else if (rand < 0.85) {
+      state.targetX = home.x + (Math.random() - 0.5) * 0.5;
+      state.targetZ = home.z + (Math.random() - 0.5) * 0.4;
+    } else if (Math.random() < 0.25) {
+      // idle bots sometimes stretch their legs, then come back
       state.status = 'walking';
-      state.targetX = (Math.random() - 0.5) * (ROOM_WIDTH - 8);
-      state.targetZ = (Math.random() - 0.5) * (ROOM_DEPTH - 8);
-      state.task = ['Coffee run', 'Water cooler chat', 'Walking break', 'Changing desk'][Math.floor(Math.random() * 4)];
+      state.targetX = home.x + (Math.random() - 0.5) * 6;
+      state.targetZ = home.z + (Math.random() - 0.5) * 4;
     } else {
       state.status = 'idle';
-      state.task = 'Taking a break';
-      const home = getHomePosition(agent.home);
       state.targetX = home.x;
       state.targetZ = home.z;
     }
   });
-  
-  // Update meeting notification
-  document.getElementById('meetingSub').textContent = `${Math.max(meetingCount, 2)}/5 attending — Daily standup`;
-  
   updateStatusBar();
 }
 
@@ -2061,8 +2102,6 @@ function animate() {
   
   // Update meeting notification periodically
   if (Date.now() - lastMeetingUpdate > 5000) {
-    const meetingCount = AGENTS.filter(a => agentStates[a.id].status === 'meeting').length;
-    document.getElementById('meetingSub').textContent = `${Math.max(meetingCount, 1)}/5 attending — Daily standup`;
     updateStatusBar();
     lastMeetingUpdate = Date.now();
   }

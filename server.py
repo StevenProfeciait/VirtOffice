@@ -177,6 +177,8 @@ def _normalize_agent(agent):
         "task": agent.get("task", agent.get("status", "idle")),
         "tasks": agent.get("tasks", []),
         "output": agent.get("output", []),
+        "docs": agent.get("docs", []),
+        "needsSteve": agent.get("needsSteve", []),
         "stats": agent.get("stats", {"tasksDone": 0, "active": 0, "hours": 0}),
         "mood": agent.get("mood", 0.8),
         "typing": agent.get("typing", False),

@@ -1,136 +1,578 @@
 [
   {
-    "id": "orchestrator",
-    "name": "Orchestrator",
-    "role": "Supervisor",
-    "emoji": "\ud83e\udde0",
+    "id": "supervisor",
+    "name": "Supervisor",
+    "role": "Leadership",
+    "emoji": "🧭",
     "color": "#8B5CF6",
-    "home": "meeting",
-    "status": "working",
-    "task": "Unknown task",
+    "home": "supervisor",
+    "status": "meeting",
+    "task": "Coordinating teams",
     "tasks": [
-      "Unknown task",
-      "Processing input",
-      "Generating response"
+      "Coordinating teams"
     ],
     "output": [
-      "saved activity logging rule to memory",
-      "1 content files written",
-      "5 tasks logged",
-      "22 sessions"
+      "TEVA_COMPANY_BACKLOG.md (2m ago)"
+    ],
+    "docs": [
+      {
+        "name": "TEVA_COMPANY_BACKLOG.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md"
+      }
     ],
     "stats": {
-      "tasksDone": 13,
-      "active": 1,
-      "hours": 0.1
+      "tasksDone": 0,
+      "active": 0,
+      "hours": 0.0
     },
-    "mood": 0.95,
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "pm",
+    "name": "Project Manager",
+    "role": "Leadership",
+    "emoji": "📋",
+    "color": "#A78BFA",
+    "home": "pm",
+    "status": "working",
+    "task": "Writing TEVA_COMPANY_BACKLOG.md",
+    "tasks": [
+      "Writing TEVA_COMPANY_BACKLOG.md",
+      "Latest done: SA-GDT-1. GenericDataTable unlocked props — CRITICAL — DONE / SA PASS-"
+    ],
+    "output": [
+      "TEVA_COMPANY_BACKLOG.md (2m ago)",
+      "TEVA_WORK_PLAN.md (46m ago)"
+    ],
+    "docs": [
+      {
+        "name": "TEVA_COMPANY_BACKLOG.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md"
+      },
+      {
+        "name": "TEVA_WORK_PLAN.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_WORK_PLAN.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 2,
+      "active": 1,
+      "hours": 0.0
+    },
+    "mood": 0.9,
     "typing": true,
     "position": null
   },
   {
-    "id": "analyst",
-    "name": "Analyst",
-    "role": "Research",
-    "emoji": "\ud83d\udd0d",
-    "color": "#3B82F6",
-    "home": "desk1",
-    "status": "idle",
-    "task": "Waiting for tasks",
+    "id": "ba",
+    "name": "Business Analyst",
+    "role": "Leadership",
+    "emoji": "📊",
+    "color": "#C4B5FD",
+    "home": "ba",
+    "status": "meeting",
+    "task": "Keeping the board current",
     "tasks": [
-      "Standing by",
-      "Ready for assignment"
+      "Keeping the board current"
     ],
     "output": [
-      "compiled research brief on automation ideas",
-      "1 tasks logged"
+      "TEVA_HIGHS_PARALLEL_PACK.md (46m ago)",
+      "TEVA_TIMELINE_PRIORITIES.md (46m ago)"
+    ],
+    "docs": [
+      {
+        "name": "TEVA_HIGHS_PARALLEL_PACK.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_HIGHS_PARALLEL_PACK.md"
+      },
+      {
+        "name": "TEVA_TIMELINE_PRIORITIES.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_TIMELINE_PRIORITIES.md"
+      }
     ],
     "stats": {
-      "tasksDone": 1,
+      "tasksDone": 2,
       "active": 0,
-      "hours": 0
+      "hours": 0.8
     },
-    "mood": 0.5,
+    "mood": 0.7,
     "typing": false,
     "position": null
   },
   {
-    "id": "writer",
-    "name": "Writer",
-    "role": "Content",
-    "emoji": "\u270d\ufe0f",
-    "color": "#10B981",
-    "home": "desk2",
-    "status": "idle",
-    "task": "Waiting for tasks",
-    "tasks": [
-      "Standing by",
-      "Ready for assignment"
-    ],
-    "output": [
-      "drafted SEO blog post for solopreneurs",
-      "1 tasks logged"
-    ],
-    "stats": {
-      "tasksDone": 1,
-      "active": 0,
-      "hours": 0
-    },
-    "mood": 0.5,
-    "typing": false,
-    "position": null
-  },
-  {
-    "id": "marketer",
-    "name": "Marketer",
-    "role": "Growth",
-    "emoji": "\ud83d\udcc8",
-    "color": "#F59E0B",
-    "home": "desk3",
-    "status": "idle",
-    "task": "Waiting for tasks",
-    "tasks": [
-      "Standing by",
-      "Ready for assignment"
-    ],
-    "output": [
-      "produced social posts and 30/60/90 day plan",
-      "1 tasks logged"
-    ],
-    "stats": {
-      "tasksDone": 1,
-      "active": 0,
-      "hours": 0
-    },
-    "mood": 0.5,
-    "typing": false,
-    "position": null
-  },
-  {
-    "id": "coder",
-    "name": "Coder",
+    "id": "le",
+    "name": "Laravel Expert",
     "role": "Engineering",
-    "emoji": "\ud83d\udcbb",
+    "emoji": "🛠️",
     "color": "#EF4444",
-    "home": "desk4",
-    "status": "idle",
-    "task": "Waiting for tasks",
+    "home": "le",
+    "status": "working",
+    "task": "§8u-P1 post-visit feedback",
     "tasks": [
-      "Standing by",
-      "Ready for assignment"
+      "§8u-P1 post-visit feedback"
     ],
     "output": [
-      "built agent logging system",
-      "1 content files written",
-      "2 tasks logged"
+      "System_settings_index_eng_2026-10-03.md (1d ago)"
+    ],
+    "docs": [
+      {
+        "name": "System_settings_index_eng_2026-10-03.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/System_settings_index_eng_2026-10-03.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 1,
+      "active": 1,
+      "hours": 31.7
+    },
+    "mood": 0.9,
+    "typing": true,
+    "position": null
+  },
+  {
+    "id": "le2",
+    "name": "Laravel Expert 2",
+    "role": "Engineering",
+    "emoji": "🧰",
+    "color": "#F97316",
+    "home": "le2",
+    "status": "working",
+    "task": "SA-DT-1 CRITICAL",
+    "tasks": [
+      "SA-DT-1 CRITICAL"
+    ],
+    "output": [
+      "SA_DT_1_eng_2026-10-17.md (1m ago)",
+      "Icon_nav_eng_C2_2026-09-24.md (1d ago)",
+      "Icon_nav_eng_C1_2026-09-24.md (1d ago)",
+      "Data_table_eng_C1_2026-09-24.md (1d ago)"
+    ],
+    "docs": [
+      {
+        "name": "SA_DT_1_eng_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DT_1_eng_2026-10-17.md"
+      },
+      {
+        "name": "Icon_nav_eng_C2_2026-09-24.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/Icon_nav_eng_C2_2026-09-24.md"
+      },
+      {
+        "name": "Icon_nav_eng_C1_2026-09-24.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/Icon_nav_eng_C1_2026-09-24.md"
+      },
+      {
+        "name": "Data_table_eng_C1_2026-09-24.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/Data_table_eng_C1_2026-09-24.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 4,
+      "active": 1,
+      "hours": 0.0
+    },
+    "mood": 0.9,
+    "typing": true,
+    "position": null
+  },
+  {
+    "id": "sa",
+    "name": "Security Auditor",
+    "role": "Engineering",
+    "emoji": "🛡️",
+    "color": "#DC2626",
+    "home": "sa",
+    "status": "working",
+    "task": "Reviewing: SA-DT-1. Base App\\Livewire\\DataTable — writable $userId + unauthorized",
+    "tasks": [
+      "Reviewing: SA-DT-1. Base App\\Livewire\\DataTable — writable $userId + unauthorized"
+    ],
+    "output": [
+      "SA_DT_1_2026-10-17.md (6m ago)",
+      "SA_GDT_1_2026-10-17.md (51m ago)",
+      "SA_8t_HR2_2026-10-17.md (1h ago)",
+      "SA_8t_HR1_2026-10-16.md (1h ago)"
+    ],
+    "docs": [
+      {
+        "name": "SA_DT_1_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DT_1_2026-10-17.md"
+      },
+      {
+        "name": "SA_GDT_1_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_GDT_1_2026-10-17.md"
+      },
+      {
+        "name": "SA_8t_HR2_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_8t_HR2_2026-10-17.md"
+      },
+      {
+        "name": "SA_8t_HR1_2026-10-16.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_8t_HR1_2026-10-16.md"
+      },
+      {
+        "name": "SECURITY_AUDIT_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SECURITY_AUDIT_BRIEF.md"
+      },
+      {
+        "name": "SA_System_settings_8s_R2_2026-10-05.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_System_settings_8s_R2_2026-10-05.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 12,
+      "active": 1,
+      "hours": 0.1
+    },
+    "mood": 0.9,
+    "typing": true,
+    "position": null
+  },
+  {
+    "id": "debugger",
+    "name": "Debugger",
+    "role": "Engineering",
+    "emoji": "🐞",
+    "color": "#FB923C",
+    "home": "debugger",
+    "status": "idle",
+    "task": "On call for bugfixes and DB resets",
+    "tasks": [
+      "On call for bugfixes and DB resets"
+    ],
+    "output": [
+      "TEVA_COMPANY_BACKLOG.md (2m ago)"
+    ],
+    "docs": [
+      {
+        "name": "TEVA_COMPANY_BACKLOG.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 0,
+      "active": 0,
+      "hours": 0.0
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "research-mgr",
+    "name": "Research Manager",
+    "role": "Research",
+    "emoji": "🗂️",
+    "color": "#3B82F6",
+    "home": "research-mgr",
+    "status": "idle",
+    "task": "Feeding the research backlog",
+    "tasks": [
+      "Feeding the research backlog"
+    ],
+    "output": [
+      "TEVA_RESEARCH_BACKLOG.md (1h ago)"
+    ],
+    "docs": [
+      {
+        "name": "TEVA_RESEARCH_BACKLOG.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_RESEARCH_BACKLOG.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 1,
+      "active": 0,
+      "hours": 1.9
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "ai-research",
+    "name": "AI Research",
+    "role": "Research",
+    "emoji": "🤖",
+    "color": "#60A5FA",
+    "home": "ai-research",
+    "status": "idle",
+    "task": "Agent architecture research",
+    "tasks": [
+      "Agent architecture research"
+    ],
+    "output": [
+      "TYPED_TOOLS_VS_LARAVEL_MCP_BRIEF.md (1d ago)",
+      "SUBAGENT_SUMMARY_CONTRACTS_BRIEF.md (1d ago)",
+      "AGENT_LOOP_OWNERSHIP_BRIEF.md (1d ago)",
+      "AGENT_HITL_LIVEWIRE_RESEARCH_BRIEF.md (1d ago)"
+    ],
+    "docs": [
+      {
+        "name": "TYPED_TOOLS_VS_LARAVEL_MCP_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TYPED_TOOLS_VS_LARAVEL_MCP_BRIEF.md"
+      },
+      {
+        "name": "SUBAGENT_SUMMARY_CONTRACTS_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SUBAGENT_SUMMARY_CONTRACTS_BRIEF.md"
+      },
+      {
+        "name": "AGENT_LOOP_OWNERSHIP_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/AGENT_LOOP_OWNERSHIP_BRIEF.md"
+      },
+      {
+        "name": "AGENT_HITL_LIVEWIRE_RESEARCH_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/AGENT_HITL_LIVEWIRE_RESEARCH_BRIEF.md"
+      },
+      {
+        "name": "AGENT_APPROVAL_SOD_PRODUCT_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/AGENT_APPROVAL_SOD_PRODUCT_BRIEF.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 5,
+      "active": 0,
+      "hours": 31.7
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "erp-research",
+    "name": "ERP Research",
+    "role": "Research",
+    "emoji": "🏭",
+    "color": "#2563EB",
+    "home": "erp-research",
+    "status": "idle",
+    "task": "Salon ERP domain research",
+    "tasks": [
+      "Salon ERP domain research"
+    ],
+    "output": [
+      "ERP_POSTURE_DECISION_DIGEST.md (1d ago)"
+    ],
+    "docs": [
+      {
+        "name": "ERP_POSTURE_DECISION_DIGEST.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/ERP_POSTURE_DECISION_DIGEST.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 1,
+      "active": 0,
+      "hours": 31.7
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "product",
+    "name": "Product Research",
+    "role": "Business",
+    "emoji": "🎨",
+    "color": "#10B981",
+    "home": "product",
+    "status": "idle",
+    "task": "UX and JTBD research",
+    "tasks": [
+      "UX and JTBD research"
+    ],
+    "output": [
+      "ERD_VIEWER_UPGRADE_BRIEF.md (1h ago)",
+      "ERD_EXPLORER_SPEC.md (1h ago)",
+      "PSET_module_integration_research_2026-10-16.md (1d ago)",
+      "PSET_HR_feature_research_2026-10-16.md (1d ago)"
+    ],
+    "docs": [
+      {
+        "name": "ERD_VIEWER_UPGRADE_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/ERD_VIEWER_UPGRADE_BRIEF.md"
+      },
+      {
+        "name": "ERD_EXPLORER_SPEC.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/ERD_EXPLORER_SPEC.md"
+      },
+      {
+        "name": "PSET_module_integration_research_2026-10-16.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/PSET_module_integration_research_2026-10-16.md"
+      },
+      {
+        "name": "PSET_HR_feature_research_2026-10-16.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/PSET_HR_feature_research_2026-10-16.md"
+      },
+      {
+        "name": "TYPED_TOOLS_VS_LARAVEL_MCP_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TYPED_TOOLS_VS_LARAVEL_MCP_BRIEF.md"
+      },
+      {
+        "name": "TEVA_AI_PACKAGING_BRIEF.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_AI_PACKAGING_BRIEF.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 20,
+      "active": 0,
+      "hours": 1.9
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "competitor",
+    "name": "Competitor Intel",
+    "role": "Business",
+    "emoji": "🔭",
+    "color": "#34D399",
+    "home": "competitor",
+    "status": "idle",
+    "task": "Competitor tracking",
+    "tasks": [
+      "Competitor tracking"
+    ],
+    "output": [
+      "Template1_Competitive_Gap_Reconcile_Sep2026.md (1d ago)",
+      "TEVA_Template1_Competitive_Landscape_Sep2026.md (1d ago)",
+      "COMPETITOR_WATCHLIST_REFRESH.md (1d ago)"
+    ],
+    "docs": [
+      {
+        "name": "Template1_Competitive_Gap_Reconcile_Sep2026.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/Template1_Competitive_Gap_Reconcile_Sep2026.md"
+      },
+      {
+        "name": "TEVA_Template1_Competitive_Landscape_Sep2026.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_Template1_Competitive_Landscape_Sep2026.md"
+      },
+      {
+        "name": "COMPETITOR_WATCHLIST_REFRESH.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/COMPETITOR_WATCHLIST_REFRESH.md"
+      }
     ],
     "stats": {
       "tasksDone": 3,
       "active": 0,
+      "hours": 31.7
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "ui-docs",
+    "name": "UI Docs",
+    "role": "Business",
+    "emoji": "📚",
+    "color": "#059669",
+    "home": "ui-docs",
+    "status": "idle",
+    "task": "Mapping flows and role access",
+    "tasks": [
+      "Mapping flows and role access"
+    ],
+    "output": [
+      "GDT_ADOPTION_AUDIT.md (1h ago)",
+      "UI_REUSE_HOWTO.md (1d ago)",
+      "UI_SYSTEM_GUIDE.md (1d ago)",
+      "UI_ROUTE_PERMISSION_PIVOT.md (1d ago)"
+    ],
+    "docs": [
+      {
+        "name": "GDT_ADOPTION_AUDIT.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/GDT_ADOPTION_AUDIT.md"
+      },
+      {
+        "name": "UI_REUSE_HOWTO.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_REUSE_HOWTO.md"
+      },
+      {
+        "name": "UI_SYSTEM_GUIDE.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_SYSTEM_GUIDE.md"
+      },
+      {
+        "name": "UI_ROUTE_PERMISSION_PIVOT.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_ROUTE_PERMISSION_PIVOT.md"
+      },
+      {
+        "name": "UI_REPORTING_CHART_SURFACES.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_REPORTING_CHART_SURFACES.md"
+      },
+      {
+        "name": "UI_OWNER_BRANCH_NAV_MOUNT.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_OWNER_BRANCH_NAV_MOUNT.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 18,
+      "active": 0,
+      "hours": 1.8
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "grok",
+    "name": "Grok Bot",
+    "role": "Ingest",
+    "emoji": "🧠",
+    "color": "#F59E0B",
+    "home": "grok",
+    "status": "idle",
+    "task": "Board ingest to teva_memories",
+    "tasks": [
+      "Board ingest to teva_memories"
+    ],
+    "output": [
+      "Board updated 2026-10-17 18:48 SAST"
+    ],
+    "docs": [],
+    "stats": {
+      "tasksDone": 0,
+      "active": 0,
+      "hours": 0
+    },
+    "mood": 0.7,
+    "typing": false,
+    "position": null
+  },
+  {
+    "id": "needs-steve",
+    "name": "Needs Steve (3)",
+    "role": "Waiting on you",
+    "emoji": "🔴",
+    "color": "#FF3B30",
+    "home": "needs-steve",
+    "status": "working",
+    "task": "Add /usr/bin/python3 to Full Disk Access so the VirtOffice sync survives restarts",
+    "tasks": [
+      "Add /usr/bin/python3 to Full Disk Access so the VirtOffice sync survives restarts",
+      "Owners get a 403 on staff profiles in commit a1b380c5 (SA-DT-1 F1); LE2 is fixing it, so no action unless you want to revert",
+      "Decide on commit 0b4142f9: keep it as it is, or split out the leave and board docs"
+    ],
+    "output": [
+      "From the NEEDS STEVE section, board 2026-10-17 18:48 SAST"
+    ],
+    "docs": [
+      {
+        "name": "TEVA_COMPANY_BACKLOG.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md"
+      }
+    ],
+    "stats": {
+      "tasksDone": 0,
+      "active": 3,
       "hours": 0
     },
     "mood": 0.5,
     "typing": false,
-    "position": null
+    "position": null,
+    "needsSteve": [
+      "Add /usr/bin/python3 to Full Disk Access so the VirtOffice sync survives restarts",
+      "Owners get a 403 on staff profiles in commit a1b380c5 (SA-DT-1 F1); LE2 is fixing it, so no action unless you want to revert",
+      "Decide on commit 0b4142f9: keep it as it is, or split out the leave and board docs"
+    ]
   }
 ]
