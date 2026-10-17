@@ -13,3 +13,8 @@ node_modules/
 agents.json
 .agents.*.json
 *.bak-phase1
+
+# TEVA HQ Phase 2 (R-VO-001): local-only state, never committed
+inbox/
+seat_map.json
+*.bak-phase2

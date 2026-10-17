@@ -12,7 +12,7 @@
       "No live signal (default: Coordinating teams)"
     ],
     "output": [
-      "TEVA_COMPANY_BACKLOG.md (4m ago)"
+      "TEVA_COMPANY_BACKLOG.md (0m ago)"
     ],
     "signal": false,
     "source": null,
@@ -23,14 +23,14 @@
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792261484566
+        "mtime": 1792261940478
       }
     ],
     "docsOwned": false,
     "stats": {
       "tasksDone": 0,
       "active": 0,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.7,
     "typing": false,
@@ -50,38 +50,38 @@
       "Latest done: SA-GDT-1. GenericDataTable unlocked props — CRITICAL — DONE / SA PASS-"
     ],
     "output": [
-      "TEVA_WORK_PLAN.md (4m ago)",
-      "TEVA_COMPANY_BACKLOG.md (4m ago)"
+      "TEVA_WORK_PLAN.md (0m ago)",
+      "TEVA_COMPANY_BACKLOG.md (0m ago)"
     ],
     "signal": true,
     "source": {
       "file": "TEVA_WORK_PLAN.md",
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_WORK_PLAN.md",
       "line": null,
-      "text": "File modified 4m ago",
-      "at": 1792261485840,
-      "atText": "2026-10-17 20:24 SAST"
+      "text": "File modified 0m ago",
+      "at": 1792261944834,
+      "atText": "2026-10-17 20:32 SAST"
     },
-    "updatedAt": 1792261485840,
+    "updatedAt": 1792261944834,
     "channel": "grok",
     "research": [],
     "docs": [
       {
         "name": "TEVA_WORK_PLAN.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_WORK_PLAN.md",
-        "mtime": 1792261485840
+        "mtime": 1792261944834
       },
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792261484566
+        "mtime": 1792261940478
       }
     ],
     "docsOwned": true,
     "stats": {
       "tasksDone": 2,
       "active": 1,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.9,
     "typing": true,
@@ -100,38 +100,38 @@
       "Writing TEVA_HIGHS_PARALLEL_PACK.md"
     ],
     "output": [
-      "TEVA_HIGHS_PARALLEL_PACK.md (4m ago)",
-      "TEVA_TIMELINE_PRIORITIES.md (4m ago)"
+      "TEVA_HIGHS_PARALLEL_PACK.md (0m ago)",
+      "TEVA_TIMELINE_PRIORITIES.md (0m ago)"
     ],
     "signal": true,
     "source": {
       "file": "TEVA_HIGHS_PARALLEL_PACK.md",
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_HIGHS_PARALLEL_PACK.md",
       "line": null,
-      "text": "File modified 4m ago",
-      "at": 1792261489038,
-      "atText": "2026-10-17 20:24 SAST"
+      "text": "File modified 0m ago",
+      "at": 1792261945104,
+      "atText": "2026-10-17 20:32 SAST"
     },
-    "updatedAt": 1792261489038,
+    "updatedAt": 1792261945104,
     "channel": "grok",
     "research": [],
     "docs": [
       {
         "name": "TEVA_HIGHS_PARALLEL_PACK.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_HIGHS_PARALLEL_PACK.md",
-        "mtime": 1792261489038
+        "mtime": 1792261945104
       },
       {
         "name": "TEVA_TIMELINE_PRIORITIES.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_TIMELINE_PRIORITIES.md",
-        "mtime": 1792261487187
+        "mtime": 1792261944834
       }
     ],
     "docsOwned": true,
     "stats": {
       "tasksDone": 2,
       "active": 1,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.9,
     "typing": true,
@@ -158,10 +158,10 @@
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
       "line": 26,
       "text": "LE ENG IN on §8u-P1 post-visit feedback + LE2 ENG IN on R-ERD-001 Phase 1. Ready Eng pack: §8u-P1 (LE); R-ERD-001 P1 (LE2); next in",
-      "at": 1792261484566,
-      "atText": "2026-10-17 20:24 SAST"
+      "at": 1792261940478,
+      "atText": "2026-10-17 20:32 SAST"
     },
-    "updatedAt": 1792261484566,
+    "updatedAt": 1792261940478,
     "channel": "cursor",
     "research": [],
     "docs": [
@@ -175,7 +175,7 @@
     "stats": {
       "tasksDone": 1,
       "active": 1,
-      "hours": 32.5
+      "hours": 32.6
     },
     "mood": 0.9,
     "typing": true,
@@ -204,10 +204,10 @@
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
       "line": 26,
       "text": "LE2 ENG IN on R-ERD-001 Phase 1. Ready Eng pack: §8u-P1 (LE); R-ERD-001 P1 (LE2); next in §8u after P1 SA PASS: P2 restock to m",
-      "at": 1792261484566,
-      "atText": "2026-10-17 20:24 SAST"
+      "at": 1792261940478,
+      "atText": "2026-10-17 20:32 SAST"
     },
-    "updatedAt": 1792261484566,
+    "updatedAt": 1792261940478,
     "channel": "cursor",
     "research": [],
     "docs": [
@@ -231,7 +231,7 @@
     "stats": {
       "tasksDone": 3,
       "active": 1,
-      "hours": 32.5
+      "hours": 32.6
     },
     "mood": 0.9,
     "typing": true,
@@ -244,23 +244,35 @@
     "emoji": "🛡️",
     "color": "#DC2626",
     "home": "sa",
-    "status": "idle",
-    "task": "No live signal (default: Ready for security reviews)",
+    "status": "working",
+    "task": "Writing SA_HR_selfapprove_2026-10-17.md",
     "tasks": [
-      "No live signal (default: Ready for security reviews)"
+      "Writing SA_HR_selfapprove_2026-10-17.md"
     ],
     "output": [
-      "SA_DT_1_2026-10-17.md (28m ago)",
+      "SA_HR_selfapprove_2026-10-17.md (3m ago)",
+      "SA_DT_1_2026-10-17.md (32m ago)",
       "SA_GDT_1_2026-10-17.md (1h ago)",
-      "SA_8t_HR2_2026-10-17.md (2h ago)",
-      "SA_8t_HR1_2026-10-16.md (2h ago)"
+      "SA_8t_HR2_2026-10-17.md (2h ago)"
     ],
-    "signal": false,
-    "source": null,
-    "updatedAt": null,
+    "signal": true,
+    "source": {
+      "file": "SA_HR_selfapprove_2026-10-17.md",
+      "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_HR_selfapprove_2026-10-17.md",
+      "line": null,
+      "text": "File modified 3m ago",
+      "at": 1792261747216,
+      "atText": "2026-10-17 20:29 SAST"
+    },
+    "updatedAt": 1792261747216,
     "channel": "cursor",
     "research": [],
     "docs": [
+      {
+        "name": "SA_HR_selfapprove_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_HR_selfapprove_2026-10-17.md",
+        "mtime": 1792261747216
+      },
       {
         "name": "SA_DT_1_2026-10-17.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_DT_1_2026-10-17.md",
@@ -305,21 +317,16 @@
         "name": "SA_Appearance_images_C2_2026-09-28.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_Appearance_images_C2_2026-09-28.md",
         "mtime": 1792144593969
-      },
-      {
-        "name": "SA_Appearance_images_C1_2026-09-28.md",
-        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_Appearance_images_C1_2026-09-28.md",
-        "mtime": 1792144593969
       }
     ],
     "docsOwned": true,
     "stats": {
-      "tasksDone": 12,
-      "active": 0,
-      "hours": 0.5
+      "tasksDone": 13,
+      "active": 1,
+      "hours": 0.1
     },
-    "mood": 0.7,
-    "typing": false,
+    "mood": 0.9,
+    "typing": true,
     "position": null
   },
   {
@@ -335,7 +342,7 @@
       "No live signal (default: On call for bugfixes and DB resets)"
     ],
     "output": [
-      "TEVA_COMPANY_BACKLOG.md (4m ago)"
+      "TEVA_COMPANY_BACKLOG.md (0m ago)"
     ],
     "signal": false,
     "source": null,
@@ -346,14 +353,14 @@
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792261484566
+        "mtime": 1792261940478
       }
     ],
     "docsOwned": false,
     "stats": {
       "tasksDone": 0,
       "active": 0,
-      "hours": 0.1
+      "hours": 0.0
     },
     "mood": 0.7,
     "typing": false,
@@ -373,7 +380,7 @@
       "Queue: 18 Done, 3 Ready, 2 Skipped"
     ],
     "output": [
-      "TEVA_RESEARCH_BACKLOG.md (31m ago)"
+      "TEVA_RESEARCH_BACKLOG.md (35m ago)"
     ],
     "signal": false,
     "source": null,
@@ -391,7 +398,7 @@
     "stats": {
       "tasksDone": 1,
       "active": 0,
-      "hours": 0.5
+      "hours": 0.6
     },
     "mood": 0.7,
     "typing": false,
@@ -515,7 +522,7 @@
     "stats": {
       "tasksDone": 5,
       "active": 0,
-      "hours": 32.5
+      "hours": 32.6
     },
     "mood": 0.7,
     "typing": false,
@@ -528,24 +535,25 @@
     "emoji": "🏭",
     "color": "#2563EB",
     "home": "erp-research",
-    "status": "idle",
-    "task": "No research WIP. Latest: R-SET-001 Done",
+    "status": "working",
+    "task": "Writing ERP_HR3_payroll_rules_2026-10-17.md",
     "tasks": [
-      "No research WIP. Latest: R-SET-001 Done"
+      "Writing ERP_HR3_payroll_rules_2026-10-17.md"
     ],
     "output": [
+      "ERP_HR3_payroll_rules_2026-10-17.md (0m ago)",
       "ERP_POSTURE_DECISION_DIGEST.md (1d ago)"
     ],
     "signal": true,
     "source": {
-      "file": "TEVA_RESEARCH_BACKLOG.md",
-      "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_RESEARCH_BACKLOG.md",
-      "line": 106,
-      "text": "R-SET-001 | Done (ingest landed) 2026-10-03 — docs/SALON_SETTINGS_TAXONOMY_RESEARCH_BRIEF.md + research.salon_settings_taxonomy (24 salon keys / 9 group",
-      "at": 1792259839048,
-      "atText": "2026-10-17 19:57 SAST"
+      "file": "ERP_HR3_payroll_rules_2026-10-17.md",
+      "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/ERP_HR3_payroll_rules_2026-10-17.md",
+      "line": null,
+      "text": "File modified 0m ago",
+      "at": 1792261889020,
+      "atText": "2026-10-17 20:31 SAST"
     },
-    "updatedAt": 1792259839048,
+    "updatedAt": 1792261889020,
     "channel": "grok",
     "research": [
       {
@@ -607,6 +615,11 @@
     ],
     "docs": [
       {
+        "name": "ERP_HR3_payroll_rules_2026-10-17.md",
+        "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/ERP_HR3_payroll_rules_2026-10-17.md",
+        "mtime": 1792261889020
+      },
+      {
         "name": "ERP_POSTURE_DECISION_DIGEST.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/ERP_POSTURE_DECISION_DIGEST.md",
         "mtime": 1792144593961
@@ -614,12 +627,12 @@
     ],
     "docsOwned": true,
     "stats": {
-      "tasksDone": 1,
-      "active": 0,
-      "hours": 32.5
+      "tasksDone": 2,
+      "active": 1,
+      "hours": 0.0
     },
-    "mood": 0.7,
-    "typing": false,
+    "mood": 0.9,
+    "typing": true,
     "position": null
   },
   {
@@ -635,7 +648,7 @@
       "No research WIP. Latest: R-AI-004 Done"
     ],
     "output": [
-      "VIRTUAL_OFFICE_UPGRADE_BRIEF.md (31m ago)",
+      "VIRTUAL_OFFICE_UPGRADE_BRIEF.md (35m ago)",
       "ERD_VIEWER_UPGRADE_BRIEF.md (2h ago)",
       "ERD_EXPLORER_SPEC.md (2h ago)",
       "PSET_module_integration_research_2026-10-16.md (1d ago)"
@@ -744,7 +757,7 @@
     "stats": {
       "tasksDone": 21,
       "active": 0,
-      "hours": 0.5
+      "hours": 0.6
     },
     "mood": 0.7,
     "typing": false,
@@ -793,7 +806,7 @@
     "stats": {
       "tasksDone": 3,
       "active": 0,
-      "hours": 32.5
+      "hours": 32.6
     },
     "mood": 0.7,
     "typing": false,
@@ -878,7 +891,7 @@
     "stats": {
       "tasksDone": 18,
       "active": 0,
-      "hours": 2.7
+      "hours": 2.8
     },
     "mood": 0.7,
     "typing": false,
@@ -897,7 +910,7 @@
       "No research WIP. Latest: R-VO-001 Done"
     ],
     "output": [
-      "Board updated 2026-10-17 20:23 SAST"
+      "Board updated 2026-10-17 20:31 SAST"
     ],
     "signal": true,
     "source": {
@@ -950,7 +963,7 @@
       "Nothing waiting on you"
     ],
     "output": [
-      "From the NEEDS STEVE section, board 2026-10-17 20:23 SAST"
+      "From the NEEDS STEVE section, board 2026-10-17 20:31 SAST"
     ],
     "signal": true,
     "source": {
@@ -958,17 +971,17 @@
       "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
       "line": 3,
       "text": "NEEDS STEVE section",
-      "at": 1792261484566,
-      "atText": "2026-10-17 20:24 SAST"
+      "at": 1792261940478,
+      "atText": "2026-10-17 20:32 SAST"
     },
-    "updatedAt": 1792261484566,
+    "updatedAt": 1792261940478,
     "channel": "grok",
     "research": [],
     "docs": [
       {
         "name": "TEVA_COMPANY_BACKLOG.md",
         "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-        "mtime": 1792261484566
+        "mtime": 1792261940478
       }
     ],
     "docsOwned": true,
@@ -983,12 +996,12 @@
     "needsSteve": [],
     "needsSteveItems": [],
     "board": {
-      "updated": "2026-10-17 20:23 SAST",
+      "updated": "2026-10-17 20:31 SAST",
       "updatedLine": 3,
       "backlogPath": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
       "researchPath": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_RESEARCH_BACKLOG.md",
       "repo": "/Users/stevenayensu/Documents/GitHub/template_1",
-      "syncedAt": 1792261737535,
+      "syncedAt": 1792261947151,
       "syncIntervalSeconds": 180,
       "researchCounts": {
         "Done": 18,
@@ -998,34 +1011,70 @@
       "researchWip": [],
       "activity": [
         {
-          "name": "HR_leave_attendance_gap_ranking_2026-10-17.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/HR_leave_attendance_gap_ranking_2026-10-17.md",
-          "mtime": 1792261513897,
-          "owner": null
-        },
-        {
           "name": "TEVA_HIGHS_PARALLEL_PACK.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_HIGHS_PARALLEL_PACK.md",
-          "mtime": 1792261489038,
-          "owner": "ba"
-        },
-        {
-          "name": "TEVA_TIMELINE_PRIORITIES.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_TIMELINE_PRIORITIES.md",
-          "mtime": 1792261487187,
+          "mtime": 1792261945104,
           "owner": "ba"
         },
         {
           "name": "TEVA_WORK_PLAN.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_WORK_PLAN.md",
-          "mtime": 1792261485840,
+          "mtime": 1792261944834,
           "owner": "pm"
+        },
+        {
+          "name": "TEVA_TIMELINE_PRIORITIES.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_TIMELINE_PRIORITIES.md",
+          "mtime": 1792261944834,
+          "owner": "ba"
         },
         {
           "name": "TEVA_COMPANY_BACKLOG.md",
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/TEVA_COMPANY_BACKLOG.md",
-          "mtime": 1792261484566,
+          "mtime": 1792261940478,
           "owner": "pm"
+        },
+        {
+          "name": "CI_HR3_SA_payroll_import_formats_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/CI_HR3_SA_payroll_import_formats_2026-10-17.md",
+          "mtime": 1792261911272,
+          "owner": null
+        },
+        {
+          "name": "ERP_HR3_payroll_rules_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/ERP_HR3_payroll_rules_2026-10-17.md",
+          "mtime": 1792261889020,
+          "owner": "erp-research"
+        },
+        {
+          "name": "P2_restock_to_max_spec_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/P2_restock_to_max_spec_2026-10-17.md",
+          "mtime": 1792261864921,
+          "owner": null
+        },
+        {
+          "name": "CI_HR5_P3_P4_competitor_brief_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/CI_HR5_P3_P4_competitor_brief_2026-10-17.md",
+          "mtime": 1792261767298,
+          "owner": null
+        },
+        {
+          "name": "SA_HR_selfapprove_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/SA_HR_selfapprove_2026-10-17.md",
+          "mtime": 1792261747216,
+          "owner": "sa"
+        },
+        {
+          "name": "HR4_offboarding_spec_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/HR4_offboarding_spec_2026-10-17.md",
+          "mtime": 1792261740981,
+          "owner": null
+        },
+        {
+          "name": "HR_leave_attendance_gap_ranking_2026-10-17.md",
+          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/HR_leave_attendance_gap_ranking_2026-10-17.md",
+          "mtime": 1792261513897,
+          "owner": null
         },
         {
           "name": "HR_leave_attendance_UI_map_2026-10-17.md",
@@ -1140,42 +1189,6 @@
           "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/PSET_HR_feature_research_2026-10-16.md",
           "mtime": 1792144735287,
           "owner": "product"
-        },
-        {
-          "name": "UI_SYSTEM_GUIDE.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_SYSTEM_GUIDE.md",
-          "mtime": 1792144593974,
-          "owner": "ui-docs"
-        },
-        {
-          "name": "UI_ROUTE_PERMISSION_PIVOT.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_ROUTE_PERMISSION_PIVOT.md",
-          "mtime": 1792144593974,
-          "owner": "ui-docs"
-        },
-        {
-          "name": "UI_REPORTING_CHART_SURFACES.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_REPORTING_CHART_SURFACES.md",
-          "mtime": 1792144593974,
-          "owner": "ui-docs"
-        },
-        {
-          "name": "UI_OWNER_BRANCH_NAV_MOUNT.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_OWNER_BRANCH_NAV_MOUNT.md",
-          "mtime": 1792144593974,
-          "owner": "ui-docs"
-        },
-        {
-          "name": "UI_MODAL_CRAWL.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_MODAL_CRAWL.md",
-          "mtime": 1792144593974,
-          "owner": "ui-docs"
-        },
-        {
-          "name": "UI_ICON_NAV_AUDIT.md",
-          "path": "/Users/stevenayensu/Documents/GitHub/template_1/docs/UI_ICON_NAV_AUDIT.md",
-          "mtime": 1792144593973,
-          "owner": "ui-docs"
         }
       ]
     }

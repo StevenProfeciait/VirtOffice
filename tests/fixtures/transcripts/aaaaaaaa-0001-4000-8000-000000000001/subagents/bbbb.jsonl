@@ -1,0 +1,1 @@
+{"role": "assistant", "message": {"content": [{"type": "text", "text": "[REDACTED]"}, {"type": "tool_use", "name": "Read", "input": {"path": "/x/y.php"}}]}}

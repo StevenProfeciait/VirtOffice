@@ -363,10 +363,20 @@ def write_agents_json(agents, output_path):
 def push_webhook(agents, webhook_url):
     """Push agents JSON to webhook endpoint."""
     data = json.dumps(agents).encode("utf-8")
+    # R-VO-001 Phase 2: the office requires its per-install token and an allowed Origin.
+    from urllib.parse import urlparse
+    u = urlparse(webhook_url)
+    token_file = Path(os.environ.get("TEVA_HQ_TOKEN_FILE") or (Path.home() / ".teva_hq" / "token"))
+    try:
+        token = token_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        token = ""
+        print(f"[bridge] no token at {token_file}; the office will reject this push (401)", file=sys.stderr)
     req = urllib.request.Request(
         webhook_url,
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-TEVA-Token": token,
+                 "Origin": f"{u.scheme}://{u.netloc}"},
         method="POST",
     )
     try:

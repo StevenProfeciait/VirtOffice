@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="teva-token" content="">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%A2%3C/text%3E%3C/svg%3E">
 <title>VirtOffice — Living Office Floor Plan</title>
 <style>
@@ -295,6 +296,7 @@ body {
   box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: none;
 }
 #view-panel.open { display: block; }
+#view-panel.wide { width: 940px; }
 .vp-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .vp-title { flex: 1; font-size: 17px; font-weight: 700; }
 .vp-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 12px; line-height: 1.5; }
@@ -549,6 +551,20 @@ body.paused #pauseOverlay { display: block; }
   text-transform: uppercase;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* R-VO-001 Phase 2: Cursor activity + inbox */
+.pill.active { background: rgba(94,226,181,0.18); color: #5ee2b5; }
+.pill.ended { background: rgba(96,165,250,0.18); color: #93c5fd; }
+.pill.stale { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); }
+.pill.unassigned { background: rgba(245,181,68,0.16); color: #f5b544; }
+.cur-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 11.5px; }
+.cur-row .t { display: flex; gap: 6px; align-items: center; }
+.cur-row .t b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cur-step { color: rgba(255,255,255,0.75); }
+.cur-ev { font-size: 10px; color: rgba(255,255,255,0.4); }
+.inbox-line { font-size: 11px; color: rgba(255,255,255,0.7); margin: 6px 0 2px; }
+.inbox-ok { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(94,226,181,0.12); color: #5ee2b5; font-size: 11px; }
+.inbox-err { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(255,59,48,0.12); color: #ff8a80; font-size: 11px; }
+.inbox-msg { font-size: 10.5px; color: rgba(255,255,255,0.55); padding: 3px 0; border-top: 1px dashed rgba(255,255,255,0.06); }
 </style>
 </head>
 <body>
@@ -610,6 +626,10 @@ body.paused #pauseOverlay { display: block; }
       <span id="detailStatusPill" style="margin-left:auto"></span>
     </div>
     <div class="detail-source" id="detailSource"></div>
+    <div class="detail-section" id="detailCursorWrap">
+      <div class="detail-section-title">Cursor activity (read-only, from IDE transcripts)</div>
+      <div class="detail-task-list" id="detailCursor"></div>
+    </div>
     
     <div class="detail-grid">
       <div class="detail-stat">
@@ -648,6 +668,9 @@ body.paused #pauseOverlay { display: block; }
       <textarea id="msgText" placeholder="Write a note for this seat. Nothing is sent from here."></textarea>
       <div class="msg-actions" id="msgActions"></div>
       <div class="msg-hint" id="msgHint"></div>
+      <div class="inbox-line" id="inboxLine"></div>
+      <div id="inboxResult"></div>
+      <div id="inboxRecent"></div>
     </div>
   </div>
 
@@ -683,6 +706,68 @@ function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, c => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
+}
+
+// ---- R-VO-001 Phase 2: write token (injected by server.py when it serves this page) + inbox ----
+const TEVA_TOKEN = (document.querySelector('meta[name="teva-token"]') || {}).content || '';
+let INBOX = {};
+async function fetchInbox() {
+  try {
+    const res = await fetch('/api/inbox', { cache: 'no-store' });
+    if (!res.ok) return;
+    INBOX = (await res.json()).counts || {};
+    if (selectedAgent) renderInbox(selectedAgent);
+    if (currentView === 'tasks') renderView('tasks');
+  } catch (e) { console.log('Inbox fetch failed:', e); }
+}
+function inboxText(id) {
+  const c = INBOX[id];
+  return c ? `${c.sent} sent · ${c.unread} unread` : '0 sent · 0 unread';
+}
+async function renderInbox(agent) {
+  const line = document.getElementById('inboxLine');
+  if (!line) return;
+  line.innerHTML = `📥 Inbox <code>inbox/${esc(agent.id)}.jsonl</code>: <b>${esc(inboxText(agent.id))}</b> <span class="cur-ev">(unread = no seat has read it; seats don't read the inbox yet)</span>`;
+  try {
+    const res = await fetch('/api/inbox?seat=' + encodeURIComponent(agent.id), { cache: 'no-store' });
+    if (!res.ok || !selectedAgent || selectedAgent.id !== agent.id) return;
+    const msgs = (await res.json()).messages || [];
+    document.getElementById('inboxRecent').innerHTML = msgs.slice(0, 3).map(m =>
+      `<div class="inbox-msg">${esc(fmtTime(m.ts))} · ${esc(String(m.text).slice(0, 140))}${String(m.text).length > 140 ? '…' : ''}</div>`).join('');
+  } catch (e) {}
+}
+async function saveToInbox(agent) {
+  const ta = document.getElementById('msgText');
+  const text = (ta.value || '').trim();
+  const out = document.getElementById('inboxResult');
+  if (!text) { out.innerHTML = '<div class="inbox-err">Write a message first.</div>'; return; }
+  try {
+    const res = await fetch('/api/inbox', {
+      method: 'POST', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', 'X-TEVA-Token': TEVA_TOKEN },
+      body: JSON.stringify({ seat: agent.id, text })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      out.innerHTML = `<div class="inbox-err">Not saved (${esc(res.status)}): ${esc(data.error || 'error')}</div>`;
+      return;
+    }
+    INBOX[agent.id] = Object.assign({}, INBOX[agent.id], { sent: data.sent, unread: data.unread });
+    out.innerHTML = `<div class="inbox-ok">✓ Saved to <code>${esc(data.file)}</code> at ${esc(fmtTime(Date.now()))}. Nothing was sent to Cursor or Grok Bot.</div>`;
+    showToast('Saved to inbox. Nothing was sent.');
+    renderInbox(agent);
+  } catch (e) {
+    out.innerHTML = `<div class="inbox-err">Not saved: ${esc(e.message || e)}</div>`;
+  }
+}
+function cursorRows(chats, showSeat) {
+  return (chats || []).map(c => {
+    const seat = c.seat ? AGENTS.find(a => a.id === c.seat) : null;
+    const who = showSeat ? (seat ? `<a class="lnk" data-select-agent="${esc(seat.id)}">${esc(seat.emoji)} ${esc(seat.name)}</a>` : '<span class="pill unassigned">Unassigned Cursor chat</span>') : '';
+    return `<div class="cur-row"><div class="t"><span class="pill ${esc(c.state)}">${esc(c.state)}</span><b title="${esc(c.id)}">${esc(c.title)}</b>
+      <span class="doc-time" title="${esc(fmtTime(c.lastActivity))}">${esc(fmtTime(c.lastActivity))} · ${esc(fmtAgo(c.lastActivity))}</span></div>
+      <div class="cur-step">${esc(c.step)}</div><div class="cur-ev">${who ? who + ' · ' : ''}Evidence: ${esc(c.evidence)}</div></div>`;
+  }).join('');
 }
 
 // ---- R-VO-001 Phase 1: settings, links, provenance helpers ----
@@ -787,7 +872,7 @@ let clock, selectedAgent = null;
 let lastMeetingUpdate = 0;
 let liveConfig = { mode: 'demo', enable_sse: true };
 
-let lastLiveJson = '', lastLiveIds = '';
+let lastLiveJson = '', lastLiveIds = '', lastBoardJson = '';
 let paused = false, pendingAgents = null, currentView = 'office';
 function applyLiveAgents(newAgents) {
   if (paused) { pendingAgents = newAgents; return; }
@@ -797,6 +882,9 @@ function applyLiveAgents(newAgents) {
   AGENTS.forEach(a => { prevTasks[a.id] = a.task; });
   const firstSync = lastLiveJson === '';
   lastLiveJson = json;
+  const boardJson = JSON.stringify(newAgents, (k, v) => (k === 'cursor' ? undefined : v));
+  const boardChanged = boardJson !== lastBoardJson;
+  lastBoardJson = boardJson;
   const ids = newAgents.map(a => a.id).join(',');
   const rosterChanged = ids !== lastLiveIds;
   lastLiveIds = ids;
@@ -835,7 +923,7 @@ function applyLiveAgents(newAgents) {
       }
     });
   }
-  showToast(firstSync ? 'TEVA team connected' : 'Board updated');
+  if (firstSync || boardChanged) showToast(firstSync ? 'TEVA team connected' : 'Board updated');
 }
 
 function updateNeedsSteve() {
@@ -867,6 +955,8 @@ function startLiveUpdates() {
   fetchConfig();
   fetchAgents();
   setInterval(fetchAgents, 5000);
+  fetchInbox();
+  setInterval(fetchInbox, 15000);
 
   if (liveConfig.enable_sse) {
     const es = new EventSource('/events');
@@ -1936,6 +2026,13 @@ function selectAgent(agentId, refreshOnly) {
       <div class="detail-task" style="color:${esc(agent.color)}"><span style="color:rgba(255,255,255,0.85)">${esc(t)}</span></div>
     `).join('');
   }
+  const cur = agent.cursor;
+  document.getElementById('detailCursorWrap').style.display = isNS ? 'none' : '';
+  if (!isNS) {
+    document.getElementById('detailCursor').innerHTML = cur && cur.count
+      ? `<div class="cur-ev">${esc(cur.count)} Cursor chat${cur.count === 1 ? '' : 's'} mapped to this seat on evidence. Latest:</div>` + cursorRows(cur.chats)
+      : `<div class="detail-task">No Cursor chat is mapped to this seat. Chats are only mapped when their title, first prompt or the docs they write name this seat; the rest show on the Team board as "Unassigned Cursor chat".</div>`;
+  }
   const research = agent.research || [];
   document.getElementById('detailResearchWrap').style.display = research.length ? '' : 'none';
   const rpath = boardInfo().researchPath;
@@ -1964,8 +2061,13 @@ function selectAgent(agentId, refreshOnly) {
   if (!sameSeat && !refreshOnly) document.getElementById('msgText').value = '';
   const cursorBtn = `<button class="act-btn${isCursor ? '' : ' secondary'}" id="msgCursor" title="Opens Cursor with this prompt prefilled in a new chat. You press send.">Open in Cursor</button>`;
   const grokBtn = `<button class="act-btn${isCursor ? ' secondary' : ''}" id="msgGrok" title="Copies the message for you to paste into your Grok Bot chat">Copy for Grok Bot</button>`;
-  document.getElementById('msgActions').innerHTML = (isCursor ? cursorBtn + grokBtn : grokBtn + cursorBtn) +
+  const inboxBtn = '<button class="act-btn secondary" id="msgInbox" title="Appends this note to inbox/&lt;seat&gt;.jsonl on this Mac. Nothing is sent to any chat.">Save to inbox</button>';
+  document.getElementById('msgActions').innerHTML = (isCursor ? cursorBtn + grokBtn : grokBtn + cursorBtn) + inboxBtn +
     '<button class="mini-btn" id="msgCopyPrompt" title="Copy the full prompt text">Copy prompt</button>';
+  document.getElementById('msgInbox').onclick = () => saveToInbox(agent);
+  if (!sameSeat && !refreshOnly) { document.getElementById('inboxResult').innerHTML = ''; document.getElementById('inboxRecent').innerHTML = ''; }
+  if (!isNS && (!refreshOnly || !sameSeat)) renderInbox(agent);
+  else if (!isNS) document.getElementById('inboxLine').innerHTML = `📥 Inbox <code>inbox/${esc(agent.id)}.jsonl</code>: <b>${esc(inboxText(agent.id))}</b> <span class="cur-ev">(unread = no seat has read it; seats don't read the inbox yet)</span>`;
   document.getElementById('msgCursor').onclick = () => {
     const url = cursorPromptUrl(buildPrompt(agent, document.getElementById('msgText').value, true));
     openUrl(url); showToast('Opening Cursor with the prompt prefilled. Nothing was sent.');
@@ -2417,6 +2519,7 @@ function openView(view) {
 function renderView(view) {
   const title = document.getElementById('vpTitle'), body = document.getElementById('vpBody');
   const b = boardInfo();
+  document.getElementById('view-panel').classList.toggle('wide', view === 'tasks');
   if (view === 'tasks') {
     title.textContent = '📋 Team board';
     const rows = AGENTS.map(a => `
@@ -2425,10 +2528,20 @@ function renderView(view) {
         <td>${statusPill(a)}</td>
         <td>${esc(a.task)}<div class="src">${sourceHtml(a, true)}</div></td>
         <td style="white-space:nowrap">${a.updatedAt ? esc(fmtAgo(a.updatedAt)) : '—'}</td>
+        <td>${a.cursor && a.cursor.latest ? `<span class="pill ${esc(a.cursor.latest.state)}">${esc(a.cursor.latest.state)}</span> ${esc(fmtAgo(a.cursor.latest.lastActivity))}<div class="src">${esc(a.cursor.latest.step)}</div><div class="src">${esc(a.cursor.count)} chat${a.cursor.count === 1 ? '' : 's'} · ${esc(a.cursor.latest.title)}</div>` : (a.id === 'needs-steve' ? '—' : '<span class="src">no mapped chat</span>')}</td>
+        <td style="white-space:nowrap">${a.id === 'needs-steve' ? '—' : esc(inboxText(a.id))}</td>
         <td>${(a.docs || []).length ? `<a class="lnk" data-select-agent="${esc(a.id)}">${(a.docs || []).length} doc${a.docs.length === 1 ? '' : 's'}</a>` : '—'}</td>
       </tr>`).join('');
     body.innerHTML = `<div class="vp-sub">Every seat, read from <a class="lnk" data-open-path="${esc(b.backlogPath)}" data-open-line="${esc(b.updatedLine || '')}">TEVA_COMPANY_BACKLOG.md</a> (board ${esc(b.updated || 'unknown')}), <a class="lnk" data-open-path="${esc(b.researchPath)}">TEVA_RESEARCH_BACKLOG.md</a> and doc mtimes. Synced ${esc(fmtTime(b.syncedAt))}. Click a row for details, docs and the message box.</div>
-      <table class="tb-table"><thead><tr><th>Seat</th><th>Status</th><th>Task · source</th><th>Updated</th><th>Docs</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <table class="tb-table"><thead><tr><th>Seat</th><th>Status</th><th>Task · source</th><th>Updated</th><th>Cursor activity</th><th>Inbox</th><th>Docs</th></tr></thead><tbody>${rows}</tbody></table>
+      ${(() => {
+        const c = b.cursor;
+        if (!c) return '<div class="vp-section">Cursor chats</div><div class="vp-sub">No transcript scan yet.</div>';
+        const mapped = Object.entries(c.mapped || {}).map(([k, v]) => { const a = AGENTS.find(x => x.id === k); return `${esc(a ? a.name : k)} ${esc(v)}`; }).join(', ') || 'none';
+        return `<div class="vp-section">Cursor chats in template_1 (${esc(c.found)} found · ${esc(c.mappedCount)} mapped · ${esc(c.unassignedCount)} unassigned)</div>
+          <div class="vp-sub">Mapped: ${mapped}. A chat is only mapped when its title, its first prompt, or a doc it writes names one seat; nothing is guessed. Scanned ${esc(fmtTime(c.scannedAt))}.</div>
+          <div class="vp-section">Most recent unassigned Cursor chats</div><div class="act-list">${cursorRows(c.unassigned, true) || '<div class="vp-sub">None.</div>'}</div>`;
+      })()}`;
   } else if (view === 'metrics') {
     title.textContent = '📊 Docs and activity';
     const counts = b.researchCounts || {};
@@ -2454,6 +2567,9 @@ function renderView(view) {
       ${sw('wander', 'Random idle wandering', 'Idle bots stroll around their desk. Off by default so movement only reflects status.')}
       <div class="set-row"><div>Board sync<div class="set-desc">scripts/teva_sync.py rewrites agents.json every ${esc(b.syncIntervalSeconds || liveConfig.teva_sync_interval_seconds || 180)} s; the server re-reads it every ${esc(liveConfig.poll_interval_seconds || 5)} s and pushes over SSE. Last sync ${esc(fmtTime(b.syncedAt))}.</div></div></div>
       <div class="set-row"><div>Webhook overrides<div class="set-desc">POST /webhook/agents pushes are merged over agents.json for ${esc(liveConfig.webhook_ttl_seconds || 900)} s instead of being reverted by the next poll.</div></div></div>
+      <div class="set-row"><div>Write lock<div class="set-desc">Every POST (inbox, /webhook/agents) needs the per-install token in <code>X-TEVA-Token</code> and an allowed Origin (${esc((liveConfig.allowed_origins || []).join(', '))}); otherwise 401/403. Token file <code>${esc(liveConfig.token_file || '~/.teva_hq/token')}</code> (0600, outside git). This page has the token: ${TEVA_TOKEN ? 'yes' : '<b>no</b> (open it from the office server)'}.</div></div></div>
+      <div class="set-row"><div>Seat inbox<div class="set-desc">"Save to inbox" appends to <code>${esc(liveConfig.inbox_dir || 'inbox/')}/&lt;seat&gt;.jsonl</code> (max ${esc(liveConfig.inbox_max_text || 4096)} bytes per note, ${esc(Math.round((liveConfig.inbox_max_file || 1048576) / 1024))} KB per seat). Nothing is sent to Cursor or Grok Bot. Seats don't read it until PM/Supervisor agree.</div></div></div>
+      <div class="set-row"><div>Cursor transcripts<div class="set-desc">Read-only tail of <code>${esc((b.cursor && b.cursor.transcriptsDir) || '~/.cursor/projects/…/agent-transcripts')}</code> every ${esc(liveConfig.cursor_scan_seconds || 30)} s (${esc(liveConfig.cursor_source || 'live transcripts')}). ${b.cursor ? `${esc(b.cursor.found)} chats, ${esc(b.cursor.mappedCount)} mapped, ${esc(b.cursor.unassignedCount)} unassigned. Last scan ${esc(fmtTime(b.cursor.scannedAt))}.` : 'No scan yet.'}</div></div></div>
       <div class="set-row"><div>Repo (read-only)<div class="set-desc"><code>${esc(b.repo)}</code></div></div><button class="mini-btn" data-copy-path="${esc(b.repo)}">Copy</button></div>
       <div class="set-row"><div>Office folder<div class="set-desc"><code>${esc(liveConfig.office_root || '')}</code> · server on ${esc(liveConfig.host || '127.0.0.1')}</div></div></div>
       <div class="set-row"><div>Test Cursor link<div class="set-desc">Opens TEVA_COMPANY_BACKLOG.md in Cursor. If Chrome asks "Open Cursor?", tick "Always allow" so doc links work in one click.</div></div>
