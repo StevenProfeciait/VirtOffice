@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Cursor IDE transcript tailer for TEVA HQ (R-VO-001 Phase 2).
+"""Read-only Cursor IDE transcript tailer for TEVA HQ (R-VO-001 Phase 2, R-VO-002 Phase 3a).
 
 Ported from template_1/pixel-agents-cursor (src/fileWatcher.ts session discovery,
 src/transcriptParser.ts formatToolStatus/processTranscriptLine). It never writes to
@@ -21,6 +21,14 @@ A chat is mapped to a TEVA seat only on evidence, in this order:
      (shared board docs such as TEVA_COMPANY_BACKLOG.md are not evidence)
 Two different seats from 2+3, or from 4, means "ambiguous" and the chat stays
 "Unassigned Cursor chat". Nothing is guessed.
+
+Phase 3a adds structured fields per chat (read-only, same tail):
+  tool      - last tool name ("Write", "Shell", ...) or null
+  toolKind  - write | edit | read | search | fetch | shell | task | reply | other | null
+              (same buckets as pixel-agents' TYPE/READ split; "reply" = assistant text with no tool)
+  endStatus - status of the last turn_ended record ("success", "error", ...) or "" while running
+  endedAt   - ms timestamp of that turn end (the record's own timestamp if it has one,
+              else the transcript mtime when the end was first seen), or null
 
 CLI: python3 scripts/cursor_activity.py [--json]   (prints the summary or full snapshot)
 """
@@ -45,6 +53,32 @@ SHELL_MAX = 40               # pixel-agents SHELL_COMMAND_DISPLAY_MAX_LENGTH is 
 TASK_MAX = 40
 PROMPT_SCAN_CHARS = 1500
 WRITE_TOOLS = {"Write", "StrReplace", "EditNotebook"}
+# Phase 3a: tool name -> animation bucket (R-VO-002 brief section 3.6)
+TOOL_KIND = {
+    "Write": "write", "GenerateImage": "write",
+    "StrReplace": "edit", "EditNotebook": "edit", "Delete": "edit", "MultiEdit": "edit", "Edit": "edit",
+    "Read": "read", "ReadLints": "read",
+    "Glob": "search", "Grep": "search", "SemanticSearch": "search", "LS": "search",
+    "WebFetch": "fetch", "WebSearch": "fetch", "FetchMcpResource": "fetch",
+    "Shell": "shell", "Await": "shell", "Bash": "shell",
+    "Task": "task",
+}
+
+
+def tool_kind(name):
+    """Animation bucket for a tool name; unknown tools are "other" (never guessed into write/read)."""
+    if not name:
+        return None
+    return TOOL_KIND.get(name, "other")
+
+
+def _rec_ts(rec):
+    """Optional per-record timestamp (ms) if the transcript line carries one."""
+    for k in ("timestamp", "ts", "time", "createdAt"):
+        v = rec.get(k)
+        if isinstance(v, (int, float)) and v > 0:
+            return int(v if v > 1e11 else v * 1000)
+    return None
 SEAT_IDS = [r[0] for r in ts.ROSTER]
 SEAT_NAMES = {r[0]: r[1] for r in ts.ROSTER}
 
@@ -230,6 +264,7 @@ class Tailer:
             return
         if rec.get("type") == "turn_ended":
             st["ended"], st["endStatus"] = True, str(rec.get("status") or "")
+            st["endedAt"] = _rec_ts(rec)  # None -> filled from the file mtime in scan()
             return
         role, content = rec.get("role"), (rec.get("message") or {}).get("content")
         if not role or not isinstance(content, list):
@@ -239,24 +274,28 @@ class Tailer:
                 st["prompt"] = first_prompt_text(rec)
             st["turns"] += 1
             st["ended"], st["step"] = False, "New prompt from Steve"
+            st["tool"], st["toolKind"], st["endStatus"], st["endedAt"] = None, None, "", None
         elif role == "assistant":
             tools = [b for b in content if isinstance(b, dict) and b.get("type") == "tool_use"]
             if tools:
-                st["ended"] = False
+                st["ended"], st["endStatus"], st["endedAt"] = False, "", None
                 st["step"] = format_tool_status(tools[-1].get("name") or "", tools[-1].get("input") or {})
+                st["tool"] = str(tools[-1].get("name") or "") or None
+                st["toolKind"] = tool_kind(st["tool"])
                 for b in tools:
                     inp = b.get("input") or {}
                     if b.get("name") in WRITE_TOOLS and isinstance(inp.get("path"), str):
                         st["writes"].add(inp["path"])
             elif any(isinstance(b, dict) and b.get("type") == "text" for b in content):
                 st["step"] = "Replying"
+                st["tool"], st["toolKind"] = None, "reply"
 
     def _read_new(self, cid, f):
         st = self.chats.get(cid)
         size = f.stat().st_size
         if st is None or size < st["offset"]:
             st = {"offset": 0, "prompt": None, "step": None, "ended": False, "endStatus": "",
-                  "writes": set(), "turns": 0, "partial": b""}
+                  "writes": set(), "turns": 0, "partial": b"", "tool": None, "toolKind": None, "endedAt": None}
             self.chats[cid] = st
         if size == st["offset"]:
             return st
@@ -323,6 +362,8 @@ class Tailer:
                         evidence = "no seat named in title or first prompt, no owned doc written"
             last = int(mtime * 1000)
             state = "ended" if st["ended"] else ("active" if now_ms - last < ACTIVE_MS else "stale")
+            if st["ended"] and not st.get("endedAt"):
+                st["endedAt"] = last  # first scan that saw the end: the transcript's last write
             step = st["step"] or "No activity yet"
             if st["ended"]:
                 step = f"Turn ended ({st['endStatus'] or 'done'}) · last step: {step}"
@@ -330,6 +371,9 @@ class Tailer:
                 "id": cid, "title": title or "Untitled Cursor chat", "seat": seat, "evidence": evidence,
                 "lastActivity": last, "step": step[:140], "state": state, "turns": st["turns"],
                 "subagents": len(subs),
+                "tool": st.get("tool"), "toolKind": st.get("toolKind"),
+                "endStatus": st["endStatus"] if st["ended"] else "",
+                "endedAt": st.get("endedAt") if st["ended"] else None,
             })
         chats.sort(key=lambda c: -c["lastActivity"])
         mapped = {}

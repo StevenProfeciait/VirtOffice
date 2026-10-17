@@ -39,6 +39,25 @@ http://localhost:9502/office.html. Server binds 127.0.0.1 only.
   Conflicts or no evidence → "Unassigned Cursor chat". Nothing is guessed.
 - `python3 scripts/cursor_activity.py` prints the current mapping.
 
+## Phase 3a (2026-10-17, R-VO-002): honest procedural animation
+
+Every motion is caused by a field in `/api/agents` or by a click/key from Steve. With no data change nothing moves except idle breathing/blinks and the camera.
+
+- **Events** (`public/vo_events.js`, pure, node-tested): `deriveEvents(prev, next)` turns payload edges into sourced events (toolStart, turnEnded, stalled, statusChange, blocked/unblocked, taskChange, docWritten, needsSteveAdded, researchDone, handoff, inbox). The first payload after a load and any roster change are silent, so a reload never replays animations. At most one overlay per seat every 4 s.
+- **Activity feed**: every event writes a line naming its source (backlog `file:line`, Cursor chat id, `docs/<file>`, inbox file, or "you"). Ticker bottom left, full list in 📊.
+- **Seat state machine** (priority): OFFLINE > BLOCKED > MEETING > TYPING / READING / RUNNING / DELEGATING > THINKING > YOUR_TURN > AT_DESK > IDLE. Step text shows on the seat's monitor (one shared atlas). The old 3.5 s random behaviour tick is gone.
+- **Reactions** (seat panel or keys 1–6 with a seat selected): 1 👋 wave and 5 👉 poke are local only. 2 👍, 3 🎉, 4 👀 and 6 ✋ are saved to `~/.teva_hq/inbox/<seat>.jsonl` as `{"kind":"reaction","emoji":…}` through the same token-locked POST. 👀 clears "your turn". Nothing is ever sent to a chat. Single-click on an avatar waves; double-click pokes.
+- **Attention**: N (or the N · Next button) cycles Needs Steve → blocked → your-turn seats. Off-screen seats get edge arrows, and the tab title shows the count. F follows the selected seat, Esc resets the camera, P toggles the perf HUD.
+- **Settings**: Motion (Auto follows `prefers-reduced-motion`; Reduced = no walking/hops/confetti and camera cuts; Off = static). The chime is off by default and silent while the tab is hidden. Also screen-reader announcements and the ticker.
+- **Hidden tab**: rendering, polling and SSE stop, and the page polls once on return.
+- **Perf**: shared geometry + instanced avatar parts, room meshes merged per material, one monitor atlas, LEDs merged and cached, pooled particles, 30 fps cap when idle. Box swiftshader: 712 → ~67 draw calls idle, ~91 active.
+
+### Board conventions the office reads (template_1 docs, read-only)
+- `MEETING: <seat codes> <topic>` — an upper-case line at the start of a line in `TEVA_COMPANY_BACKLOG.md` puts those seats in the meeting room. Nothing else does.
+- `**<SEAT> BLOCKED**`, or `BLOCKED` / `FAIL(ED)` / "waiting on" in the seat's own task text, sets `blocked` (⚠ + one head-scratch when it appears).
+- `### <id>. …` headings with `- **Owner(s):** <codes>` give per-item owners. An owner change animates a folder hand-off A → B → A.
+- `cursor_activity.py` now reports `toolKind` (write/edit/read/search/fetch/shell/task/reply/other), `endStatus` and `endedAt`. The server rescans every 10 s (`CURSOR_SCAN_SECONDS`).
+
 ## Open items
 - **Seats read the inbox only after PM/Supervisor agree.** No seat (Cursor or Grok Bot) is wired to
   read `inbox/<seat>.jsonl` or write `inbox/<seat>.read` yet. Until PM/Supervisor adopt a convention
@@ -53,3 +72,8 @@ http://localhost:9502/office.html. Server binds 127.0.0.1 only.
 ## Tests
 `python3 -m unittest discover -s tests` (parsers, Cursor mapping fixtures, server lock + inbox).
 `tests/e2e_clickthrough.py` needs Playwright + Chrome (run on the box; Mac headless Chrome can't save screenshots).
+
+Phase 3a:
+- `python3 -m unittest discover -s tests` (includes `tests/test_vo_events.js` through node when node is installed; it skips otherwise).
+- `node tests/test_vo_events.js` (event/state-machine logic).
+- `python3 tests/e2e_phase3a.py OUT_DIR [--quick] [--soak-min 10]` (Playwright acceptance test; starts its own server on a free port with a temp token and inbox).

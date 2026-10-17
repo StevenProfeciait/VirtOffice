@@ -62,7 +62,10 @@ INBOX_DIR = Path(os.environ.get("TEVA_INBOX_DIR") or (ROOT / "inbox"))
 INBOX_MAX_TEXT = int(os.environ.get("TEVA_INBOX_MAX_TEXT", "4096"))         # bytes of UTF-8 text per message
 INBOX_MAX_FILE = int(os.environ.get("TEVA_INBOX_MAX_BYTES", str(1024 * 1024)))  # bytes per inbox/<seat>.jsonl
 MAX_BODY = {"/webhook/agents": 1024 * 1024, "/api/inbox": 16 * 1024}
-CURSOR_SCAN_SECONDS = int(os.environ.get("CURSOR_SCAN_SECONDS", "30"))
+CURSOR_SCAN_SECONDS = int(os.environ.get("CURSOR_SCAN_SECONDS", "10"))  # Phase 3a: 30 -> 10 s (tail reads only new bytes)
+# Phase 3a reactions: stored in the same token-locked inbox as notes, never sent to any chat
+REACTION_EMOJI = ("\U0001F44D", "\U0001F389", "\U0001F440", "\u270B")  # thumbs-up, party, eyes, raised hand
+INBOX_KINDS = ("note", "reaction")
 CURSOR_SNAPSHOT = os.environ.get("CURSOR_ACTIVITY_SNAPSHOT", "").strip()  # tests/box: serve a saved scan
 TOKEN_META = '<meta name="teva-token" content="">'
 
@@ -148,18 +151,28 @@ def inbox_messages(seat, limit=5):
     return out[::-1]
 
 
-def inbox_append(seat, text):
-    """Validate and append one message. Returns (status, payload)."""
+def inbox_append(seat, text, kind=None, emoji=None):
+    """Validate and append one message (kind "note", the default) or reaction (kind "reaction" with an
+    allowlisted emoji). Returns (status, payload). Nothing is ever forwarded to a chat."""
     if not isinstance(seat, str) or not SEAT_RE.match(seat) or seat not in SEAT_IDS:
         return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "unknown seat"}
-    if not isinstance(text, str) or not text.strip():
-        return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "text is required"}
-    text = text.strip()
-    if len(text.encode("utf-8")) > INBOX_MAX_TEXT:
-        return HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": f"text over {INBOX_MAX_TEXT} bytes"}
+    kind = "note" if kind is None else kind
+    if kind not in INBOX_KINDS:
+        return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "kind must be note or reaction"}
     now = time.time()
     rec = {"time": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(now)), "ts": int(now * 1000),
-           "from": "Steve", "seat": seat, "text": text}
+           "from": "Steve", "seat": seat}
+    if kind == "reaction":
+        if not isinstance(emoji, str) or emoji not in REACTION_EMOJI:
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "unknown reaction emoji"}
+        rec.update({"kind": "reaction", "emoji": emoji})
+    else:
+        if not isinstance(text, str) or not text.strip():
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "text is required"}
+        text = text.strip()
+        if len(text.encode("utf-8")) > INBOX_MAX_TEXT:
+            return HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": f"text over {INBOX_MAX_TEXT} bytes"}
+        rec["text"] = text
     line = (json.dumps(rec, ensure_ascii=False) + "\n").encode("utf-8")
     path = INBOX_DIR / f"{seat}.jsonl"
     with inbox_lock:
@@ -171,7 +184,7 @@ def inbox_append(seat, text):
         with os.fdopen(fd, "ab") as f:
             f.write(line)
     c = inbox_counts().get(seat, {})
-    return HTTPStatus.OK, {"ok": True, "seat": seat, "file": f"inbox/{seat}.jsonl", "sent": c.get("sent"), "unread": c.get("unread")}
+    return HTTPStatus.OK, {"ok": True, "seat": seat, "kind": kind, "file": f"inbox/{seat}.jsonl", "sent": c.get("sent"), "unread": c.get("unread")}
 
 
 def _cursor_loop():
@@ -520,6 +533,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "inbox_max_text": INBOX_MAX_TEXT,
                 "inbox_max_file": INBOX_MAX_FILE,
                 "cursor_scan_seconds": CURSOR_SCAN_SECONDS,
+                "reaction_emoji": list(REACTION_EMOJI),
                 "cursor_source": CURSOR_SNAPSHOT and "snapshot" or "live transcripts",
             })
             return
@@ -563,7 +577,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not isinstance(body, dict):
                 self._send_json({"ok": False, "error": "JSON object expected"}, HTTPStatus.BAD_REQUEST)
                 return
-            status, payload = inbox_append(body.get("seat"), body.get("text"))
+            status, payload = inbox_append(body.get("seat"), body.get("text"), body.get("kind"), body.get("emoji"))
             self._send_json(payload, status)
             return
         if parsed.path == "/webhook/agents":

@@ -159,6 +159,32 @@ class ServerSecurityTest(unittest.TestCase):
         s, out, _ = self.req("GET", "/api/inbox?seat=debugger", token=False, origin=False)
         self.assertEqual(json.loads(out)["messages"][-1]["text"], "first note")
 
+    # ---- Phase 3a reactions (same lock, same inbox file)
+    def test_reaction_lock_and_allowlist(self):
+        f = self.tmp / "inbox" / "ui-docs.jsonl"
+        ok = {"seat": "ui-docs", "kind": "reaction", "emoji": "\U0001F44D"}
+        self.assertEqual(self.req("POST", "/api/inbox", ok, token=False)[0], 401)
+        self.assertEqual(self.req("POST", "/api/inbox", ok, token="nope" * 10)[0], 401)
+        self.assertEqual(self.req("POST", "/api/inbox", ok, origin="https://evil.example")[0], 403)
+        self.assertEqual(self.req("POST", "/api/inbox", ok, origin=False)[0], 403)
+        for bad in ("\U0001F4A9", "", None, "\U0001F44D\U0001F44D", "<script>", 5):
+            self.assertEqual(self.req("POST", "/api/inbox", dict(ok, emoji=bad))[0], 400, bad)
+        self.assertEqual(self.req("POST", "/api/inbox", dict(ok, kind="shell"))[0], 400)
+        self.assertFalse(f.exists())
+        for emo in ("\U0001F44D", "\U0001F389", "\U0001F440", "\u270B"):
+            s, out, _ = self.req("POST", "/api/inbox", dict(ok, emoji=emo))
+            self.assertEqual(s, 200, out)
+            self.assertEqual(json.loads(out)["kind"], "reaction")
+        lines = [json.loads(x) for x in f.read_text().splitlines()]
+        self.assertEqual(len(lines), 4)  # one line per stored reaction
+        self.assertEqual([x["emoji"] for x in lines], ["\U0001F44D", "\U0001F389", "\U0001F440", "\u270B"])
+        self.assertTrue(all(x["kind"] == "reaction" and x["from"] == "Steve" and x["seat"] == "ui-docs" for x in lines))
+        c = json.loads(self.req("GET", "/api/inbox", token=False, origin=False)[1])["counts"]["ui-docs"]
+        self.assertEqual(c["unread"], 4)  # reactions count as unread like notes
+        # notes keep working, with or without kind
+        self.assertEqual(self.req("POST", "/api/inbox", {"seat": "ui-docs", "text": "n", "kind": "note"})[0], 200)
+        self.assertEqual(self.req("POST", "/api/inbox", {"seat": "ui-docs", "kind": "note"})[0], 400)
+
     def test_config_reports_lock_without_token(self):
         s, out, _ = self.req("GET", "/api/config", token=False, origin=False)
         cfg = json.loads(out)

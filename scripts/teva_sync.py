@@ -9,6 +9,20 @@ Phase 1 (R-VO-001): every seat carries provenance for its status:
   docs     - up to 10 owned docs, newest first, each with mtime
 The needs-steve entry also carries `board` (recent doc activity + research counts)
 for the Docs & activity panel.
+
+Phase 3a (R-VO-002), still read-only on Template 1:
+  blocked       - True when the backlog has an explicit "**<seat> BLOCKED**" marker, or the
+                  backlog line that set the seat's status says BLOCKED / FAIL / waiting on
+  blockedSource - {file, path, line, text, ...} for that line, else null
+  meeting       - status "meeting" only from an explicit marker line in TEVA_COMPANY_BACKLOG.md:
+                    MEETING: PM, BA, LE2 - P2 sequencing
+                  (upper-case MEETING at the start of a line; attendees are the seats it names).
+                  Remove the line to end the meeting. Prose that mentions a meeting never counts.
+  board.items   - [{doc, id, owner, line, title}] per-item owners: "### <id>. ..." headings with an
+                  "- **Owner(s):** ..." line in the company backlog (first seat named = owner),
+                  plus the research backlog section 3 rows. The office animates a hand-off only
+                  when an item's owner changes between two syncs.
+  needsSteveItems[].owner - the one seat an item names ("Tell Laravel Expert ..."), else null
 """
 import fnmatch, json, os, re, sys, tempfile, time
 from pathlib import Path
@@ -50,6 +64,82 @@ RESEARCH_OWNER_KEYS = [
     ("Research Manager", "research-mgr"), ("ERP", "erp-research"), ("AI", "ai-research"),
     ("Product", "product"), ("Competit", "competitor"), ("UI Docs", "ui-docs"), ("Grok Bot", "grok"),
 ]
+
+
+# Phase 3a: seat names as they appear in board prose. Short codes are case-sensitive and must
+# stand alone ("SA" in "SA-DT-1" is an item id, not the seat).
+_CODE = r"(?<![\w-])%s(?![\w-])"
+SEAT_ALIASES = {
+    "supervisor": [r"Supervisor"],
+    "pm": [r"Project Manager", _CODE % "PM"],
+    "ba": [r"Business Analyst", _CODE % "BA"],
+    "le": [r"Laravel Expert(?!\s*2)", _CODE % "LE"],
+    "le2": [r"Laravel Expert\s*2", _CODE % "LE2"],
+    "sa": [r"Security Auditor", _CODE % "SA"],
+    "debugger": [r"Debugger"],
+    "research-mgr": [r"Research Manager"],
+    "ai-research": [r"AI Research"],
+    "erp-research": [r"ERP Research"],
+    "product": [r"Product Research"],
+    "competitor": [r"Competitor Intel(?:ligence)?"],
+    "ui-docs": [r"UI Docs"],
+    "grok": [r"Grok Bot"],
+}
+_SEAT_RX = {sid: re.compile("|".join("(?:%s)" % a for a in alts)) for sid, alts in SEAT_ALIASES.items()}
+BLOCK_RX = re.compile(r"\bBLOCKED\b|\bFAIL(?:ED)?\b|(?i:\bwaiting[- ]on\b)")
+MEETING_RX = re.compile(r"^[ \t]*(?:[-*][ \t]+)?\**MEETING\**[ \t]*:\**[ \t]*(?P<rest>\S[^\n]*)$", re.M)
+
+
+def seats_in(text):
+    """Seat ids named in text, in order of first appearance."""
+    hits = []
+    for sid, rx in _SEAT_RX.items():
+        m = rx.search(text or "")
+        if m:
+            hits.append((m.start(), sid))
+    return [sid for _, sid in sorted(hits)]
+
+
+def blocked_markers(text):
+    """{seat: (line, snippet)} from explicit '**<seat> BLOCKED**' markers."""
+    out = {}
+    for m in re.finditer(r"\*\*([^*\n]{2,40}?) BLOCKED\*\*", text):
+        who = seats_in(m.group(1))
+        if len(who) == 1 and _SEAT_RX[who[0]].fullmatch(m.group(1).strip()):
+            out.setdefault(who[0], (line_of(text, m.start()), snippet(text, m.start(), m.end())))
+    return out
+
+
+def meetings(text):
+    """{seat: (line, topic)} from explicit 'MEETING: <seats> - topic' lines."""
+    out = {}
+    for m in MEETING_RX.finditer(text):
+        rest = m.group("rest")
+        for sid in seats_in(rest):
+            out.setdefault(sid, (line_of(text, m.start()), clean(rest, 120)))
+    return out
+
+
+def backlog_items(text):
+    """[{doc, id, owner, line, title}] from '### <id>. title' headings that carry an Owner line."""
+    items, seen = [], set()
+    heads = list(re.finditer(r"^### ([^\n]+)$", text, re.M))
+    for i, h in enumerate(heads):
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        nxt = re.search(r"^## ", text[h.end():end], re.M)
+        body_end = h.end() + nxt.start() if nxt else end
+        body = text[h.end():body_end]
+        om = re.search(r"^- \*\*Owners?:\*\*\s*(.+)$", body, re.M)
+        if not om:
+            continue
+        who = seats_in(om.group(1))
+        idm = re.match(r"\s*([A-Za-z0-9§][\w§-]*)", clean(h.group(1), 200))
+        if not who or not idm or idm.group(1) in seen:
+            continue
+        seen.add(idm.group(1))
+        items.append({"doc": "backlog", "id": idm.group(1), "owner": who[0],
+                      "line": line_of(text, h.end() + om.start()), "title": clean(h.group(1), 80)})
+    return items
 
 
 def clean(s, n=90):
@@ -215,6 +305,8 @@ def build(text, rtext, files, now, bl_mtime, rb_mtime):
     done = done_headings(text)
     rrows = research_rows(rtext) if rtext else []
     owner_of = {}
+    markers = blocked_markers(text)
+    meet = meetings(text)
 
     agents = []
     for aid, name, team, emoji, color, default_task, pats in ROSTER:
@@ -252,6 +344,17 @@ def build(text, rtext, files, now, bl_mtime, rb_mtime):
             task = f"No research WIP. Latest: {r['id']} {r['status']}"
             signal = True
             source = src(RESEARCH, r["line"], f"{r['id']} | {r['statusText']}", rb_mtime)
+        blocked, blocked_src = False, None
+        if aid in markers:
+            blocked, blocked_src = True, src(BACKLOG, markers[aid][0], markers[aid][1], bl_mtime)
+        elif source and source.get("file") == BACKLOG.name and BLOCK_RX.search(task or ""):
+            # only the seat's own clause (its task text), not the rest of a shared board line
+            blocked, blocked_src = True, dict(source)
+        if aid in meet:
+            # explicit MEETING: marker in the backlog (never inferred from prose)
+            ln, topic = meet[aid]
+            status, task, signal = "meeting", ("Meeting: " + topic)[:90], True
+            source = src(BACKLOG, ln, "MEETING: " + topic, bl_mtime)
         if not signal:
             task = f"No live signal (default: {default_task})"
         tasks.append(task)
@@ -273,6 +376,7 @@ def build(text, rtext, files, now, bl_mtime, rb_mtime):
             "id": aid, "name": name, "role": team, "emoji": emoji, "color": color,
             "home": aid, "status": status, "task": task, "tasks": tasks, "output": out,
             "signal": signal, "source": source, "updatedAt": int(ts * 1000) if ts else None,
+            "blocked": blocked, "blockedSource": blocked_src,
             "channel": "cursor" if aid in CURSOR_SEATS else "grok",
             "research": [{k: r[k] for k in ("id", "status", "item", "line", "statusText")} for r in rsorted],
             "docs": [{"name": p.name, "path": str(p), "mtime": int(mt * 1000)} for p, mt in docs[:MAX_DOCS]],
@@ -296,18 +400,23 @@ def build(text, rtext, files, now, bl_mtime, rb_mtime):
         "tasks": [i[0] for i in items] or ["Nothing waiting on you"],
         "output": [f"From the NEEDS STEVE section, board {updated}"],
         "signal": True, "source": ns_source, "updatedAt": int(bl_mtime * 1000), "channel": "grok",
+        "blocked": False, "blockedSource": None,
         "research": [],
         "docs": [{"name": "TEVA_COMPANY_BACKLOG.md", "path": str(BACKLOG), "mtime": int(bl_mtime * 1000)}],
         "docsOwned": True,
         "stats": {"tasksDone": 0, "active": len(items), "hours": 0},
         "mood": 0.5, "typing": False, "position": None,
         "needsSteve": [i[0] for i in items],
-        "needsSteveItems": [{"text": t, "line": ln, "path": str(BACKLOG)} for t, ln in items],
+        "needsSteveItems": [{"text": t, "line": ln, "path": str(BACKLOG),
+                             "owner": (lambda w: w[0] if len(w) == 1 else None)(seats_in(t))} for t, ln in items],
         "board": {
             "updated": updated, "updatedLine": updated_line, "backlogPath": str(BACKLOG),
             "researchPath": str(RESEARCH), "repo": str(REPO), "syncedAt": int(now * 1000),
             "syncIntervalSeconds": SYNC_INTERVAL, "researchCounts": counts,
             "researchWip": [{k: r[k] for k in ("id", "item", "owner", "line")} for r in rrows if r["status"] == "WIP"],
+            "items": backlog_items(text) + [{"doc": "research", "id": r["id"], "owner": r["owner"], "line": r["line"],
+                                             "title": r["item"][:80]} for r in rrows if r["owner"]],
+            "meetingMarkers": [{"seat": k, "line": v[0], "topic": v[1]} for k, v in sorted(meet.items())],
             "activity": activity,
         },
     })
