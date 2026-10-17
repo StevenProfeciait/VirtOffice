@@ -263,16 +263,18 @@ body {
 /* Agent detail panel */
 #detail-panel {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.95);
+  top: 96px;
+  right: 76px;
+  bottom: 64px;
+  overflow-y: auto;
+  transform: translateX(12px);
   background: rgba(15, 15, 22, 0.96);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 20px;
   padding: 28px;
-  min-width: 360px;
-  max-width: 420px;
+  width: 460px;
+  max-width: calc(100vw - 120px);
   pointer-events: auto;
   z-index: 200;
   opacity: 0;
@@ -283,8 +285,68 @@ body {
 #detail-panel.open {
   opacity: 1;
   visibility: visible;
-  transform: translate(-50%, -50%) scale(1);
+  transform: translateX(0);
 }
+/* ---- R-VO-001 Phase 1 ---- */
+#view-panel {
+  position: fixed; top: 96px; left: 84px; bottom: 64px; width: 600px; max-width: calc(100vw - 120px);
+  background: rgba(15,15,22,0.96); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px; padding: 20px 22px; pointer-events: auto; z-index: 190; overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5); display: none;
+}
+#view-panel.open { display: block; }
+.vp-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.vp-title { flex: 1; font-size: 17px; font-weight: 700; }
+.vp-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 12px; line-height: 1.5; }
+.vp-section { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: rgba(255,255,255,0.4); margin: 16px 0 8px; }
+.tb-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tb-table th { text-align: left; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.4); padding: 6px 6px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.tb-table td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; color: rgba(255,255,255,0.85); }
+.tb-row { cursor: pointer; }
+.tb-row:hover td { background: rgba(255,255,255,0.04); }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap; }
+.pill.working { background: rgba(94,226,181,0.18); color: #5ee2b5; }
+.pill.idle { background: rgba(245,181,68,0.16); color: #f5b544; }
+.pill.meeting { background: rgba(139,92,246,0.2); color: #c4b5fd; }
+.pill.nosignal { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); }
+.pill.WIP { background: rgba(94,226,181,0.18); color: #5ee2b5; }
+.pill.Done { background: rgba(96,165,250,0.18); color: #93c5fd; }
+.pill.Ready, .pill.Blocked { background: rgba(245,181,68,0.16); color: #f5b544; }
+.pill.Skipped, .pill.Other { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); }
+.src { font-size: 10.5px; color: rgba(255,255,255,0.5); margin-top: 3px; line-height: 1.4; }
+.src a, .lnk { color: #93C5FD; text-decoration: none; cursor: pointer; }
+.src a:hover, .lnk:hover { text-decoration: underline; }
+.mini-btn { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); border-radius: 7px; font-size: 10px; font-weight: 700; padding: 3px 8px; cursor: pointer; white-space: nowrap; }
+.mini-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.act-btn { background: rgba(59,130,246,0.25); border: 1px solid rgba(59,130,246,0.6); color: #fff; border-radius: 9px; font-size: 12px; font-weight: 700; padding: 8px 12px; cursor: pointer; }
+.act-btn.secondary { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); }
+.act-btn:hover { filter: brightness(1.2); }
+.doc-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: rgba(255,255,255,0.04); border-radius: 9px; font-size: 12px; }
+.doc-row .doc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #93C5FD; text-decoration: none; }
+.doc-row .doc-time { font-size: 10px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+.detail-source { margin: -10px 0 18px; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,0.03); font-size: 11px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+.detail-source .q { color: rgba(255,255,255,0.45); font-style: italic; display: block; margin-top: 4px; }
+#msgText { width: 100%; min-height: 72px; resize: vertical; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 10px; font: inherit; font-size: 12px; }
+.msg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+.msg-hint { font-size: 10.5px; color: rgba(255,255,255,0.45); margin-top: 6px; line-height: 1.4; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
+.set-row .set-desc { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 3px; }
+.set-row code { font-size: 11px; color: #c4b5fd; word-break: break-all; }
+.switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch span { position: absolute; inset: 0; background: rgba(255,255,255,0.15); border-radius: 999px; cursor: pointer; transition: 150ms; }
+.switch span::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 150ms; }
+.switch input:checked + span { background: #3B82F6; }
+.switch input:checked + span::before { transform: translateX(18px); }
+.chat-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+#pauseOverlay { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 300; display: none; pointer-events: auto;
+  background: rgba(245,181,68,0.95); color: #1a1a22; font-weight: 800; font-size: 12px; letter-spacing: 0.08em; padding: 10px 18px; border-radius: 999px; cursor: pointer; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+body.paused #pauseOverlay { display: block; }
+.act-list { display: flex; flex-direction: column; gap: 6px; }
+.count-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.count-card { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 10px; text-align: center; }
+.count-card b { display: block; font-size: 20px; }
+.count-card span { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
 .detail-header {
   display: flex;
   align-items: center;
@@ -507,24 +569,24 @@ body {
     <div class="notif-title"><span class="notif-pulse"></span> <span id="needsSteveTitle">Needs Steve</span></div>
     <div class="notif-sub" id="meetingSub">Loading the board…</div>
   </div>
-  <button class="standup-btn">Standup Board</button>
+  <button class="standup-btn" id="standupBtn" title="Open the team board">Standup Board</button>
+  <div id="pauseOverlay" title="Click to resume">⏸ PAUSED · animation and live updates frozen · click to resume</div>
 
   <div class="left-sidebar">
-    <div class="sidebar-icon active" data-view="office">🏢</div>
-    <div class="sidebar-icon" data-view="tasks">📋</div>
-    <div class="sidebar-icon" data-view="metrics">📊</div>
-    <div class="sidebar-icon" data-view="settings">⚙️</div>
-    <div class="sidebar-icon" data-view="lock">🔒</div>
+    <div class="sidebar-icon active" data-view="office" title="Office view (close panels, reset camera)">🏢</div>
+    <div class="sidebar-icon" data-view="tasks" title="Team board: every seat's status, task, source and docs">📋</div>
+    <div class="sidebar-icon" data-view="metrics" title="Docs and recent activity">📊</div>
+    <div class="sidebar-icon" data-view="settings" title="Settings">⚙️</div>
+    <div class="sidebar-icon" data-view="lock" title="Pause: freeze animation and live updates">🔒</div>
   </div>
 
   <div class="right-sidebar">
-    <div class="right-label">Open</div>
-    <div class="right-label">Marketplace</div>
-    <div class="right-label">Analytics</div>
+    <div class="right-label" id="rlOpen" title="Open TEVA_COMPANY_BACKLOG.md in Cursor">Open board</div>
+    <div class="right-label" id="rlAnalytics" title="Docs and recent activity">Analytics</div>
   </div>
 
   <div class="status-footer" id="statusFooter"></div>
-  <button class="chat-btn">Chat</button>
+  <button class="chat-btn" id="chatBtn" disabled title="Select a seat first, then write it a message">Chat</button>
 
   <div class="controls">
     <button class="ctrl-btn" id="zoomIn">+</button>
@@ -545,7 +607,9 @@ body {
     <div class="detail-status" id="detailStatus">
       <span class="detail-status-dot" id="detailStatusDot"></span>
       <span class="detail-status-text" id="detailStatusText">Working on research</span>
+      <span id="detailStatusPill" style="margin-left:auto"></span>
     </div>
+    <div class="detail-source" id="detailSource"></div>
     
     <div class="detail-grid">
       <div class="detail-stat">
@@ -571,10 +635,25 @@ body {
       <div class="detail-section-title">Recent Output</div>
       <div class="detail-task-list" id="detailOutput"></div>
     </div>
+    <div class="detail-section" id="detailResearchWrap">
+      <div class="detail-section-title">Research backlog items (TEVA_RESEARCH_BACKLOG.md §3)</div>
+      <div class="detail-task-list" id="detailResearch"></div>
+    </div>
     <div class="detail-section">
-      <div class="detail-section-title">Docs (opens in Cursor)</div>
+      <div class="detail-section-title">Docs (open in Cursor · copy path)</div>
       <div class="detail-task-list" id="detailDocs"></div>
     </div>
+    <div class="detail-section" id="msgSection">
+      <div class="detail-section-title" id="msgTitle">Message</div>
+      <textarea id="msgText" placeholder="Write a note for this seat. Nothing is sent from here."></textarea>
+      <div class="msg-actions" id="msgActions"></div>
+      <div class="msg-hint" id="msgHint"></div>
+    </div>
+  </div>
+
+  <div id="view-panel">
+    <div class="vp-head"><div class="vp-title" id="vpTitle"></div><button class="detail-close" id="vpClose" title="Close">✕</button></div>
+    <div id="vpBody"></div>
   </div>
 
   <div id="toast"></div>
@@ -605,6 +684,76 @@ function esc(value) {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));
 }
+
+// ---- R-VO-001 Phase 1: settings, links, provenance helpers ----
+const SETTINGS_KEY = 'teva-hq.settings.v1';
+const SETTINGS = Object.assign({ chatter: false, wander: false }, (() => {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { return {}; }
+})());
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); } catch (e) {} }
+
+const SAST_TIME = new Intl.DateTimeFormat('en-ZA', { timeZone: 'Africa/Johannesburg', hour: '2-digit', minute: '2-digit', hour12: false });
+const SAST_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Johannesburg', year: 'numeric', month: '2-digit', day: '2-digit' });
+function fmtTime(ms) {
+  if (!ms) return 'unknown time';
+  const d = new Date(ms);
+  const day = SAST_DATE.format(d), today = SAST_DATE.format(new Date());
+  return (day === today ? '' : day + ' ') + SAST_TIME.format(d) + ' SAST';
+}
+function fmtAgo(ms) {
+  if (!ms) return '';
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  return m < 60 ? m + 'm ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago';
+}
+// cursor://file/<abs path>[:line], encoded per segment so '#', '?', spaces etc. survive
+function cursorFileUrl(path, line) {
+  const enc = String(path || '').split('/').map(encodeURIComponent).join('/');
+  return 'cursor://file' + (enc.startsWith('/') ? '' : '/') + enc + (line ? ':' + line : '');
+}
+const CURSOR_PROMPT_MAX = 8000;
+function cursorPromptUrl(text) {
+  return 'cursor://anysphere.cursor-deeplink/prompt?text=' + encodeURIComponent(text);
+}
+function openUrl(url) {
+  // Custom schemes: use a transient anchor so the browser shows its "Open Cursor?" prompt
+  const a = document.createElement('a');
+  a.href = url; a.rel = 'noopener'; a.style.display = 'none';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function copyText(text, label) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+    ta.remove();
+  }
+  showToast(ok ? (label || 'Copied') : 'Copy failed. Select the text manually.');
+  return ok;
+}
+function statusPill(agent) {
+  if (agent && agent.signal === false) return '<span class="pill nosignal" title="No source on disk reports this seat; showing its default">No live signal</span>';
+  const st = (agent && agent.status) || 'idle';
+  return `<span class="pill ${esc(st)}">${esc(st)}</span>`;
+}
+function sourceHtml(agent, compact) {
+  const s = agent && agent.source;
+  if (!s) return '<span>No source: nothing on disk reports this seat, so this is its default task.</span>';
+  const where = s.line ? `${esc(s.file)} L${esc(s.line)}` : esc(s.file);
+  const link = `<a data-open-path="${esc(s.path)}" data-open-line="${esc(s.line || '')}" title="${esc(s.path)}${s.line ? ':' + esc(s.line) : ''}">${where}</a>`;
+  const when = s.at ? ` · ${esc(fmtTime(s.at))}` : '';
+  return compact ? `From ${link}${when}` : `From ${link}${when}${s.text ? `<span class="q">“${esc(s.text)}”</span>` : ''}`;
+}
+// Event delegation for every [data-open-path] / [data-copy-path] link anywhere in the UI
+document.addEventListener('click', (e) => {
+  const op = e.target.closest('[data-open-path]');
+  if (op) { e.preventDefault(); e.stopPropagation(); openUrl(cursorFileUrl(op.dataset.openPath, op.dataset.openLine)); return; }
+  const cp = e.target.closest('[data-copy-path]');
+  if (cp) { e.preventDefault(); e.stopPropagation(); copyText(cp.dataset.copyPath, 'Path copied'); return; }
+  const sel = e.target.closest('[data-select-agent]');
+  if (sel) { e.preventDefault(); selectAgent(sel.dataset.selectAgent); }
+});
 
 const agentStates = {};
 const agentStats = {};
@@ -639,9 +788,13 @@ let lastMeetingUpdate = 0;
 let liveConfig = { mode: 'demo', enable_sse: true };
 
 let lastLiveJson = '', lastLiveIds = '';
+let paused = false, pendingAgents = null, currentView = 'office';
 function applyLiveAgents(newAgents) {
+  if (paused) { pendingAgents = newAgents; return; }
   const json = JSON.stringify(newAgents);
   if (json === lastLiveJson) return;
+  const prevTasks = {};
+  AGENTS.forEach(a => { prevTasks[a.id] = a.task; });
   const firstSync = lastLiveJson === '';
   lastLiveJson = json;
   const ids = newAgents.map(a => a.id).join(',');
@@ -671,7 +824,17 @@ function applyLiveAgents(newAgents) {
   updateNeedsSteve();
   updateBehavior();
   updateStatusBar();
-  if (selectedAgent) selectAgent(selectedAgent.id);
+  if (selectedAgent) selectAgent(selectedAgent.id, true);
+  if (currentView !== 'office') renderView(currentView);
+  if (!firstSync && !rosterChanged) {
+    // Data-driven bubbles only: a seat whose task changed in the synced data says so
+    newAgents.forEach(na => {
+      if (prevTasks[na.id] !== undefined && prevTasks[na.id] !== na.task) {
+        const obj = agents.find(o => o.agent.id === na.id);
+        if (obj) showChatBubble(obj, String(na.task || '').slice(0, 22));
+      }
+    });
+  }
   showToast(firstSync ? 'TEVA team connected' : 'Board updated');
 }
 
@@ -769,13 +932,27 @@ function init() {
     document.getElementById('canvas-container').addEventListener('click', onCanvasClick);
     document.getElementById('canvas-container').addEventListener('mousemove', onMouseMove);
     
-    // Sidebar clicks
+    // Sidebar: each icon opens a real panel or action (R-VO-001 Phase 1)
     document.querySelectorAll('.sidebar-icon').forEach(icon => {
-      icon.addEventListener('click', () => {
-        document.querySelectorAll('.sidebar-icon').forEach(i => i.classList.remove('active'));
-        icon.classList.add('active');
-        showToast(`Switched to ${icon.dataset.view} view`);
-      });
+      icon.addEventListener('click', () => openView(icon.dataset.view));
+    });
+    document.getElementById('standupBtn').addEventListener('click', () => openView('tasks'));
+    document.getElementById('rlAnalytics').addEventListener('click', () => openView('metrics'));
+    document.getElementById('rlOpen').addEventListener('click', () => openUrl(cursorFileUrl(boardInfo().backlogPath)));
+    document.getElementById('chatBtn').addEventListener('click', () => {
+      if (!selectedAgent) { showToast('Select a seat first'); return; }
+      selectAgent(selectedAgent.id);
+      const ta = document.getElementById('msgText');
+      ta.scrollIntoView({ block: 'center' }); ta.focus();
+    });
+    document.getElementById('vpClose').addEventListener('click', () => openView('office'));
+    document.getElementById('pauseOverlay').addEventListener('click', () => setPaused(false));
+    document.getElementById('msgText').addEventListener('input', updateMsgHint);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.activeElement !== document.getElementById('msgText')) {
+        if (document.getElementById('detail-panel').classList.contains('open')) closeDetail();
+        else if (currentView !== 'office') openView('office');
+      }
     });
     
     window.addEventListener('resize', onWindowResize);
@@ -1207,6 +1384,7 @@ function createDesk(x, z, angle, ownerId) {
   createChair(x + Math.sin(angle) * 1.6, z + Math.cos(angle) * 1.6, angle, chairColor);
   
   scene.add(group);
+  group.userData.deskOf = ownerId;  // clicking any desk mesh opens that seat (see pickAgentId)
   clickableObjects.push(group);
 }
 
@@ -1687,7 +1865,8 @@ function updateStatusBar() {
     working: AGENTS.filter(a => agentStates[a.id].status === 'working').length,
     idle: AGENTS.filter(a => agentStates[a.id].status === 'idle').length,
     meeting: AGENTS.filter(a => agentStates[a.id].status === 'meeting').length,
-    walking: AGENTS.filter(a => agentStates[a.id].status === 'walking').length
+    walking: AGENTS.filter(a => agentStates[a.id].status === 'walking').length,
+    nosignal: AGENTS.filter(a => a.signal === false).length
   };
   
   const items = [
@@ -1695,9 +1874,7 @@ function updateStatusBar() {
     { key: 'idle', label: 'idle', color: '#f5b544' },
     { key: 'meeting', label: 'meeting', color: '#8B5CF6' },
     { key: 'walking', label: 'walking', color: '#7DD3FC' },
-    { key: 'away', label: 'away', color: 'rgba(255,255,255,0.3)' },
-    { key: 'out', label: 'out', color: 'rgba(255,255,255,0.3)' },
-    { key: 'sick', label: 'sick', color: 'rgba(255,255,255,0.3)' }
+    { key: 'nosignal', label: 'no live signal', color: 'rgba(255,255,255,0.55)' }
   ];
   
   footer.innerHTML = items.map(item => {
@@ -1718,10 +1895,13 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-function selectAgent(agentId) {
+function selectAgent(agentId, refreshOnly) {
   const agent = AGENTS.find(a => a.id === agentId);
   if (!agent) return;
+  const sameSeat = selectedAgent && selectedAgent.id === agentId;
   selectedAgent = agent;
+  document.getElementById('chatBtn').disabled = false;
+  document.getElementById('chatBtn').title = 'Message ' + agent.name;
   
   const panel = document.getElementById('detail-panel');
   const state = agentStates[agentId] || { status: agent.status || 'idle', task: agent.task || 'Idle' };
@@ -1743,16 +1923,57 @@ function selectAgent(agentId) {
   document.getElementById('lblHours').textContent = isNS ? '' : 'Since last doc';
   document.getElementById('statHours').textContent = isNS ? '' : (stats.hours || 0) + 'h';
   
-  document.getElementById('detailTasks').innerHTML = (agent.tasks || []).map(t => `
-    <div class="detail-task" style="color:${esc(agent.color)}">${esc(t)}</div>
+  document.getElementById('detailStatusPill').innerHTML = statusPill(agent);
+  const upd = agent.updatedAt ? ` Updated ${esc(fmtTime(agent.updatedAt))} (${esc(fmtAgo(agent.updatedAt))}).` : '';
+  document.getElementById('detailSource').innerHTML = sourceHtml(agent) + (agent.webhook ? ' · <b>live webhook override</b>' : '') + `<div style="margin-top:4px">${upd}</div>`;
+  if (isNS && (agent.needsSteveItems || []).length) {
+    document.getElementById('detailTasks').innerHTML = agent.needsSteveItems.map(it => `
+      <div class="detail-task" style="color:${esc(agent.color)}"><span style="flex:1;color:rgba(255,255,255,0.85)">${esc(it.text)}</span>
+      <a class="mini-btn" data-open-path="${esc(it.path)}" data-open-line="${esc(it.line)}" title="Open the board at this line">L${esc(it.line)} ↗</a></div>
+    `).join('');
+  } else {
+    document.getElementById('detailTasks').innerHTML = (agent.tasks || []).map(t => `
+      <div class="detail-task" style="color:${esc(agent.color)}"><span style="color:rgba(255,255,255,0.85)">${esc(t)}</span></div>
+    `).join('');
+  }
+  const research = agent.research || [];
+  document.getElementById('detailResearchWrap').style.display = research.length ? '' : 'none';
+  const rpath = boardInfo().researchPath;
+  document.getElementById('detailResearch').innerHTML = research.map(r => `
+    <div class="doc-row"><span class="pill ${esc(r.status)}">${esc(r.status)}</span>
+      <span style="flex:1;min-width:0" title="${esc(r.statusText || '')}"><b>${esc(r.id)}</b> ${esc(r.item)}</span>
+      <a class="mini-btn" data-open-path="${esc(rpath)}" data-open-line="${esc(r.line)}" title="Open TEVA_RESEARCH_BACKLOG.md at L${esc(r.line)}">L${esc(r.line)} ↗</a></div>
   `).join('');
   document.getElementById('detailOutput').innerHTML = (agent.output || []).map(o => `
     <div class="detail-task">${esc(o)}</div>
   `).join('');
-  document.getElementById('detailDocs').innerHTML = (agent.docs || []).length ? agent.docs.map(d => `
-    <a class="detail-task" style="display:block;color:#93C5FD;text-decoration:none;pointer-events:auto" href="cursor://file${encodeURI(d.path)}" title="${esc(d.path)}">${esc(d.name)}</a>
-  `).join('') : '<div class="detail-task">No docs owned yet</div>';
-  
+  const docs = (agent.docs || []).slice(0, 10);
+  document.getElementById('detailDocs').innerHTML = (docs.length ? docs.map(d => `
+    <div class="doc-row">
+      <a class="doc-name" href="${esc(cursorFileUrl(d.path))}" data-open-path="${esc(d.path)}" title="${esc(d.path)}">${esc(d.name)}</a>
+      <span class="doc-time">${d.mtime ? esc(fmtAgo(d.mtime)) : ''}</span>
+      <button class="mini-btn" data-copy-path="${esc(d.path)}" title="Copy the absolute path">Copy path</button>
+    </div>
+  `).join('') : '<div class="detail-task">No docs owned yet</div>') +
+    (agent.docsOwned === false && docs.length ? '<div class="msg-hint">No doc on disk matches this seat\'s filename patterns, so the board is shown instead.</div>' : '');
+
+  // Message composer (nothing is sent from the office)
+  const isCursor = agent.channel === 'cursor';
+  document.getElementById('msgSection').style.display = isNS ? 'none' : '';
+  document.getElementById('msgTitle').textContent = 'Message ' + agent.name;
+  if (!sameSeat && !refreshOnly) document.getElementById('msgText').value = '';
+  const cursorBtn = `<button class="act-btn${isCursor ? '' : ' secondary'}" id="msgCursor" title="Opens Cursor with this prompt prefilled in a new chat. You press send.">Open in Cursor</button>`;
+  const grokBtn = `<button class="act-btn${isCursor ? ' secondary' : ''}" id="msgGrok" title="Copies the message for you to paste into your Grok Bot chat">Copy for Grok Bot</button>`;
+  document.getElementById('msgActions').innerHTML = (isCursor ? cursorBtn + grokBtn : grokBtn + cursorBtn) +
+    '<button class="mini-btn" id="msgCopyPrompt" title="Copy the full prompt text">Copy prompt</button>';
+  document.getElementById('msgCursor').onclick = () => {
+    const url = cursorPromptUrl(buildPrompt(agent, document.getElementById('msgText').value, true));
+    openUrl(url); showToast('Opening Cursor with the prompt prefilled. Nothing was sent.');
+  };
+  document.getElementById('msgGrok').onclick = () => copyText(buildPrompt(agent, document.getElementById('msgText').value, false), 'Copied. Paste it into your Grok Bot chat.');
+  document.getElementById('msgCopyPrompt').onclick = () => copyText(buildPrompt(agent, document.getElementById('msgText').value, false), 'Prompt copied');
+  updateMsgHint();
+
   panel.classList.add('open');
   
   // Highlight in user bar
@@ -1765,6 +1986,8 @@ function closeDetail() {
   document.getElementById('detail-panel').classList.remove('open');
   document.querySelectorAll('.user-avatar').forEach(el => el.classList.remove('active'));
   selectedAgent = null;
+  const cb = document.getElementById('chatBtn');
+  if (cb) { cb.disabled = true; cb.title = 'Select a seat first, then write it a message'; }
 }
 
 function onCanvasClick(e) {
@@ -1772,12 +1995,21 @@ function onCanvasClick(e) {
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   
   raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(clickableObjects);
-  
-  if (intersects.length > 0) {
-    const agentId = intersects[0].object.userData.agentId;
-    if (agentId) selectAgent(agentId);
+  const agentId = pickAgentId(raycaster.intersectObjects(clickableObjects, true));
+  if (agentId) selectAgent(agentId);
+}
+
+// Walk up from the hit mesh to the agent click box (agentId) or desk group (deskOf)
+function pickAgentId(intersects) {
+  for (const hit of intersects) {
+    let o = hit.object;
+    while (o) {
+      const id = o.userData && (o.userData.agentId || o.userData.deskOf);
+      if (id && AGENTS.find(a => a.id === id)) return id;
+      o = o.parent;
+    }
   }
+  return null;
 }
 
 function onMouseMove(e) {
@@ -1785,11 +2017,11 @@ function onMouseMove(e) {
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
   
   raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(clickableObjects);
-  document.body.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+  document.body.style.cursor = pickAgentId(raycaster.intersectObjects(clickableObjects, true)) ? 'pointer' : 'default';
 }
 
 function updateBehavior() {
+  if (paused) return;
   AGENTS.forEach(agent => {
     const state = agentStates[agent.id];
     if (!state) return;
@@ -1807,8 +2039,8 @@ function updateBehavior() {
       state.status = 'working';
       state.targetX = home.x + (Math.random() - 0.5) * 0.5;
       state.targetZ = home.z + (Math.random() - 0.5) * 0.4;
-    } else if (Math.random() < 0.25) {
-      // idle bots sometimes stretch their legs, then come back
+    } else if (SETTINGS.wander && Math.random() < 0.25) {
+      // optional (Settings): idle bots sometimes stretch their legs, then come back
       state.status = 'walking';
       state.targetX = home.x + (Math.random() - 0.5) * 6;
       state.targetZ = home.z + (Math.random() - 0.5) * 4;
@@ -1822,6 +2054,8 @@ function updateBehavior() {
 }
 
 function spawnRandomChat() {
+  // Decorative fake chatter; off by default (Settings), since it is not from data
+  if (!SETTINGS.chatter || paused) return;
   // Find agents close together; throttle so bubbles don't stack
   const chatMessages = ['Nice work!', 'LGTM', 'Can you review?', 'On it', 'Coffee?', 'Standup?', 'Synced'];
   const now = Date.now();
@@ -2091,6 +2325,7 @@ function onWindowResize() {
 function animate() {
   requestAnimationFrame(animate);
   const delta = Math.min(clock.getDelta(), 0.05);
+  if (paused) return;
   
   if (autoRotate) targetRotation += 0.0008;
   currentRotation += (targetRotation - currentRotation) * 0.04;
@@ -2114,6 +2349,122 @@ function animate() {
   });
   
   renderer.render(scene, camera);
+}
+
+// ---- R-VO-001 Phase 1: prompt builder, panels, pause ----
+function boardInfo() {
+  const ns = AGENTS.find(a => a.id === 'needs-steve');
+  const b = (ns && ns.board) || {};
+  const repo = b.repo || liveConfig.teva_repo || '/Users/stevenayensu/Documents/GitHub/template_1';
+  return Object.assign({ backlogPath: repo + '/docs/TEVA_COMPANY_BACKLOG.md', researchPath: repo + '/docs/TEVA_RESEARCH_BACKLOG.md', repo, activity: [], researchCounts: {}, researchWip: [] }, b);
+}
+
+// Builds the text for a Cursor prompt deeplink / Grok Bot paste. forUrl caps the encoded URL at 8,000 chars.
+function buildPrompt(agent, msg, forUrl) {
+  const s = agent.source;
+  const head = [
+    `To ${agent.name} (TEVA ${agent.role} seat), from Steve via TEVA HQ.`,
+    `Re: ${agent.task || 'current item'}`,
+    s ? `Status source: ${s.path}${s.line ? ':' + s.line : ''} (${fmtTime(s.at)})` : 'Status source: none (no live signal)',
+  ];
+  const body = (msg || '').trim() || '(write your message here)';
+  let docs = (agent.docs || []).slice(0, 10).map(d => '- ' + d.path);
+  const make = () => head.join('\n') + '\n\n' + body + (docs.length ? '\n\nContext docs:\n' + docs.join('\n') : '');
+  let text = make();
+  if (forUrl) {
+    while (docs.length && cursorPromptUrl(text).length > CURSOR_PROMPT_MAX) { docs.pop(); text = make(); }
+    while (cursorPromptUrl(text).length > CURSOR_PROMPT_MAX) text = text.slice(0, Math.floor(text.length * 0.9)) + '…';
+  }
+  return text;
+}
+function updateMsgHint() {
+  if (!selectedAgent) return;
+  const len = cursorPromptUrl(buildPrompt(selectedAgent, document.getElementById('msgText').value, false)).length;
+  const route = selectedAgent.channel === 'cursor' ? 'This seat works in Cursor: "Open in Cursor" prefills a new chat.' : 'This seat runs in Grok Bot: "Copy for Grok Bot", then paste it into your chat.';
+  document.getElementById('msgHint').textContent = `${route} Nothing is sent automatically. Link length ${len}/${CURSOR_PROMPT_MAX}${len > CURSOR_PROMPT_MAX ? ' (docs list will be trimmed for the Cursor link)' : ''}.`;
+}
+
+function setPaused(on) {
+  paused = on;
+  document.body.classList.toggle('paused', on);
+  document.querySelector('.sidebar-icon[data-view="lock"]').classList.toggle('active', on);
+  if (!on) {
+    clock.getDelta();
+    if (pendingAgents) { const p = pendingAgents; pendingAgents = null; applyLiveAgents(p); }
+    showToast('Resumed');
+  } else showToast('Paused: animation and live updates frozen');
+}
+
+function openView(view) {
+  if (view === 'lock') { setPaused(!paused); return; }
+  document.querySelectorAll('.sidebar-icon').forEach(i => {
+    if (i.dataset.view !== 'lock') i.classList.toggle('active', i.dataset.view === view);
+  });
+  currentView = view;
+  const vp = document.getElementById('view-panel');
+  if (view === 'office') {
+    vp.classList.remove('open');
+    closeDetail();
+    zoom = 1; autoRotate = false; targetRotation = -Math.PI / 4;
+    document.getElementById('rotateBtn').classList.remove('active');
+    updateCamera();
+    return;
+  }
+  renderView(view);
+  vp.classList.add('open');
+}
+
+function renderView(view) {
+  const title = document.getElementById('vpTitle'), body = document.getElementById('vpBody');
+  const b = boardInfo();
+  if (view === 'tasks') {
+    title.textContent = '📋 Team board';
+    const rows = AGENTS.map(a => `
+      <tr class="tb-row" data-select-agent="${esc(a.id)}">
+        <td style="white-space:nowrap"><span style="font-size:16px">${esc(a.emoji)}</span> <b style="color:${esc(a.color)}">${esc(a.name)}</b><div class="src">${esc(a.role)}</div></td>
+        <td>${statusPill(a)}</td>
+        <td>${esc(a.task)}<div class="src">${sourceHtml(a, true)}</div></td>
+        <td style="white-space:nowrap">${a.updatedAt ? esc(fmtAgo(a.updatedAt)) : '—'}</td>
+        <td>${(a.docs || []).length ? `<a class="lnk" data-select-agent="${esc(a.id)}">${(a.docs || []).length} doc${a.docs.length === 1 ? '' : 's'}</a>` : '—'}</td>
+      </tr>`).join('');
+    body.innerHTML = `<div class="vp-sub">Every seat, read from <a class="lnk" data-open-path="${esc(b.backlogPath)}" data-open-line="${esc(b.updatedLine || '')}">TEVA_COMPANY_BACKLOG.md</a> (board ${esc(b.updated || 'unknown')}), <a class="lnk" data-open-path="${esc(b.researchPath)}">TEVA_RESEARCH_BACKLOG.md</a> and doc mtimes. Synced ${esc(fmtTime(b.syncedAt))}. Click a row for details, docs and the message box.</div>
+      <table class="tb-table"><thead><tr><th>Seat</th><th>Status</th><th>Task · source</th><th>Updated</th><th>Docs</th></tr></thead><tbody>${rows}</tbody></table>`;
+  } else if (view === 'metrics') {
+    title.textContent = '📊 Docs and activity';
+    const counts = b.researchCounts || {};
+    const order = ['WIP', 'Ready', 'Blocked', 'Done', 'Skipped'];
+    const cards = order.map(k => `<div class="count-card"><b>${esc(counts[k] || 0)}</b><span>${esc(k)}</span></div>`).join('');
+    const wip = (b.researchWip || []).map(r => `<div class="doc-row"><span class="pill WIP">WIP</span><span style="flex:1"><b>${esc(r.id)}</b> ${esc(r.item)}</span><a class="mini-btn" data-open-path="${esc(b.researchPath)}" data-open-line="${esc(r.line)}">L${esc(r.line)} ↗</a></div>`).join('') || '<div class="vp-sub">No research item is WIP right now.</div>';
+    const name = id => { const a = AGENTS.find(x => x.id === id); return a ? `<a class="lnk" data-select-agent="${esc(a.id)}">${esc(a.emoji)} ${esc(a.name)}</a>` : '<span style="color:rgba(255,255,255,0.35)">no owner seat</span>'; };
+    const act = (b.activity || []).slice(0, 25).map(d => `
+      <div class="doc-row"><a class="doc-name" href="${esc(cursorFileUrl(d.path))}" data-open-path="${esc(d.path)}" title="${esc(d.path)}">${esc(d.name)}</a>
+        <span style="font-size:11px;white-space:nowrap">${name(d.owner)}</span>
+        <span class="doc-time" title="${esc(fmtTime(d.mtime))}">${esc(fmtAgo(d.mtime))}</span>
+        <button class="mini-btn" data-copy-path="${esc(d.path)}">Copy path</button></div>`).join('');
+    body.innerHTML = `<div class="vp-sub">Recently changed <code>docs/*.md</code> in template_1 (read-only), with the seat whose filename patterns own each doc. Synced ${esc(fmtTime(b.syncedAt))}.</div>
+      <div class="vp-section">Research backlog (§3)</div><div class="count-grid">${cards}</div>
+      <div class="vp-section">Research WIP</div><div class="act-list">${wip}</div>
+      <div class="vp-section">Recent doc activity</div><div class="act-list">${act || '<div class="vp-sub">No docs found.</div>'}</div>`;
+  } else if (view === 'settings') {
+    title.textContent = '⚙️ Settings';
+    const sw = (key, label, desc) => `<div class="set-row"><div>${label}<div class="set-desc">${desc}</div></div>
+      <label class="switch"><input type="checkbox" data-setting="${key}" ${SETTINGS[key] ? 'checked' : ''}><span></span></label></div>`;
+    body.innerHTML = `
+      ${sw('chatter', 'Decorative chatter', 'Random speech bubbles ("LGTM", "Coffee?") between nearby bots. Not from data, so off by default. Bubbles for real task changes always show.')}
+      ${sw('wander', 'Random idle wandering', 'Idle bots stroll around their desk. Off by default so movement only reflects status.')}
+      <div class="set-row"><div>Board sync<div class="set-desc">scripts/teva_sync.py rewrites agents.json every ${esc(b.syncIntervalSeconds || liveConfig.teva_sync_interval_seconds || 180)} s; the server re-reads it every ${esc(liveConfig.poll_interval_seconds || 5)} s and pushes over SSE. Last sync ${esc(fmtTime(b.syncedAt))}.</div></div></div>
+      <div class="set-row"><div>Webhook overrides<div class="set-desc">POST /webhook/agents pushes are merged over agents.json for ${esc(liveConfig.webhook_ttl_seconds || 900)} s instead of being reverted by the next poll.</div></div></div>
+      <div class="set-row"><div>Repo (read-only)<div class="set-desc"><code>${esc(b.repo)}</code></div></div><button class="mini-btn" data-copy-path="${esc(b.repo)}">Copy</button></div>
+      <div class="set-row"><div>Office folder<div class="set-desc"><code>${esc(liveConfig.office_root || '')}</code> · server on ${esc(liveConfig.host || '127.0.0.1')}</div></div></div>
+      <div class="set-row"><div>Test Cursor link<div class="set-desc">Opens TEVA_COMPANY_BACKLOG.md in Cursor. If Chrome asks "Open Cursor?", tick "Always allow" so doc links work in one click.</div></div>
+        <div style="display:flex;gap:6px"><button class="act-btn" id="testCursor">Test</button><button class="mini-btn" data-copy-path="${esc(b.backlogPath)}">Copy path</button></div></div>`;
+    body.querySelectorAll('[data-setting]').forEach(inp => inp.addEventListener('change', () => {
+      SETTINGS[inp.dataset.setting] = inp.checked; saveSettings();
+      if (inp.dataset.setting === 'wander') updateBehavior();
+      showToast(`${inp.dataset.setting === 'chatter' ? 'Chatter' : 'Wandering'} ${inp.checked ? 'on' : 'off'}`);
+    }));
+    document.getElementById('testCursor').onclick = () => openUrl(cursorFileUrl(b.backlogPath, b.updatedLine));
+  }
 }
 
 init();

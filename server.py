@@ -38,6 +38,11 @@ HERMES_AGENT_API = os.environ.get("HERMES_AGENT_API", "").strip()
 AGENTS_JSON_PATH = os.environ.get("AGENTS_JSON_PATH", "").strip() or str(Path(__file__).parent / "agents.json")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL_SECONDS", "5"))
 ENABLE_SSE = os.environ.get("ENABLE_SSE", "true").lower() in ("1", "true", "yes")
+# Webhook pushes are kept as per-agent overrides for this long, merged over agents.json
+# on every poll, so the 5 s file refresh no longer reverts them (R-VO-001 Phase 1).
+WEBHOOK_TTL = int(os.environ.get("WEBHOOK_TTL_SECONDS", "900"))
+TEVA_SYNC_INTERVAL = int(os.environ.get("TEVA_SYNC_INTERVAL", "180"))
+TEVA_REPO = os.environ.get("TEVA_REPO", "/Users/stevenayensu/Documents/GitHub/template_1")
 DEMO_MODE = not (HERMES_AGENT_API or AGENTS_JSON_PATH)
 
 DIRECTORY = Path(__file__).parent / "public"
@@ -128,6 +133,8 @@ latest_agents = list(DEMO_AGENTS)
 sse_clients = []
 sse_lock = threading.Lock()
 last_poll = 0
+last_payload = None
+webhook_overrides = {}  # id -> (agent dict, expires_at)
 
 
 def _read_agents_json():
@@ -165,8 +172,11 @@ def _fetch_hermes_agents():
 
 
 def _normalize_agent(agent):
-    """Ensure every agent has the keys the dashboard needs."""
-    defaults = {
+    """Ensure every agent has the keys the dashboard needs.
+
+    Unknown keys (source, signal, research, board, channel, updatedAt ...) pass through."""
+    defaults = dict(agent)
+    defaults.update({
         "id": str(agent.get("id", "agent")),
         "name": agent.get("name", "Agent"),
         "role": agent.get("role", "Worker"),
@@ -183,13 +193,37 @@ def _normalize_agent(agent):
         "mood": agent.get("mood", 0.8),
         "typing": agent.get("typing", False),
         "position": agent.get("position", None),
-    }
+    })
     return defaults
+
+
+def _merge_overrides(agents):
+    """Overlay unexpired webhook overrides on the file/API roster (by id)."""
+    now = time.time()
+    with state_lock:
+        for k in [k for k, (_, exp) in webhook_overrides.items() if exp <= now]:
+            del webhook_overrides[k]
+        live = {k: a for k, (a, _) in webhook_overrides.items()}
+    if not live:
+        return agents
+    out, seen = [], set()
+    for a in agents:
+        o = live.get(a["id"])
+        if o:
+            merged = dict(a)
+            merged.update(o)
+            merged["webhook"] = True
+            out.append(merged)
+            seen.add(a["id"])
+        else:
+            out.append(a)
+    out += [dict(o, webhook=True) for k, o in live.items() if k not in seen]
+    return out
 
 
 def refresh_agents():
     """Refresh latest_agents from API, file, or demo fallback."""
-    global latest_agents, last_poll
+    global latest_agents, last_poll, last_payload
 
     data = None
     if HERMES_AGENT_API:
@@ -199,13 +233,17 @@ def refresh_agents():
     if data is None:
         data = list(DEMO_AGENTS)
 
-    normalized = [_normalize_agent(a) for a in data]
+    normalized = _merge_overrides([_normalize_agent(a) for a in data])
+    payload = json.dumps({"agents": normalized})
 
     with state_lock:
         latest_agents = normalized
         last_poll = time.time()
+        changed = payload != last_payload
+        last_payload = payload
 
-    _broadcast_sse(json.dumps({"agents": normalized}))
+    if changed:
+        _broadcast_sse(payload)
 
 
 def _broadcast_sse(payload):
@@ -271,6 +309,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "poll_interval_seconds": POLL_INTERVAL,
                 "enable_sse": ENABLE_SSE,
                 "hermes_agent_api": "[REDACTED]" if HERMES_AGENT_API else None,
+                "host": HOST,
+                "webhook_ttl_seconds": WEBHOOK_TTL,
+                "teva_sync_interval_seconds": TEVA_SYNC_INTERVAL,
+                "teva_repo": TEVA_REPO,
+                "office_root": str(ROOT),
             })
             return
 
@@ -294,10 +337,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 body = self._read_json_body()
                 agents = body.get("agents", body if isinstance(body, list) else [])
                 normalized = [_normalize_agent(a) for a in agents]
+                expires = time.time() + WEBHOOK_TTL
                 with state_lock:
-                    latest_agents = normalized
-                _broadcast_sse(json.dumps({"agents": normalized}))
-                self._send_json({"ok": True, "count": len(normalized)})
+                    for a in normalized:
+                        webhook_overrides[a["id"]] = (a, expires)
+                # Re-merge now so the push is visible immediately and survives the next poll
+                refresh_agents()
+                self._send_json({"ok": True, "count": len(normalized), "ttl_seconds": WEBHOOK_TTL})
             except Exception as e:
                 self._send_json({"ok": False, "error": str(e)}, HTTPStatus.BAD_REQUEST)
             return
