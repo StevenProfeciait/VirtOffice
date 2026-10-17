@@ -54,9 +54,10 @@
       if (k === 'DELEGATING' || (c.subagents || 0) > 0) return 'DELEGATING';
       return 'AT_DESK'; // active with a tool we do not classify: slow typing, nothing invented
     }
-    if (c && c.state === 'stale' && c.lastActivity && now - c.lastActivity < THINK_MAX_MS) return 'THINKING';
+    // YOUR_TURN still beats board WIP (Steve attention). Board working beats stale THINKING.
     if (c && c.state === 'ended' && endOk(c) && endedAt && now - endedAt < YOUR_TURN_MS && !(seenAt && seenAt >= endedAt)) return 'YOUR_TURN';
     if (a.status === 'working') return 'AT_DESK';
+    if (c && c.state === 'stale' && c.lastActivity && now - c.lastActivity < THINK_MAX_MS) return 'THINKING';
     return 'IDLE';
   }
 

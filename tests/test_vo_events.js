@@ -61,9 +61,15 @@ t('unknown end status: feed only, no overlay', () => {
 t('active -> stale is stalled, base THINKING; old stale is not animated', () => {
   const ev = V.deriveEvents([withChat('sa', {})], [withChat('sa', { state: 'stale' })], NOW);
   assert.deepStrictEqual(types(ev), ['stalled:sa']);
-  assert.strictEqual(V.baseState(withChat('sa', { state: 'stale', lastActivity: NOW - 5 * 60e3 }), NOW), 'THINKING');
-  assert.strictEqual(V.baseState(withChat('sa', { state: 'stale', lastActivity: NOW - 3 * 3600e3 }), NOW), 'IDLE');
+  assert.strictEqual(V.baseState(withChat('sa', { state: 'stale', lastActivity: NOW - 5 * 60e3 }, { status: 'idle' }), NOW), 'THINKING');
+  assert.strictEqual(V.baseState(withChat('sa', { state: 'stale', lastActivity: NOW - 3 * 3600e3 }, { status: 'idle' }), NOW), 'IDLE');
   assert.ok(V.thinkingDim(withChat('sa', { state: 'stale', lastActivity: NOW - 11 * 60e3 }), NOW));
+});
+t('board working beats stale THINKING; YOUR_TURN still wins', () => {
+  assert.strictEqual(V.baseState(withChat('sa', { state: 'stale', lastActivity: NOW - 5 * 60e3 }, { status: 'working' }), NOW), 'AT_DESK');
+  assert.strictEqual(V.baseState(withChat('sa', {
+    state: 'ended', endStatus: 'success', endedAt: NOW - 500, lastActivity: NOW - 500
+  }, { status: 'working' }), NOW), 'YOUR_TURN');
 });
 t('read/search/fetch -> READING, shell -> RUNNING, task -> DELEGATING, other -> AT_DESK', () => {
   for (const k of ['read', 'search', 'fetch']) assert.strictEqual(V.baseState(withChat('x', { toolKind: k }), NOW), 'READING');

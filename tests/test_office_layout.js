@@ -34,5 +34,9 @@ if (!layout.wing || !layout.camera.wing) {
   console.error('wing / wing camera preset missing');
   fail++;
 }
+if (!layout.exterior || !layout.exterior.groundSize) {
+  console.error('exterior ground config missing');
+  fail++;
+}
 console.log(fail ? `FAIL ${fail}` : 'ok', 'seats', Object.keys(layout.seats).length, 'room', layout.room.width + 'x' + layout.room.depth);
 process.exit(fail ? 1 : 0);
