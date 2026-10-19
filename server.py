@@ -283,6 +283,7 @@ DEMO_AGENTS = [
         "stats": {"tasksDone": 34, "active": 5, "hours": 6.2},
         "mood": 0.9,
         "typing": False,
+        "avatar": { "model": None, "fallback": { "color": "#8B5CF6", "shape": "capsule", "emoji": "🧠" }, "workstation": "meeting", "zone": "Strategy", "animations": {} }
     },
     {
         "id": "analyst",
@@ -298,6 +299,7 @@ DEMO_AGENTS = [
         "stats": {"tasksDone": 18, "active": 3, "hours": 4.5},
         "mood": 0.75,
         "typing": True,
+        "avatar": { "model": None, "fallback": { "color": "#3B82F6", "shape": "capsule", "emoji": "📊" }, "workstation": "ai-research", "zone": "Research", "animations": {} }
     },
     {
         "id": "writer",
@@ -313,6 +315,7 @@ DEMO_AGENTS = [
         "stats": {"tasksDone": 21, "active": 2, "hours": 5.1},
         "mood": 0.8,
         "typing": True,
+        "avatar": { "model": None, "fallback": { "color": "#EC4899", "shape": "capsule", "emoji": "✍️" }, "workstation": "product", "zone": "Business", "animations": {} }
     },
     {
         "id": "marketer",
@@ -328,6 +331,7 @@ DEMO_AGENTS = [
         "stats": {"tasksDone": 15, "active": 2, "hours": 3.8},
         "mood": 0.85,
         "typing": False,
+        "avatar": { "model": None, "fallback": { "color": "#F59E0B", "shape": "capsule", "emoji": "📢" }, "workstation": "grok", "zone": "Ingest", "animations": {} }
     },
     {
         "id": "coder",
@@ -343,6 +347,7 @@ DEMO_AGENTS = [
         "stats": {"tasksDone": 29, "active": 4, "hours": 6.7},
         "mood": 0.7,
         "typing": True,
+        "avatar": { "model": None, "fallback": { "color": "#10B981", "shape": "capsule", "emoji": "💻" }, "workstation": "le", "zone": "Engineering", "animations": {} }
     },
 ]
 

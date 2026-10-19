@@ -47,11 +47,50 @@
     return 'IDLE';
   }
 
+  function loadAvatar(avatar, scene, onLoad) {
+    var THREE = root.THREE;
+    var GLTFLoader = root.THREE ? root.THREE.GLTFLoader : null;
+    if (!THREE || !GLTFLoader || !hasModel(avatar)) {
+      var fallback = makeFallback(avatar, THREE);
+      if (onLoad) onLoad(null, fallback, 'fallback');
+      return null;
+    }
+    var loader = new GLTFLoader();
+    var controller = { cancelled: false };
+    loader.load(
+      avatar.model,
+      function (gltf) {
+        if (controller.cancelled) return;
+        if (onLoad) onLoad(gltf, gltf.scene, 'loaded');
+      },
+      undefined,
+      function (err) {
+        if (controller.cancelled) return;
+        var fallback = makeFallback(avatar, THREE);
+        if (onLoad) onLoad(null, fallback, 'error:' + (err && err.message));
+      }
+    );
+    return controller;
+  }
+
+  function makeFallback(avatar, THREE) {
+    if (!THREE) return null;
+    var fb = (avatar && avatar.fallback) || {};
+    var color = fb.color || '#8B5CF6';
+    var geo = new THREE.CapsuleGeometry(0.35, 1.2, 4, 8);
+    var mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(color) });
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.userData = { fallback: true, emoji: fb.emoji || '🤖' };
+    return mesh;
+  }
+
   root.TevaAvatars = {
     STATES: STATES,
     normalizeAvatar: normalizeAvatar,
     clipFor: clipFor,
     hasModel: hasModel,
-    stateFromActivity: stateFromActivity
+    stateFromActivity: stateFromActivity,
+    loadAvatar: loadAvatar,
+    makeFallback: makeFallback
   };
 })(typeof window !== 'undefined' ? window : global);
