@@ -17,6 +17,7 @@
     var incoming = {};
     (agents || []).forEach(function (agent) {
       if (!agent || !agent.id) return;
+      if (root.TevaAssets && root.TevaAssets.enrichAgent) agent = root.TevaAssets.enrichAgent(agent);
       incoming[agent.id] = true;
       var entry = self.manager.entries[agent.id];
       if (entry) self.manager.updateAgent(agent);

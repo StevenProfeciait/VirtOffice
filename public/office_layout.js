@@ -89,6 +89,43 @@
       center: { x: -5, z: 0.5 },
       right: { x: 6, z: -1 },
       right2: { x: 11, z: 2.5 }
+    },
+    /** Per-seat workstation overrides (origin = seat x/z; agentLocal from manifest defaults). */
+    workstations: {
+      supervisor: { accent: '#8B5CF6', style: 'executive', rotation: 0 },
+      pm: { accent: '#8B5CF6', style: 'executive', rotation: 0 },
+      ba: { accent: '#8B5CF6', style: 'standard', rotation: 0 },
+      le: { accent: '#10B981', style: 'gaming', rotation: 0 },
+      le2: { accent: '#10B981', style: 'gaming', rotation: 0 },
+      sa: { accent: '#EF4444', style: 'gaming', rotation: 0 },
+      debugger: { accent: '#F59E0B', style: 'standard', rotation: Math.PI },
+      'research-mgr': { accent: '#3B82F6', style: 'standard', rotation: 0 },
+      'ai-research': { accent: '#3B82F6', style: 'standard', rotation: 0 },
+      'erp-research': { accent: '#3B82F6', style: 'standard', rotation: 0 },
+      product: { accent: '#10B981', style: 'standard', rotation: Math.PI },
+      competitor: { accent: '#EC4899', style: 'standard', rotation: Math.PI },
+      'ui-docs': { accent: '#6366F1', style: 'standard', rotation: Math.PI },
+      grok: { accent: '#F59E0B', style: 'gaming', rotation: Math.PI },
+      'needs-steve': { accent: '#FF3B30', style: 'standard', rotation: 0 },
+      meeting: { accent: '#8B5CF6', style: 'collab', rotation: 0, agentLocal: { x: 0, z: 0.2 }, seatHeight: 0.55 },
+      left: { accent: '#3B82F6', style: 'standard', rotation: 0 },
+      center: { accent: '#EC4899', style: 'standard', rotation: 0 },
+      right: { accent: '#F59E0B', style: 'standard', rotation: 0 },
+      right2: { accent: '#10B981', style: 'gaming', rotation: 0 }
+    },
+    navPoints: {
+      meeting: { x: 0, z: meetZ },
+      lounge: { x: 12, z: 10 },
+      kitchen: { x: -halfW + 4, z: halfD - 4 },
+      collab: { x: 0, z: halfD + 11 }
+    },
+    departments: {
+      Leadership: { target: [0, 0, -8], zoom: 1.35 },
+      Engineering: { target: [12, 0, -3], zoom: 1.28 },
+      Research: { target: [-12.5, 0, -2], zoom: 1.28 },
+      Business: { target: [-1.5, 0, 5], zoom: 1.3 },
+      Ingest: { target: [16, 0, 5], zoom: 1.32 },
+      'Needs Steve': { target: [-7.5, 0, 11.5], zoom: 1.25 }
     }
   };
 

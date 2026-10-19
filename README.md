@@ -45,10 +45,12 @@ without changing the default dashboard:
 http://127.0.0.1:9502/office.html?modular=1&prototype=1
 ```
 
-This enables live avatar reconciliation, procedural humanoid fallbacks, and a dual-monitor workstation
-prototype. Real GLB characters can be configured per agent with `avatar.model`, `avatar.scale`,
-`avatar.offset`, and `avatar.animations`; missing assets fall back safely. See
-[`docs/AVATAR_ASSETS.md`](docs/AVATAR_ASSETS.md) and [`public/assets/avatars/README.md`](public/assets/avatars/README.md).
+This enables live avatar reconciliation, role-styled procedural characters, aligned workstations for
+all seats (with `?modular=1&workstations=all`), and optional GLB characters via the asset manifest.
+Configure per agent with `avatar.model`, `avatar.scale`, `avatar.offset`, `avatar.seated`, and
+`avatar.animations`; missing assets fall back safely. See
+[`docs/AVATAR_ASSETS.md`](docs/AVATAR_ASSETS.md), [`public/assets/asset-manifest.json`](public/assets/asset-manifest.json),
+and [`scripts/install_cc0_assets.sh`](scripts/install_cc0_assets.sh).
 
 ## Modes
 

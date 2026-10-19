@@ -12,7 +12,8 @@ const A = sandbox.TevaAvatars;
 let fail = 0;
 function check(cond, msg) { if (!cond) { console.error('FAIL:', msg); fail++; } }
 
-check(A.STATES.length === 8, 'eight states');
+check(A.STATES.length >= 8, 'states list');
+check(A.stateFromActivity({ status: 'walking' }) === 'WALKING', 'walking status');
 const agent = { id: 'le', color: '#EF4444', emoji: '🛠️', avatar: { model: '/assets/avatars/le/model.glb', animations: { working: 'Typing' } } };
 const avatar = A.normalizeAvatar(agent);
 check(avatar.model === '/assets/avatars/le/model.glb', 'model path');

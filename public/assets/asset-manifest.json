@@ -1,5 +1,45 @@
 {
-  "version": 1,
+  "version": 2,
+  "workstation": {
+    "seatHeight": 0.62,
+    "agentLocal": { "x": 0, "z": -0.52 },
+    "agentRotation": 0,
+    "chairLocalZ": -0.9
+  },
+  "rolePresets": {
+    "default": {
+      "appearance": { "hair": "#202631", "skin": "#d6a27d", "outfit": "casual" }
+    },
+    "development": {
+      "appearance": { "hair": "#1a1f28", "skin": "#c9956e", "outfit": "hoodie", "accessory": "headphones" },
+      "fallback": { "color": "#10B981" },
+      "seated": { "seatHeight": 0.62, "offset": { "y": 0, "z": 0.02 } }
+    },
+    "qa": {
+      "appearance": { "hair": "#4a3728", "skin": "#e0b090", "outfit": "polo", "accessory": "badge" },
+      "fallback": { "color": "#F59E0B" },
+      "seated": { "seatHeight": 0.61 }
+    },
+    "research": {
+      "appearance": { "hair": "#2d3748", "skin": "#d4a574", "outfit": "labcoat" },
+      "fallback": { "color": "#3B82F6" },
+      "seated": { "seatHeight": 0.63, "offset": { "y": 0.01 } }
+    },
+    "supervision": {
+      "appearance": { "hair": "#0f172a", "skin": "#c68642", "outfit": "blazer" },
+      "fallback": { "color": "#8B5CF6" },
+      "seated": { "seatHeight": 0.64, "offset": { "y": 0.02 } }
+    },
+    "data": {
+      "appearance": { "hair": "#553c2a", "skin": "#e5b895", "outfit": "smartcasual" },
+      "fallback": { "color": "#EC4899" },
+      "seated": { "seatHeight": 0.62 }
+    },
+    "business": {
+      "appearance": { "hair": "#1e293b", "skin": "#d6a27d", "outfit": "business" },
+      "fallback": { "color": "#F59E0B" }
+    }
+  },
   "assets": [
     {
       "id": "procedural-humanoid-fallback",
@@ -8,9 +48,25 @@
       "model": null,
       "animations": ["seated_idle", "seated_typing", "reading", "walking", "waiting"],
       "scale": 1,
-      "rootOffset": {"x": 0, "y": 0, "z": 0},
-      "seat": {"height": 0.62, "chairOffset": {"x": 0, "y": 0, "z": -0.9}},
+      "rootOffset": { "x": 0, "y": 0, "z": 0 },
+      "seat": { "height": 0.62, "chairOffset": { "x": 0, "y": 0, "z": -0.9 } },
       "license": "Original project fallback; no external asset"
+    },
+    {
+      "id": "office-worker-glb",
+      "type": "character",
+      "roles": ["development", "qa", "research", "supervision", "data", "business"],
+      "model": "/assets/avatars/office-worker/model.glb",
+      "animations": {
+        "idle": "Idle",
+        "working": "Typing",
+        "researching": "Reading",
+        "waiting": "Sitting",
+        "walking": "Walking"
+      },
+      "scale": 1,
+      "seated": { "seatHeight": 0.62, "offset": { "x": 0, "y": 0, "z": 0.05 } },
+      "license": "User-supplied; install via scripts/install_cc0_assets.sh (Quaternius CC0 or Mixamo-compatible GLB)"
     }
   ]
 }

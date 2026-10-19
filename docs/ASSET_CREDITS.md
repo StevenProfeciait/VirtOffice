@@ -12,12 +12,16 @@ Before adding an external asset, record:
 - Download date and any conversion tool used.
 - The manifest entry and intended agent roles.
 
-## Candidates reviewed
+## Bundled vs user-supplied
 
-These were reviewed as possible future candidates, but none has been downloaded or committed because
-the repository does not yet have a verified redistribution licence for them:
+- **Procedural humanoid fallback** — original to this project (no external model).
+- **Optional GLB** — install at `public/assets/avatars/office-worker/model.glb` (see `scripts/install_cc0_assets.sh`).
 
-- [Business Office Man Character Rigged on Fab](https://www.fab.com/listings/9daf452e-e0af-45fc-b157-34a0533a78aa) — GLB and rigged formats are advertised; confirm the purchase licence before use.
-- [Office Executive Character on Fab](https://www.fab.com/listings/3355817d-6a02-474a-bba9-de3a40cb297e) — Mixamo-compatible rig is advertised; confirm the selected licence and texture size before use.
+## Candidates reviewed (not committed)
+
+- [Business Office Man Character Rigged on Fab](https://www.fab.com/listings/9daf452e-e0af-45fc-b157-34a0533a78aa) — confirm purchase/redistribution licence before commit.
+- [Office Executive Character on Fab](https://www.fab.com/listings/3355817d-6a02-474a-bba9-de3a40cb297e) — Mixamo-compatible; confirm licence.
+- [Quaternius CC0 packs](https://quaternius.com/) — suitable for local install when using CC0 releases.
+- [Kenney CC0 assets](https://kenney.nl/assets) — furniture/props for environment upgrades.
 
 Do not add extracted proprietary game assets or assets whose license does not permit redistribution.

@@ -86,12 +86,17 @@
 
   function applyToScene(entry, group, position) {
     if (!group) return;
-    var seated = entry.avatar && entry.avatar.seated && entry.avatar.seated.enabled;
-    group.position.set(position.x || 0, seated ? ((seated.offset.y || 0) + (seated.seatHeight - 0.62)) : 0, position.z || 0);
+    position = position || entry.position || { x: 0, z: 0 };
+    var walking = entry.state === 'WALKING' || entry.motionState === 'WALKING';
+    var seated = !walking && entry.avatar && entry.avatar.seated && entry.avatar.seated.enabled;
+    var baseY = seated ? ((seated.offset.y || 0) + (seated.seatHeight - 0.62)) : 0;
+    group.position.set(position.x || 0, baseY, position.z || 0);
     if (seated) {
       group.position.x += seated.offset.x || 0;
       group.position.z += seated.offset.z || 0;
-      group.rotation.y = seated.rotation || 0;
+      group.rotation.y = Number.isFinite(Number(position.rotation)) ? position.rotation : (seated.rotation || 0);
+    } else if (Number.isFinite(Number(position.rotation))) {
+      group.rotation.y = position.rotation;
     }
     if (entry.state === 'ERROR') {
       var mat = group.material || (group.userData.colorMat);
@@ -162,12 +167,14 @@
         var from = move.points[segment], to = move.points[segment + 1];
         entry.position.x = from.x + (to.x - from.x) * eased;
         entry.position.z = from.z + (to.z - from.z) * eased;
-        if (entry.group) { entry.group.position.x = entry.position.x; entry.group.position.z = entry.position.z; }
+        if (entry.group) {
+          applyToScene(entry, entry.group, entry.position);
+        }
         entry.motionState = move.elapsed < move.duration ? 'WALKING' : null;
         if (move.elapsed >= move.duration) {
           entry.position.x = to.x;
           entry.position.z = to.z;
-          if (entry.group) { entry.group.position.x = to.x; entry.group.position.z = to.z; }
+          if (entry.group) applyToScene(entry, entry.group, entry.position);
           entry.movement = null;
         }
       }
@@ -178,7 +185,8 @@
       }
       entry._t = this._t;
       if (entry.group && entry.group.userData && entry.group.userData.fallback) {
-        proceduralPose(entry.group, entry.state, this._t);
+        var poseState = entry.motionState || entry.state;
+        proceduralPose(entry.group, poseState, this._t);
       }
       if (entry._mixer) entry._mixer.update(dt);
     }

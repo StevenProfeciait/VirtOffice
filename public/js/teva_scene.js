@@ -3,10 +3,12 @@
   'use strict';
   var THREE = root.THREE;
   var L = root.LAYOUT || root.OFFICE_LAYOUT;
+
   function buildFog() {
     if (!THREE || !L || !L.fog) return null;
     return new THREE.Fog(L.fog.color, L.fog.near, L.fog.far);
   }
+
   function buildGround(size) {
     if (!THREE) return null;
     var s = size || (L && L.exterior && L.exterior.groundSize) || 220;
@@ -17,9 +19,11 @@
     m.position.y = -0.01;
     return m;
   }
+
   function mat(color, options) {
     return new THREE.MeshStandardMaterial(Object.assign({ color: color, roughness: 0.8 }, options || {}));
   }
+
   function buildRoom(options) {
     if (!THREE || !L || !L.room) return null;
     options = options || {};
@@ -40,6 +44,63 @@
     });
     return group;
   }
+
+  function buildOfficeAccents(options) {
+    if (!THREE || !L) return null;
+    options = options || {};
+    var group = new THREE.Group();
+    (L.zones || []).forEach(function (zone) {
+      if (!zone || !zone.color) return;
+      var c = parseInt(String(zone.color).replace('#', ''), 16);
+      var patch = new THREE.Mesh(
+        new THREE.BoxGeometry(zone.w || 8, 0.02, zone.d || 8),
+        mat(c, { roughness: 0.94, transparent: true, opacity: 0.12 })
+      );
+      patch.position.set(zone.x || 0, 0.01, zone.z || 0);
+      patch.receiveShadow = true;
+      group.add(patch);
+    });
+    (L.dividers || []).forEach(function (div) {
+      var isGlass = div.type === 'glass';
+      var dividerMat = isGlass
+        ? mat(0x93c5fd, { roughness: 0.12, metalness: 0.4, transparent: true, opacity: 0.28 })
+        : mat(0x475569, { roughness: 0.75 });
+      var mesh = new THREE.Mesh(new THREE.BoxGeometry(div.w || 0.12, div.h || 1.3, div.d || 4), dividerMat);
+      mesh.position.set(div.x || 0, (div.h || 1.3) / 2, div.z || 0);
+      mesh.rotation.y = div.rot || 0;
+      group.add(mesh);
+    });
+    if (L.anchors && L.anchors.meeting) {
+      var meet = L.anchors.meeting;
+      var glass = new THREE.Mesh(
+        new THREE.BoxGeometry(8, 2.4, 0.08),
+        mat(0x7dd3fc, { roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.22 })
+      );
+      glass.position.set(meet.x, 1.2, meet.z - 2.2);
+      group.add(glass);
+      var table = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.08, 1.4), mat(0x334155, { roughness: 0.7 }));
+      table.position.set(meet.x, 0.78, meet.z);
+      group.add(table);
+    }
+    (L.anchors && L.anchors.plantRing || []).forEach(function (p) {
+      var pot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.35, 8), mat(0x78350f, { roughness: 0.85 }));
+      pot.position.set(p[0], 0.18, p[1]);
+      group.add(pot);
+      var leaves = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), mat(0x15803d, { roughness: 0.9 }));
+      leaves.position.set(p[0], 0.55, p[1]);
+      leaves.scale.y = 1.2;
+      group.add(leaves);
+    });
+    if (L.anchors && L.anchors.lounge) {
+      var lounge = L.anchors.lounge;
+      var sofa = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.55, 0.9), mat(0x1e293b, { roughness: 0.82 }));
+      sofa.position.set(lounge.x, 0.28, lounge.z);
+      group.add(sofa);
+    }
+    group.userData.tevaAccents = true;
+    return group;
+  }
+
   function disposeObject(object) {
     if (!object || !object.traverse) return;
     object.traverse(function (node) {
@@ -50,10 +111,12 @@
       }
     });
   }
+
   root.TevaScene = root.TevaScene || {
     buildFog: buildFog,
     buildGround: buildGround,
     buildRoom: buildRoom,
+    buildOfficeAccents: buildOfficeAccents,
     disposeObject: disposeObject,
     init: function () { return null; },
     dispose: function () {}

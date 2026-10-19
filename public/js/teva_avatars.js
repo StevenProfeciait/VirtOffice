@@ -2,12 +2,13 @@
 (function (root) {
   'use strict';
 
-  var STATES = ['IDLE', 'WORKING', 'RESEARCHING', 'TESTING', 'PLANNING', 'WAITING', 'ERROR', 'COMPLETED'];
+  var STATES = ['IDLE', 'WORKING', 'RESEARCHING', 'TESTING', 'PLANNING', 'WAITING', 'ERROR', 'COMPLETED', 'WALKING'];
   var MODEL_CACHE = {};
   var MODEL_PENDING = {};
 
   function normalizeAvatar(agent) {
     agent = agent || {};
+    if (root.TevaAssets && root.TevaAssets.enrichAgent) agent = root.TevaAssets.enrichAgent(agent);
     var avatar = agent.avatar || {};
     var fallback = avatar.fallback || {};
     return {
@@ -103,6 +104,7 @@
     if (ps === 'PLANNING') return 'PLANNING';
     if (ps === 'WORKING' || ps === 'TYPING' || ps === 'RUNNING' || ps === 'DELEGATING') return 'WORKING';
     if (agent && agent.status === 'meeting') return 'PLANNING';
+    if (agent && agent.status === 'walking') return 'WALKING';
     if (agent && agent.status === 'working') return 'WORKING';
     return 'IDLE';
   }
@@ -174,20 +176,46 @@
   function makeFallback(avatar, THREE) {
     if (!THREE) return null;
     var fb = (avatar && avatar.fallback) || {};
+    var app = (avatar && avatar.appearance) || {};
     var color = fb.color || '#8B5CF6';
     var group = new THREE.Group();
     var body = new THREE.MeshStandardMaterial({ color: new THREE.Color(color), roughness: 0.72 });
-    var skin = new THREE.MeshStandardMaterial({ color: 0xd6a27d, roughness: 0.82 });
-    var hair = new THREE.MeshStandardMaterial({ color: 0x202631, roughness: 0.9 });
-    var torso = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.62, 0.3), body);
+    var skinTone = app.skin || '#d6a27d';
+    var skin = new THREE.MeshStandardMaterial({ color: new THREE.Color(skinTone), roughness: 0.82 });
+    var hairTone = app.hair || '#202631';
+    var hair = new THREE.MeshStandardMaterial({ color: new THREE.Color(hairTone), roughness: 0.9 });
+    var outfit = app.outfit || 'casual';
+    var torsoGeo = outfit === 'hoodie' ? new THREE.BoxGeometry(0.52, 0.64, 0.34) : new THREE.BoxGeometry(0.48, 0.62, 0.3);
+    var torso = new THREE.Mesh(torsoGeo, body);
     torso.position.y = 1.08;
     group.add(torso);
+    if (outfit === 'labcoat') {
+      var coat = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.66, 0.32), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.88 }));
+      coat.position.y = 1.06;
+      group.add(coat);
+    }
+    if (outfit === 'blazer') {
+      var blazer = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.58, 0.32), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75 }));
+      blazer.position.y = 1.1;
+      group.add(blazer);
+    }
     var head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 12, 8), skin);
     head.position.y = 1.62;
     group.add(head);
     var hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.275, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.48), hair);
     hairCap.position.y = 1.69;
     group.add(hairCap);
+    if (app.accessory === 'headphones') {
+      var band = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 6, 16, Math.PI), hair);
+      band.rotation.z = Math.PI;
+      band.position.y = 1.72;
+      group.add(band);
+    }
+    if (app.accessory === 'badge') {
+      var badge = new THREE.Mesh(new THREE.CircleGeometry(0.05, 8), new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xfbbf24, emissiveIntensity: 0.2 }));
+      badge.position.set(0.12, 1.15, 0.17);
+      group.add(badge);
+    }
     var parts = { head: head, leftArm: null, rightArm: null, leftThigh: null, rightThigh: null, leftShin: null, rightShin: null };
     [-1, 1].forEach(function (side) {
       var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.55, 8), body);

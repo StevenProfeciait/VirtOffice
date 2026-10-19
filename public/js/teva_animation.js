@@ -9,7 +9,8 @@
     PLANNING: ['talking', 'gesturing', 'seated_idle', 'idle'],
     ERROR: ['seated_idle', 'idle'],
     COMPLETED: ['celebrate', 'seated_idle', 'idle'],
-    IDLE: ['seated_idle', 'idle']
+    IDLE: ['seated_idle', 'idle'],
+    WALKING: ['walking', 'walk', 'run']
   };
   function candidates(state) { return (ALIASES[String(state || 'IDLE').toUpperCase()] || ['idle']).slice(); }
   function transition(mixer, current, clip, duration) {

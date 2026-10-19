@@ -1,8 +1,14 @@
 # Avatar Assets
 
-Avatar loading is opt-in through the modular renderer. Start with
-`office.html?modular=1&prototype=1` to inspect the workstation integration. The repository does not
-ship third-party character files; add only assets whose licenses permit local redistribution.
+Avatar loading is opt-in through the modular renderer.
+
+- **Full modular office:** `office.html?modular=1&workstations=all`
+- **Single workstation prototype:** `office.html?modular=1&prototype=1`
+
+Role-based procedural characters (development, QA, research, supervision, data) apply automatically via
+`public/assets/asset-manifest.json`. Optional GLB: `public/assets/avatars/office-worker/model.glb`.
+
+The repository does not ship third-party character files; add only assets whose licenses permit local redistribution.
 
 TEVA HQ supports user-supplied character models in glTF 2.0 format.
 

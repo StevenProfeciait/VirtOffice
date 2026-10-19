@@ -781,6 +781,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="/vendor/GLTFLoader.js"></script>
 <script src="vo_events.js"></script>
 <script src="office_layout.js"></script>
+<script src="js/teva_assets.js"></script>
 <script src="js/teva_avatars.js"></script>
 <script src="js/teva_activity.js"></script>
 <script src="js/teva_scene.js"></script>
@@ -1328,39 +1329,72 @@ function startLiveUpdates() {
 // the production default. Enable with ?modular=1 or localStorage.teva_modular=1.
 let modularBridge = null;
 let modularPrototype = null;
+const modularWorkstations = {};
 function modularAvatarsEnabled() {
   try { return new URLSearchParams(location.search).get('modular') === '1' || localStorage.getItem('teva_modular') === '1'; }
   catch (e) { return false; }
 }
-function startModularAvatars() {
-  if (!modularAvatarsEnabled() || !window.TevaDataBridge || !window.TevaAvatarManager) return;
-  const resolver = agent => {
-    const p = (LAYOUT.seats && LAYOUT.seats[agent.id]) || (agent.home && LAYOUT.demoHomes && LAYOUT.demoHomes[agent.home]);
-    return p ? { x: p.x, z: p.z - 0.9 } : { x: 0, z: 0 };
-  };
-  modularBridge = new TevaDataBridge.DataBridge(scene, {
-    positionResolver: resolver,
-    onAgent: agent => {
-      if (!modularPrototype || !modularPrototype.userData || modularPrototype.userData.agentId !== agent.id) return;
-      const activity = agent.activity || {};
-      modularPrototype.userData.setStatus((activity.presentationState || activity.state || agent.status || 'IDLE').toUpperCase());
+function modularAgentPosition(agent) {
+  if (window.TevaAssets && TevaAssets.resolveAgentPosition) return TevaAssets.resolveAgentPosition(agent);
+  const p = (LAYOUT.seats && LAYOUT.seats[agent.id]) || (agent.home && LAYOUT.demoHomes && LAYOUT.demoHomes[agent.home]);
+  return p ? { x: p.x, z: p.z - 0.52, rotation: 0, seatHeight: 0.62 } : { x: 0, z: 0, rotation: 0, seatHeight: 0.62 };
+}
+function syncModularWorkstationStatus(agent) {
+  const ws = modularWorkstations[agent.id];
+  if (!ws || !ws.userData || !ws.userData.setStatus) return;
+  const activity = agent.activity || {};
+  const st = (activity.presentationState || activity.state || agent.status || 'IDLE').toUpperCase();
+  ws.userData.setStatus(st);
+}
+function buildModularWorkstations(allAgents) {
+  if (!window.TevaEnv || !TevaEnv.buildWorkstation) return;
+  const params = new URLSearchParams(location.search);
+  const prototypeOnly = params.get('prototype') === '1' && params.get('workstations') !== 'all';
+  const list = prototypeOnly
+    ? [(allAgents || AGENTS).find(a => a.id !== 'needs-steve') || (allAgents || AGENTS)[0]].filter(Boolean)
+    : (allAgents || AGENTS).filter(a => a && a.id !== 'needs-steve');
+  list.forEach(agent => {
+    if (modularWorkstations[agent.id]) return;
+    const origin = (window.TevaAssets && TevaAssets.resolveWorkstationOrigin)
+      ? TevaAssets.resolveWorkstationOrigin(agent)
+      : { x: 0, z: 0, rotation: 0, accent: agent.color, style: 'standard' };
+    const ws = TevaEnv.buildWorkstation({
+      x: origin.x,
+      z: origin.z,
+      rotation: origin.rotation || 0,
+      color: origin.accent || agent.color,
+      style: origin.style || 'standard',
+      agentId: agent.id,
+      headphones: !!(agent.avatar && agent.avatar.appearance && agent.avatar.appearance.accessory === 'headphones')
+    });
+    if (!ws) return;
+    scene.add(ws);
+    clickableObjects.push(ws);
+    modularWorkstations[agent.id] = ws;
+    syncModularWorkstationStatus(agent);
+    if (!modularPrototype) {
+      modularPrototype = ws;
+      window.__tevaWorkstationPrototype = ws;
     }
   });
-  try {
-    const prototype = new URLSearchParams(location.search).get('prototype') === '1';
-    const first = AGENTS.find(a => a.id !== 'needs-steve') || AGENTS[0];
-    if (prototype && first && window.TevaEnv && TevaEnv.buildWorkstation) {
-      const p = resolver(first);
-      modularPrototype = TevaEnv.buildWorkstation({ x: p.x, z: p.z, color: first.color, agentId: first.id });
-      scene.add(modularPrototype);
-      clickableObjects.push(modularPrototype);
-      window.__tevaWorkstationPrototype = modularPrototype;
-    }
-  } catch (e) {}
-  modularBridge.reconcile(AGENTS);
-  modularBridge.start();
-  document.body.dataset.modularAvatars = 'on';
-  showToast(modularPrototype ? 'Workstation prototype enabled' : 'Modular avatars enabled (experimental)');
+}
+function startModularAvatars() {
+  if (!modularAvatarsEnabled() || !window.TevaDataBridge || !window.TevaAvatarManager) return;
+  const boot = () => {
+    const resolver = agent => modularAgentPosition(agent);
+    modularBridge = new TevaDataBridge.DataBridge(scene, {
+      positionResolver: resolver,
+      onAgent: (agent) => syncModularWorkstationStatus(agent)
+    });
+    buildModularWorkstations(AGENTS);
+    modularBridge.reconcile(AGENTS);
+    modularBridge.start();
+    document.body.setAttribute('data-modular-avatars', 'on');
+    const n = Object.keys(modularWorkstations).length;
+    showToast(n ? `Modular office: ${n} workstation(s)` : 'Modular avatars enabled');
+  };
+  if (window.TevaAssets && TevaAssets.loadManifest) TevaAssets.loadManifest('/assets/asset-manifest.json', boot);
+  else boot();
 }
 
 function hideLoading() {
@@ -3184,6 +3218,9 @@ function animate(ts) {
   updateCamera();
 
   animateAgents(delta);
+  if (modularBridge) {
+    Object.values(modularWorkstations).forEach(ws => { if (ws.userData && ws.userData.tick) ws.userData.tick(delta); });
+  }
   updateBubbles(delta);
   updateParticles(delta);
   updateTransient(delta);
@@ -3706,6 +3743,7 @@ function partColor(obj, kind, out) {
   return out;
 }
 function partVisible(obj, p, now) {
+  if ((modularBridge || document.body.getAttribute('data-modular-avatars') === 'on') && (p.kind === 'agent' || p.kind === 'helper' || p.kind === 'folder')) return false;
   if (p.kind === 'ring') return obj.base !== 'OFFLINE';
   if (p.kind === 'flag') return !!(FLAGGED[obj.agent.id] && now - FLAGGED[obj.agent.id] < FLAG_MS);
   if (p.kind === 'helper') return obj.base === 'DELEGATING' && p.n < VOE.helperCount(obj.agent);
@@ -4179,11 +4217,30 @@ function focusSeat(id) {
   tweenCamera(new THREE.Vector3(obj.group.position.x, 0, obj.group.position.z), 0.55);
 }
 function focusWorkstation(id) {
-  if (modularPrototype && modularPrototype.userData && modularPrototype.userData.agentId === id) {
+  const agent = AGENTS.find(a => a.id === id);
+  const ws = modularWorkstations[id] || (modularPrototype && modularPrototype.userData && modularPrototype.userData.agentId === id ? modularPrototype : null);
+  if (ws && (modularBridge || document.body.getAttribute('data-modular-avatars') === 'on')) {
     autoRotate = false;
     const rb = document.getElementById('rotateBtn'); if (rb) rb.classList.remove('active');
-    tweenCamera(new THREE.Vector3(modularPrototype.position.x, 0.75, modularPrototype.position.z), 0.42);
+    const pos = agent && window.TevaAssets ? TevaAssets.resolveAgentPosition(agent) : { x: ws.position.x, z: ws.position.z, rotation: ws.rotation.y };
+    if (window.TevaCam && TevaCam.workstationPreset) {
+      const preset = TevaCam.workstationPreset(pos);
+      tweenCamera(new THREE.Vector3(preset.target[0], preset.eyeHeight || 0.72, preset.target[2]), preset.zoom || 0.42);
+      if (preset.rotation != null) currentRotation = targetRotation = preset.rotation;
+    } else {
+      tweenCamera(new THREE.Vector3(pos.x, 0.75, pos.z), 0.42);
+    }
     return;
+  }
+  if (agent && window.TevaCam && TevaCam.zoneForAgent && LAYOUT.departments) {
+    const zone = TevaCam.zoneForAgent(agent);
+    if (zone && LAYOUT.departments[zone] && (modularBridge || document.body.getAttribute('data-modular-avatars') === 'on')) {
+      const dep = TevaCam.departmentPreset(zone);
+      autoRotate = false;
+      tweenCamera(new THREE.Vector3(dep.target[0], dep.target[1], dep.target[2]), dep.zoom || 1.25);
+      if (dep.rotation != null) currentRotation = targetRotation = dep.rotation;
+      return;
+    }
   }
   focusSeat(id);
 }

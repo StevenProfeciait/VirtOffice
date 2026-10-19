@@ -38,5 +38,13 @@ if (!layout.exterior || !layout.exterior.groundSize) {
   console.error('exterior ground config missing');
   fail++;
 }
+if (!layout.workstations || !layout.workstations.le) {
+  console.error('workstations config missing');
+  fail++;
+}
+if (!layout.navPoints || !layout.navPoints.meeting) {
+  console.error('navPoints missing');
+  fail++;
+}
 console.log(fail ? `FAIL ${fail}` : 'ok', 'seats', Object.keys(layout.seats).length, 'room', layout.room.width + 'x' + layout.room.depth);
 process.exit(fail ? 1 : 0);
