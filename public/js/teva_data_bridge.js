@@ -6,9 +6,33 @@
     options = options || {};
     this.scene = scene;
     this.manager = new root.TevaAvatarManager.Manager(scene);
-    this.service = Act.DataService;
+    // Keep the modular renderer usable even when the optional live activity
+    // service is unavailable (for example during a static-file preview).
+    // The initial roster still renders and the bridge will use the same API
+    // endpoints when they are available.
+    this.service = Act && Act.DataService ? Act.DataService : {
+      _handlers: {},
+      setHandlers: function (handlers) { this._handlers = handlers || {}; },
+      loadConfig: function () {
+        return root.fetch ? root.fetch('/api/config').then(function (r) { return r.ok ? r.json() : {}; }).then(function (c) {
+          if (this._handlers.onConfig) this._handlers.onConfig(c);
+          return c;
+        }.bind(this)) : Promise.resolve({});
+      },
+      loadAgents: function () {
+        return root.fetch ? root.fetch('/api/agents').then(function (r) { return r.ok ? r.json() : []; }).then(function (agents) {
+          agents = Array.isArray(agents) ? agents : (agents.agents || []);
+          if (this._handlers.onAgents) this._handlers.onAgents(agents);
+          return agents;
+        }.bind(this)) : Promise.resolve([]);
+      },
+      connectSSE: function () {},
+      disconnect: function () {}
+    };
     this.positionResolver = options.positionResolver || function () { return { x: 0, z: 0 }; };
     this.onAgent = options.onAgent || null;
+    this.quality = options.quality || 'full';
+    this.manager.setQuality(this.quality);
     this.pollTimer = null;
     this.tickTimer = null;
   }
@@ -60,6 +84,10 @@
     if (this.tickTimer && root.clearInterval) root.clearInterval(this.tickTimer);
     this.pollTimer = this.tickTimer = null;
     if (this.service && this.service.disconnect) this.service.disconnect();
+  };
+  DataBridge.prototype.setQuality = function (quality) {
+    this.quality = this.manager.setQuality(quality);
+    return this.quality;
   };
   DataBridge.prototype.dispose = function () {
     this.stop();

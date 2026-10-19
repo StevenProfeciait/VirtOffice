@@ -40,8 +40,13 @@
     return {
       mode: 'workstation',
       target: [Number(position.x) || 0, 0, Number(position.z) || 0],
-      zoom: 1.55,
-      rotation: Number.isFinite(Number(position.rotation)) ? position.rotation - Math.PI / 6 : -Math.PI / 5,
+      // The legacy camera treats smaller zoom values as closer. Keep the
+      // workstation preset inside the normal zoom range so desk/seat details
+      // are actually inspectable rather than leaving the overview distance.
+      zoom: 0.24,
+      // Approach from the chair side of the desk so the seated body, hands,
+      // keyboard, and monitor relationship remain visible in the close-up.
+      rotation: Number.isFinite(Number(position.rotation)) ? position.rotation + Math.PI - Math.PI / 6 : Math.PI - Math.PI / 5,
       eyeHeight: 0.72,
       distance: 2.4
     };

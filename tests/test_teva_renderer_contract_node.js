@@ -1,0 +1,11 @@
+const fs = require('fs');
+const vm = require('vm');
+const sandbox = { window: {}, global: {}, fetch: undefined };
+sandbox.window = sandbox;
+sandbox.global = sandbox;
+vm.runInContext(fs.readFileSync('public/js/teva_renderer_contract.js', 'utf8'), vm.createContext(sandbox));
+const C = sandbox.TevaRendererContract;
+const scene = C.normalize({ version: 4, room: { width: 72 }, seats: { a: { x: 1, z: 2 } }, zones: ['lab'] });
+if (scene.version !== 4 || scene.room.width !== 72 || scene.seats.a.x !== 1 || scene.zones.length !== 1) process.exit(1);
+if (scene.coordinateSystem.groundPlane !== 'xz' || scene.agentState !== '/api/agents') process.exit(1);
+console.log('ok');

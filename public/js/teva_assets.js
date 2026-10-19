@@ -6,9 +6,12 @@
   var DEFAULT_MANIFEST = {
     version: 2,
     workstation: {
+      assetId: 'cyberpunk-workstation-procedural',
       seatHeight: 0.62,
-      agentLocal: { x: 0, z: -0.52 },
-      agentRotation: 0,
+      agentLocal: { x: 0, z: -0.9 },
+      // The bundled Quaternius character faces -Z in its source pose while
+      // workstations face +Z. Rotate the seated avatar into the desk.
+      agentRotation: Math.PI,
       chairLocalZ: -0.9
     },
     rolePresets: {}
@@ -16,6 +19,8 @@
 
   var manifest = null;
   var manifestUrl = '/assets/asset-manifest.json';
+  var modelCache = {};
+  var modelLoads = {};
 
   function deepMerge(base, extra) {
     if (!extra || typeof extra !== 'object') return base;
@@ -89,11 +94,84 @@
     return (m.assets || []).filter(function (a) { return a && a.id === id; })[0] || null;
   }
 
+  function findAssetsByType(type) {
+    var wanted = String(type || '').toLowerCase();
+    return getManifest().assets.filter(function (asset) {
+      return asset && String(asset.type || '').toLowerCase() === wanted;
+    });
+  }
+
+  function assetForWorkstation(config) {
+    config = config || {};
+    return findAssetEntry(config.assetId || 'cyberpunk-workstation-procedural');
+  }
+
+  function assetForRoom(id) {
+    return findAssetEntry(id) || null;
+  }
+
+  // Load optional environment/workstation models without making them a hard
+  // dependency of the office. A missing loader, model, or texture falls back
+  // to the procedural builder through the null callback result.
+  function loadModelAsset(id, callback) {
+    callback = typeof callback === 'function' ? callback : function () {};
+    var asset = findAssetEntry(id);
+    if (!asset || !asset.model || !root.THREE || !root.THREE.GLTFLoader) {
+      callback(null, asset);
+      return;
+    }
+    if (modelCache[id]) {
+      callback(modelCache[id], asset);
+      return;
+    }
+    if (modelLoads[id]) {
+      modelLoads[id].push(callback);
+      return;
+    }
+    modelLoads[id] = [callback];
+    var finish = function (model) {
+      if (model) modelCache[id] = model;
+      var callbacks = modelLoads[id] || [];
+      delete modelLoads[id];
+      callbacks.forEach(function (done) { done(model || null, asset); });
+    };
+    try {
+      new root.THREE.GLTFLoader().load(asset.model, function (gltf) {
+        finish(gltf && gltf.scene ? gltf.scene : null);
+      }, undefined, function () { finish(null); });
+    } catch (err) {
+      finish(null);
+    }
+  }
+
+  function clearModelCache() {
+    modelCache = {};
+    modelLoads = {};
+  }
+
+  function assetForAgent(agent, preset) {
+    agent = agent || {};
+    preset = preset || getRolePreset(agent);
+    var avatar = agent.avatar || {};
+    var id = avatar.assetId || agent.assetId || (preset && preset.assetId);
+    return id ? findAssetEntry(id) : null;
+  }
+
   function enrichAgent(agent) {
     agent = agent || {};
     var preset = getRolePreset(agent);
     if (!preset) return agent;
     var avatar = Object.assign({}, agent.avatar || {});
+    var asset = assetForAgent(agent, preset);
+    if (asset) {
+      avatar.assetId = asset.id;
+      if (asset.model && !avatar.model) avatar.model = asset.model;
+      if (asset.scale != null && avatar.scale == null) avatar.scale = asset.scale;
+      if (asset.animations && typeof asset.animations === 'object' && !Array.isArray(asset.animations)) {
+        avatar.animations = Object.assign({}, asset.animations, avatar.animations || {});
+      }
+      if (asset.seated) avatar.seated = deepMerge(Object.assign({}, avatar.seated || {}), asset.seated);
+    }
     if (preset.model && !avatar.model) avatar.model = preset.model;
     if (preset.scale != null && avatar.scale == null) avatar.scale = preset.scale;
     if (preset.animations) avatar.animations = Object.assign({}, preset.animations, avatar.animations || {});
@@ -169,6 +247,12 @@
     roleKey: roleKey,
     getRolePreset: getRolePreset,
     findAssetEntry: findAssetEntry,
+    findAssetsByType: findAssetsByType,
+    assetForWorkstation: assetForWorkstation,
+    assetForRoom: assetForRoom,
+    loadModelAsset: loadModelAsset,
+    clearModelCache: clearModelCache,
+    assetForAgent: assetForAgent,
     enrichAgent: enrichAgent,
     seatKeyForAgent: seatKeyForAgent,
     workstationConfig: workstationConfig,

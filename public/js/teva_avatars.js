@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
 
-  var STATES = ['IDLE', 'WORKING', 'RESEARCHING', 'TESTING', 'PLANNING', 'WAITING', 'ERROR', 'COMPLETED', 'WALKING'];
+  var STATES = ['IDLE', 'WORKING', 'MOUSE', 'RESEARCHING', 'THINKING', 'TESTING', 'PLANNING', 'TALKING', 'WAITING', 'STANDING_UP', 'SITTING_DOWN', 'STANDING', 'ERROR', 'COMPLETED', 'WALKING'];
   var MODEL_CACHE = {};
   var MODEL_PENDING = {};
 
@@ -47,13 +47,20 @@
     var key = String(state || 'IDLE').toLowerCase();
     var aliases = {
       working: ['seated_typing', 'typing', 'working', 'seated_idle', 'idle'],
+      mouse: ['mouse', 'using_mouse', 'seated_typing', 'working', 'seated_idle', 'idle'],
       researching: ['reading', 'seated_idle', 'idle'],
+      thinking: ['thinking', 'seated_idle', 'idle'],
       testing: ['seated_typing', 'working', 'seated_idle', 'idle'],
       waiting: ['seated_idle', 'idle'],
       planning: ['talking', 'gesturing', 'seated_idle', 'idle'],
+      talking: ['talking', 'gesturing', 'seated_idle', 'idle'],
+      standing_up: ['standing_up', 'standup', 'standing', 'idle'],
+      sitting_down: ['sitting_down', 'sitdown', 'seated_idle', 'idle'],
+      standing: ['standing', 'idle'],
       error: ['seated_idle', 'idle'],
       completed: ['celebrate', 'seated_idle', 'idle'],
-      idle: ['seated_idle', 'idle']
+      idle: ['seated_idle', 'idle'],
+      walking: ['walking', 'walk', 'locomotion']
     };
     var candidates = [key, String(state || '')].concat(aliases[key] || []);
     for (var i = 0; i < candidates.length; i++) {
@@ -66,6 +73,29 @@
     return !!(avatar && typeof avatar.model === 'string' && avatar.model.trim());
   }
 
+  // Keep asset inspection pure so the UI and tests can report whether a model
+  // actually contains the clips needed by the state-driven renderer.
+  function inspectClips(clips) {
+    clips = Array.isArray(clips) ? clips.filter(Boolean) : [];
+    var names = clips.map(function (clip) { return String(clip.name || ''); });
+    var normalized = names.map(function (name) { return name.toLowerCase().replace(/[ _-]/g, ''); });
+    function hasAny(values) {
+      return values.some(function (value) {
+        value = String(value).toLowerCase().replace(/[ _-]/g, '');
+        return normalized.some(function (name) { return name.indexOf(value) !== -1; });
+      });
+    }
+    return {
+      count: clips.length,
+      names: names,
+      hasSeated: hasAny(['seated', 'sitting', 'sitdown']),
+      hasWorking: hasAny(['seatedtyping', 'typing', 'working', 'reading']),
+      hasLocomotion: hasAny(['walking', 'walk', 'locomotion']),
+      hasConversation: hasAny(['talking', 'gesturing', 'presenting']),
+      hasIdle: hasAny(['idle', 'neutral', 'waiting'])
+    };
+  }
+
   function resolveClip(clips, state, configured) {
     if (!Array.isArray(clips) || !clips.length) return null;
     if (configured) {
@@ -75,13 +105,20 @@
     var normalized = String(state || 'IDLE').toLowerCase().replace(/[ _-]/g, '');
     var aliases = {
       working: ['seatedtyping', 'typing', 'working', 'seatedidle', 'idle'],
+      mouse: ['mouse', 'usingmouse', 'seatedtyping', 'working', 'seatedidle', 'idle'],
       researching: ['reading', 'seatedidle', 'idle'],
+      thinking: ['thinking', 'seatedidle', 'idle'],
       testing: ['seatedtyping', 'working', 'seatedidle', 'idle'],
       waiting: ['seatedidle', 'idle'],
       planning: ['talking', 'gesturing', 'seatedidle', 'idle'],
+      talking: ['talking', 'gesturing', 'seatedidle', 'idle'],
+      standingup: ['standingup', 'standup', 'standing', 'idle'],
+      sittingdown: ['sittingdown', 'sitdown', 'seatedidle', 'idle'],
+      standing: ['standing', 'idle'],
       error: ['seatedidle', 'idle'],
       completed: ['celebrate', 'seatedidle', 'idle'],
       idle: ['seatedidle', 'idle']
+      ,walking: ['walking', 'walk', 'locomotion']
     };
     var wanted = [normalized].concat(aliases[normalized] || []);
     for (var i = 0; i < wanted.length; i++) {
@@ -93,6 +130,98 @@
     return null;
   }
 
+  function buildGeneratedClips(scene, existing) {
+    var THREE = root.THREE;
+    existing = Array.isArray(existing) ? existing.slice() : [];
+    if (!THREE || !THREE.AnimationClip || !THREE.QuaternionKeyframeTrack || !scene || !scene.traverse) return existing;
+    var bones = {};
+    scene.traverse(function (node) { if (node && (node.isBone || node.type === 'Bone') && node.name) bones[node.name] = node; });
+    if (!bones.pelvis || !bones.thigh_l || !bones.thigh_r || !bones.calf_l || !bones.calf_r) return existing;
+    var known = {};
+    existing.forEach(function (clip) { if (clip && clip.name) known[clip.name.toLowerCase().replace(/[ _-]/g, '')] = true; });
+    var base = {};
+    Object.keys(bones).forEach(function (name) { base[name] = bones[name].quaternion.clone(); });
+    var E = function (x, y, z) { return { x: x || 0, y: y || 0, z: z || 0 }; };
+    var seated = {
+      // Keep the pelvis over the chair cushion, with a slight forward lean
+      // toward the keyboard instead of the stiff, upright source pose.
+      pelvis: E(-0.08, 0, 0), thigh_l: E(-1.42, 0, 0), thigh_r: E(-1.42, 0, 0),
+      calf_l: E(1.28, 0, 0), calf_r: E(1.28, 0, 0), spine_01: E(-0.14, 0, 0),
+      spine_02: E(-0.12, 0, 0), spine_03: E(-0.1, 0, 0), upperarm_l: E(-1.02, 0, 0),
+      upperarm_r: E(-1.02, 0, 0), lowerarm_l: E(-0.48, 0, 0), lowerarm_r: E(-0.48, 0, 0),
+      neck_01: E(0.05, 0, 0), Head: E(0.05, 0, 0)
+    };
+    function addDelta(target, name, delta) {
+      if (bones[name]) target[name] = delta;
+    }
+    function makeClip(name, times, poses) {
+      var tracks = [];
+      Object.keys(base).forEach(function (boneName) {
+        var values = [];
+        for (var i = 0; i < times.length; i++) {
+          var delta = (poses[i] && poses[i][boneName]) || E(0, 0, 0);
+          var q = base[boneName].clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(delta.x, delta.y, delta.z)));
+          values.push(q.x, q.y, q.z, q.w);
+        }
+        if (values.some(function (v) { return v !== 0; })) tracks.push(new THREE.QuaternionKeyframeTrack(boneName + '.quaternion', times, values));
+      });
+      if (bones.pelvis && THREE.VectorKeyframeTrack) {
+        var positions = [];
+        for (var p = 0; p < times.length; p++) {
+          var seatedPose = poses[p] && poses[p].__seated;
+          var pos = bones.pelvis.position;
+          positions.push(pos.x, pos.y + (seatedPose ? -0.28 : 0), pos.z + (seatedPose ? 0.08 : 0));
+        }
+        tracks.push(new THREE.VectorKeyframeTrack('pelvis.position', times, positions));
+      }
+      return new THREE.AnimationClip(name, times[times.length - 1], tracks);
+    }
+    function seatedPose(armDelta) {
+      var pose = {};
+      Object.keys(seated).forEach(function (name) { addDelta(pose, name, seated[name]); });
+      pose.__seated = true;
+      if (armDelta) {
+        if (bones.lowerarm_l) pose.lowerarm_l = E(-0.48 + armDelta, 0, 0);
+        if (bones.lowerarm_r) pose.lowerarm_r = E(-0.48 - armDelta, 0, 0);
+      }
+      return pose;
+    }
+    function talkingPose(armDelta) {
+      var pose = seatedPose(0);
+      if (bones.upperarm_l) pose.upperarm_l = E(-0.95, 0, armDelta);
+      if (bones.upperarm_r) pose.upperarm_r = E(-0.95, 0, -armDelta);
+      return pose;
+    }
+    function walkingPose(legDelta) {
+      var pose = {};
+      addDelta(pose, 'thigh_l', E(legDelta, 0, 0));
+      addDelta(pose, 'thigh_r', E(-legDelta, 0, 0));
+      addDelta(pose, 'calf_l', E(-legDelta * 0.45, 0, 0));
+      addDelta(pose, 'calf_r', E(legDelta * 0.45, 0, 0));
+      addDelta(pose, 'upperarm_l', E(-legDelta * 0.7, 0, 0));
+      addDelta(pose, 'upperarm_r', E(legDelta * 0.7, 0, 0));
+      return pose;
+    }
+    function standingPose() { return {}; }
+    var generated = [
+      makeClip('SeatedIdle', [0, 2], [seatedPose(0), seatedPose(0)]),
+      makeClip('SeatedTyping', [0, 0.4, 0.8, 1.2, 1.6], [seatedPose(-0.035), seatedPose(0.035), seatedPose(-0.035), seatedPose(0.035), seatedPose(-0.035)]),
+      makeClip('Mouse', [0, 0.6, 1.2], [seatedPose(-0.05), seatedPose(0.05), seatedPose(-0.05)]),
+      makeClip('Reading', [0, 2], [seatedPose(0), seatedPose(0)]),
+      makeClip('Thinking', [0, 2], [seatedPose(0), seatedPose(0)]),
+      makeClip('Talking', [0, 0.9, 1.8], [talkingPose(-0.07), talkingPose(0.07), talkingPose(-0.07)]),
+      makeClip('SittingDown', [0, 0.8], [standingPose(), seatedPose(0)]),
+      makeClip('StandingUp', [0, 0.8], [seatedPose(0), standingPose()]),
+      makeClip('Standing', [0, 2], [standingPose(), standingPose()]),
+      makeClip('Walking', [0, 0.5, 1], [walkingPose(-0.45), walkingPose(0.45), walkingPose(-0.45)])
+    ];
+    generated.forEach(function (clip) {
+      var key = clip.name.toLowerCase().replace(/[ _-]/g, '');
+      if (!known[key]) existing.push(clip);
+    });
+    return existing;
+  }
+
   function stateFromActivity(agent) {
     var activity = agent && agent.activity ? agent.activity : {};
     var ps = activity.presentationState || activity.state;
@@ -100,8 +229,14 @@
     if (ps === 'COMPLETED') return 'COMPLETED';
     if (ps === 'WAITING' || ps === 'WAITING_FOR_APPROVAL') return 'WAITING';
     if (ps === 'TESTING') return 'TESTING';
+    if (ps === 'MOUSE' || ps === 'USING_MOUSE') return 'MOUSE';
     if (ps === 'RESEARCHING' || ps === 'READING') return 'RESEARCHING';
+    if (ps === 'THINKING') return 'THINKING';
     if (ps === 'PLANNING') return 'PLANNING';
+    if (ps === 'TALKING' || ps === 'GESTURING') return 'TALKING';
+    if (ps === 'STANDING_UP' || ps === 'STAND_UP') return 'STANDING_UP';
+    if (ps === 'SITTING_DOWN' || ps === 'SIT_DOWN') return 'SITTING_DOWN';
+    if (ps === 'STANDING') return 'STANDING';
     if (ps === 'WORKING' || ps === 'TYPING' || ps === 'RUNNING' || ps === 'DELEGATING') return 'WORKING';
     if (agent && agent.status === 'meeting') return 'PLANNING';
     if (agent && agent.status === 'walking') return 'WALKING';
@@ -135,14 +270,15 @@
     loader.load(
       avatar.model,
       function (gltf) {
-        MODEL_CACHE[avatar.model] = { scene: gltf.scene, animations: gltf.animations || [] };
+        var animations = buildGeneratedClips(gltf.scene, gltf.animations || []);
+        MODEL_CACHE[avatar.model] = { scene: gltf.scene, animations: animations };
         var callbacks = MODEL_PENDING[avatar.model] || [];
         delete MODEL_PENDING[avatar.model];
         callbacks.forEach(function (item) {
           if (item.cancelled || !item.callback) return;
           var model = gltf.scene && gltf.scene.clone ? gltf.scene.clone(true) : gltf.scene;
           if (model && model.userData) model.userData.tevaSharedAsset = true;
-          item.callback({ scene: model, animations: gltf.animations || [] }, model, 'loaded');
+          item.callback({ scene: model, animations: animations }, model, 'loaded');
         });
       },
       undefined,
@@ -243,10 +379,12 @@
     normalizeAvatar: normalizeAvatar,
     clipFor: clipFor,
     resolveClip: resolveClip,
+    inspectClips: inspectClips,
     hasModel: hasModel,
     stateFromActivity: stateFromActivity,
     loadAvatar: loadAvatar,
     clearModelCache: clearModelCache,
     makeFallback: makeFallback
+    ,buildGeneratedClips: buildGeneratedClips
   };
 })(typeof window !== 'undefined' ? window : global);

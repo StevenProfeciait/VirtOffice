@@ -57,13 +57,24 @@
     var group = new THREE.Group();
     var accent = hexColor(options.color, 0x64748b);
     var style = options.style || 'standard';
-    var trim = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.42, metalness: 0.22, emissive: accent, emissiveIntensity: 0.12 });
-    var deskMat = style === 'gaming' ? shared.darkMetal : shared.wood;
+    var cyberpunk = options.cyberpunk !== false;
+    var trim = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.32, metalness: 0.42, emissive: accent, emissiveIntensity: cyberpunk ? 0.32 : 0.12 });
+    var deskMat = cyberpunk ? new THREE.MeshStandardMaterial({ color: 0x121827, roughness: 0.34, metalness: 0.68 }) : (style === 'gaming' ? shared.darkMetal : shared.wood);
     var deskW = style === 'collab' ? 3.4 : 2.85;
     var desk = new THREE.Mesh(new THREE.BoxGeometry(deskW, 0.12, 1.28), deskMat);
     desk.position.y = 1.08;
     desk.castShadow = desk.receiveShadow = true;
     group.add(desk);
+    if (cyberpunk) {
+      var frontGlow = new THREE.Mesh(new THREE.BoxGeometry(deskW * 0.86, 0.018, 0.025), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.92 }));
+      frontGlow.position.set(0, 1.025, -0.64);
+      frontGlow.userData.neon = true;
+      group.add(frontGlow);
+      var sideGlow = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.018, 1.05), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.72 }));
+      sideGlow.position.set(-deskW / 2 + 0.08, 1.025, 0);
+      sideGlow.userData.neon = true;
+      group.add(sideGlow);
+    }
     [[-deskW / 2 + 0.15, -0.42], [deskW / 2 - 0.15, -0.42]].forEach(function (leg) {
       var support = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.05, 0.1), trim);
       support.position.set(leg[0], 0.54, leg[1]);
@@ -92,7 +103,26 @@
       screen.userData.monitorScreen = true;
       group.add(screen);
     });
-    var keyboard = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.035, 0.22), new THREE.MeshStandardMaterial({ color: 0x303744, roughness: 0.7 }));
+    if (cyberpunk) {
+      var holoMat = new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 0.72, transparent: true, opacity: 0.16, metalness: 0.25, roughness: 0.18, side: THREE.DoubleSide });
+      var holo = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.5, 0.018), holoMat);
+      holo.position.set(0, 1.92, 0.4);
+      holo.userData.holoPanel = true;
+      group.add(holo);
+      var holoRing = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 8, 32), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.72 }));
+      holoRing.position.set(0, 1.92, 0.385);
+      holoRing.userData.neon = true;
+      group.add(holoRing);
+      var tower = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.62, 0.52), new THREE.MeshStandardMaterial({ color: 0x0b1020, roughness: 0.28, metalness: 0.72 }));
+      tower.position.set(deskW / 2 - 0.28, 0.72, 0.2);
+      tower.castShadow = true;
+      group.add(tower);
+      var towerWindow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.26, 0.012), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.55 }));
+      towerWindow.position.set(deskW / 2 - 0.28, 0.75, -0.067);
+      towerWindow.userData.neon = true;
+      group.add(towerWindow);
+    }
+    var keyboard = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.035, 0.22), cyberpunk ? new THREE.MeshStandardMaterial({ color: 0x101827, roughness: 0.42, metalness: 0.45, emissive: accent, emissiveIntensity: 0.18 }) : new THREE.MeshStandardMaterial({ color: 0x303744, roughness: 0.7 }));
     keyboard.position.set(-0.12, 1.17, -0.22);
     group.add(keyboard);
     var mouse = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 6), trim);
@@ -125,6 +155,16 @@
     base.position.y = 0.04;
     chair.add(base);
     chair.position.z = -0.9;
+    if (cyberpunk) {
+      var chairTrim = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.025, 0.026), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.82 }));
+      chairTrim.position.set(0, 1.34, 0.215);
+      chairTrim.userData.neon = true;
+      chair.add(chairTrim);
+      var chairGlow = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.018, 0.32), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.18 }));
+      chairGlow.position.set(0, 0.55, -0.02);
+      chairGlow.userData.neon = true;
+      chair.add(chairGlow);
+    }
     group.add(chair);
     var led = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.08), trim.clone());
     led.position.set(deskW / 2 - 0.2, 1.2, 0.48);
@@ -139,10 +179,12 @@
     group.userData = {
       tevaWorkstation: true,
       agentId: options.agentId || null,
+      assetId: options.assetId || 'cyberpunk-workstation-procedural',
       statusLed: led,
       accent: accent,
       _pulse: 0,
-      _state: 'IDLE'
+      _state: 'IDLE',
+      cyberpunk: cyberpunk
     };
     group.userData.setStatus = function (state) {
       var palette = {
@@ -166,6 +208,7 @@
         if (node.userData && node.userData.monitorScreen && node.material && 'emissiveIntensity' in node.material) {
           node.material.emissiveIntensity = group.userData._state === 'WORKING' ? 0.28 + Math.sin(group.userData._pulse) * 0.06 : 0.16;
         }
+        if (node.userData && node.userData.neon && node.material && node.material.color && node.material.color.setHex) node.material.color.setHex(value);
       });
     };
     group.userData.tick = function (dt) {
@@ -175,6 +218,12 @@
           if (node.userData && node.userData.monitorScreen && node.material && 'emissiveIntensity' in node.material) {
             node.material.emissiveIntensity = 0.22 + Math.sin(group.userData._pulse * 3) * 0.08;
           }
+        });
+      }
+      if (group.userData.cyberpunk) {
+        group.traverse(function (node) {
+          if (node.userData && node.userData.holoPanel && node.material) node.material.opacity = 0.12 + (Math.sin(group.userData._pulse * 2.4) + 1) * 0.035;
+          if (node.userData && node.userData.neon && node.material && node.material.opacity != null) node.material.opacity = 0.58 + (Math.sin(group.userData._pulse * 3.2) + 1) * 0.12;
         });
       }
     };

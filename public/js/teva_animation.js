@@ -3,10 +3,16 @@
   'use strict';
   var ALIASES = {
     WORKING: ['seated_typing', 'typing', 'working', 'seated_idle', 'idle'],
+    MOUSE: ['mouse', 'using_mouse', 'seated_typing', 'working', 'seated_idle', 'idle'],
     RESEARCHING: ['reading', 'seated_idle', 'idle'],
+    THINKING: ['thinking', 'seated_idle', 'idle'],
     TESTING: ['seated_typing', 'working', 'seated_idle', 'idle'],
     WAITING: ['seated_idle', 'idle'],
     PLANNING: ['talking', 'gesturing', 'seated_idle', 'idle'],
+    TALKING: ['talking', 'gesturing', 'seated_idle', 'idle'],
+    STANDING_UP: ['standing_up', 'standup', 'standing', 'idle'],
+    SITTING_DOWN: ['sitting_down', 'sitdown', 'seated_idle', 'idle'],
+    STANDING: ['standing', 'idle'],
     ERROR: ['seated_idle', 'idle'],
     COMPLETED: ['celebrate', 'seated_idle', 'idle'],
     IDLE: ['seated_idle', 'idle'],

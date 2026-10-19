@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "coordinateSystem": {
+    "up": "y",
+    "groundPlane": "xz",
+    "units": "world-meters",
+    "agentFacing": "positive-z",
+    "seatPosition": "standing-anchor; clients apply workstation agentLocal"
+  },
+  "room": { "width": 72, "depth": 54, "wallHeight": 4.2 },
+  "seats": {
+    "supervisor": { "x": -3.2, "z": -6.2 },
+    "pm": { "x": 0, "z": -5.6 },
+    "ba": { "x": 3.2, "z": -6.2 },
+    "le": { "x": 8.5, "z": -3 },
+    "le2": { "x": 12, "z": -3 },
+    "sa": { "x": 15.5, "z": -3 },
+    "debugger": { "x": 12, "z": 2.8 },
+    "research-mgr": { "x": -16.5, "z": -2.2 },
+    "ai-research": { "x": -12.5, "z": -2.2 },
+    "erp-research": { "x": -8.5, "z": -2.2 },
+    "product": { "x": -5.5, "z": 5 },
+    "competitor": { "x": -1.5, "z": 5 },
+    "ui-docs": { "x": 2.5, "z": 5 },
+    "grok": { "x": 16, "z": 4.5 },
+    "needs-steve": { "x": -7.5, "z": 11.5 }
+  },
+  "anchors": {
+    "meeting": { "x": 0, "z": -9.5 },
+    "innovationLab": { "x": 24, "z": 10 },
+    "simulationBay": { "x": -24, "z": 10 },
+    "briefingRoom": { "x": -18, "z": 20 },
+    "commandDeck": { "x": 0, "z": 19 },
+    "cyberLounge": { "x": 20, "z": 21 },
+    "server": { "x": -30, "z": -22.5 },
+    "kitchen": { "x": -32, "z": 23 },
+    "lounge": { "x": 12, "z": 10 }
+  },
+  "zones": [
+    { "name": "Leadership", "color": "#8B5CF6", "x": 0, "z": -23.8, "width": 14, "depth": 8 },
+    { "name": "Engineering", "color": "#EF4444", "x": 12, "z": -5.5, "width": 16, "depth": 12 },
+    { "name": "Research", "color": "#3B82F6", "x": -12.5, "z": -5, "width": 16, "depth": 11 },
+    { "name": "Business", "color": "#10B981", "x": -1.5, "z": 2.5, "width": 14, "depth": 9 },
+    { "name": "Innovation Lab", "color": "#22D3EE", "x": 24, "z": 10, "width": 14, "depth": 12 },
+    { "name": "Simulation Bay", "color": "#A78BFA", "x": -24, "z": 10, "width": 16, "depth": 12 },
+    { "name": "Cyber Lounge", "color": "#F472B6", "x": 20, "z": 21, "width": 18, "depth": 9 }
+  ],
+  "navigation": {
+    "meeting": { "x": 0, "z": -9.5 },
+    "lounge": { "x": 12, "z": 10 },
+    "innovation": { "x": 24, "z": 10 },
+    "simulation": { "x": -24, "z": 10 },
+    "command": { "x": 0, "z": 19 }
+  },
+  "assets": "/assets/asset-manifest.json",
+  "agentState": "/api/agents",
+  "agentEvents": "/events"
+}

@@ -1,8 +1,9 @@
 {
   "version": 2,
   "workstation": {
+    "assetId": "cyberpunk-workstation-procedural",
     "seatHeight": 0.62,
-    "agentLocal": { "x": 0, "z": -0.52 },
+    "agentLocal": { "x": 0, "z": -0.9 },
     "agentRotation": 0,
     "chairLocalZ": -0.9
   },
@@ -26,6 +27,7 @@
       "seated": { "seatHeight": 0.63, "offset": { "y": 0.01 } }
     },
     "supervision": {
+      "assetId": "office-worker-glb",
       "appearance": { "hair": "#0f172a", "skin": "#c68642", "outfit": "blazer" },
       "fallback": { "color": "#8B5CF6" },
       "seated": { "seatHeight": 0.64, "offset": { "y": 0.02 } }
@@ -41,6 +43,27 @@
     }
   },
   "assets": [
+    {
+      "id": "quaternius-universal-base-characters",
+      "type": "character-pack",
+      "roles": ["development", "qa", "research", "supervision"],
+      "model": null,
+      "source": "https://quaternius.com/packs/universalbasecharacters.html",
+      "download": "https://quaternius.itch.io/universal-base-characters",
+      "animations": ["seated", "idle", "walking", "sitting"],
+      "license": "CC0 1.0 Universal",
+      "status": "candidate-not-installed"
+    },
+    {
+      "id": "quaternius-universal-animation-library",
+      "type": "animation-pack",
+      "roles": ["all"],
+      "model": null,
+      "source": "https://quaternius.itch.io/universal-animation-library",
+      "animations": ["seated", "typing", "reading", "walking", "talking"],
+      "license": "CC0 1.0 Universal",
+      "status": "candidate-not-installed"
+    },
     {
       "id": "procedural-humanoid-fallback",
       "type": "procedural",
@@ -60,13 +83,70 @@
       "animations": {
         "idle": "Idle",
         "working": "Typing",
+        "mouse": "Mouse",
         "researching": "Reading",
+        "thinking": "Thinking",
+        "talking": "Talking",
         "waiting": "Sitting",
+        "standing_up": "Standing Up",
+        "sitting_down": "Sitting Down",
         "walking": "Walking"
       },
       "scale": 1,
-      "seated": { "seatHeight": 0.62, "offset": { "x": 0, "y": 0, "z": 0.05 } },
-      "license": "User-supplied; install via scripts/install_cc0_assets.sh (Quaternius CC0 or Mixamo-compatible GLB)"
+      "seated": { "seatHeight": 0.62, "offset": { "x": 0, "y": 0, "z": 0.05 }, "rotation": 3.141592653589793 },
+      "source": "https://github.com/programasweights/avatar/blob/main/ASSETS.md",
+      "license": "Quaternius Universal Base Characters: CC0 1.0 Universal; prepared GLB provenance recorded in docs/ASSET_CREDITS.md",
+      "status": "installed-bundled-derived"
+    },
+    {
+      "id": "cyberpunk-workstation-procedural",
+      "type": "workstation",
+      "model": null,
+      "fallback": "procedural-cyberpunk-workstation",
+      "anchors": {
+        "seat": { "x": 0, "y": 0.62, "z": -0.9 },
+        "keyboard": { "x": 0, "y": 1.17, "z": -0.22 },
+        "screen": { "x": 0, "y": 1.6, "z": 0.26 },
+        "avatarRotation": 3.141592653589793
+      },
+      "license": "Original project procedural asset",
+      "status": "installed-procedural-fallback"
+    },
+    {
+      "id": "innovation-lab-procedural",
+      "type": "room-module",
+      "model": null,
+      "fallback": "procedural-cyber-pod",
+      "dimensions": { "width": 12, "depth": 8, "height": 2.8 },
+      "anchor": "innovationLab",
+      "transform": { "scale": 1, "rotation": 0 },
+      "source": "https://quaternius.com/packs/modularscifimegakit.html",
+      "license": "CC0 1.0 for optional Quaternius module; procedural fallback is original project code",
+      "status": "optional-external-asset-ready"
+    },
+    {
+      "id": "simulation-bay-procedural",
+      "type": "room-module",
+      "model": null,
+      "fallback": "procedural-cyber-pod",
+      "dimensions": { "width": 14, "depth": 9, "height": 2.8 },
+      "anchor": "simulationBay",
+      "transform": { "scale": 1, "rotation": 0 },
+      "source": "https://quaternius.com/packs/modularscifimegakit.html",
+      "license": "CC0 1.0 for optional Quaternius module; procedural fallback is original project code",
+      "status": "optional-external-asset-ready"
+    },
+    {
+      "id": "briefing-room-procedural",
+      "type": "room-module",
+      "model": null,
+      "fallback": "procedural-cyber-pod",
+      "dimensions": { "width": 12, "depth": 7, "height": 2.8 },
+      "anchor": "briefingRoom",
+      "transform": { "scale": 1, "rotation": 0 },
+      "source": "https://quaternius.com/packs/modularscifimegakit.html",
+      "license": "CC0 1.0 for optional Quaternius module; procedural fallback is original project code",
+      "status": "optional-external-asset-ready"
     }
   ]
 }

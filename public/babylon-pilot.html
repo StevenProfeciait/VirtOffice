@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TEVA HQ · Babylon Pilot</title>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #050914; color: #e0f2fe; }
+    #renderCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+    #hud { position: fixed; inset: 0; pointer-events: none; }
+    .panel { pointer-events: auto; background: rgba(5,12,27,.86); border: 1px solid rgba(56,189,248,.24); border-radius: 14px; backdrop-filter: blur(18px); box-shadow: 0 16px 50px rgba(0,0,0,.35); }
+    #brand { position: absolute; top: 18px; left: 20px; padding: 14px 16px; width: 245px; }
+    .kicker { color: #67e8f9; font-size: 9px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+    h1 { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; margin: 5px 0 2px; }
+    .sub { color: rgba(186,230,253,.6); font-size: 10px; }
+    #telemetry { position: absolute; left: 20px; bottom: 20px; padding: 12px; width: 245px; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
+    .metric { background: rgba(15,23,42,.75); border: 1px solid rgba(148,163,184,.12); border-radius: 8px; padding: 7px; }
+    .metric b { display: block; font-size: 17px; }
+    .metric span { color: rgba(186,230,253,.55); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }
+    #roster { position: absolute; top: 18px; right: 20px; width: 250px; max-height: calc(100vh - 36px); overflow: auto; padding: 12px; }
+    .roster-title { display:flex; justify-content:space-between; color:#c4b5fd; font-size:10px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+    .agent { display:flex; gap:8px; align-items:center; width:100%; margin-top:7px; padding:8px; border:1px solid transparent; border-radius:9px; background:rgba(15,23,42,.55); color:#fff; cursor:pointer; text-align:left; }
+    .agent:hover { border-color:rgba(56,189,248,.45); background:rgba(30,41,59,.8); }
+    .dot { width:8px; height:8px; border-radius:50%; flex:0 0 auto; }
+    .agent strong { display:block; font-size:11px; }
+    .agent small { display:block; color:rgba(186,230,253,.55); font-size:9px; margin-top:2px; }
+    #notice { position:absolute; left:50%; bottom:22px; transform:translateX(-50%); padding:9px 13px; color:#bae6fd; font-size:10px; }
+    #alignment { position:absolute; right:20px; bottom:20px; width:250px; padding:12px; color:rgba(186,230,253,.72); font-size:9px; line-height:1.55; }
+    #alignment b { display:block; color:#f0abfc; font-size:10px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:5px; }
+    #fileNotice { display:none; position:fixed; inset:0; z-index:10; place-items:center; background:rgba(3,7,18,.92); color:#e0f2fe; text-align:center; padding:28px; }
+    #fileNotice div { max-width:420px; border:1px solid rgba(56,189,248,.3); border-radius:14px; padding:22px; background:rgba(8,18,38,.95); }
+    #fileNotice code { display:block; margin-top:10px; color:#67e8f9; font-size:12px; }
+    @media (max-width: 760px) { #roster { width:190px; right:10px; top:10px; max-height:45vh; } #brand { left:10px; top:10px; width:190px; } #telemetry { left:10px; bottom:10px; width:190px; } }
+  </style>
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+  <div id="hud">
+    <section id="brand" class="panel"><div class="kicker">TEVA / RENDERER PILOT</div><h1>Babylon HQ</h1><div class="sub">Engine-neutral scene contract · experimental client</div></section>
+    <section id="roster" class="panel"><div class="roster-title"><span>Live roster</span><span id="connection">CONNECTING</span></div><div id="agentList"></div></section>
+    <section id="telemetry" class="panel"><div class="kicker">Scene telemetry</div><div class="metrics"><div class="metric"><b id="agentCount">—</b><span>Agents</span></div><div class="metric"><b id="zoneCount">—</b><span>Zones</span></div><div class="metric"><b id="activeCount">—</b><span>Active</span></div><div class="metric"><b id="contractVersion">—</b><span>Contract</span></div></div></section>
+    <div id="notice" class="panel">Loading scene contract…</div>
+    <div id="alignment" class="panel"><b>Avatar alignment</b><span id="alignmentText">Waiting for GLB…</span><br><span id="animationText">Animation clips: waiting…</span></div>
+  </div>
+  <div id="fileNotice"><div><strong>Run the pilot through VirtOffice</strong><br><span>Direct file access cannot reach the local agent API or event stream.</span><code>http://127.0.0.1:9502/babylon-pilot.html</code></div></div>
+  <script>
+    (function () {
+      'use strict';
+      const canvas = document.getElementById('renderCanvas');
+      const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+      const scene = new BABYLON.Scene(engine);
+      scene.clearColor = new BABYLON.Color4(0.015, 0.027, 0.07, 1);
+      const camera = new BABYLON.ArcRotateCamera('camera', -Math.PI / 4, 1.05, 68, new BABYLON.Vector3(0, 0, 2), scene);
+      camera.lowerRadiusLimit = 24; camera.upperRadiusLimit = 110; camera.attachControl(canvas, true);
+      const hemi = new BABYLON.HemisphericLight('ambient', new BABYLON.Vector3(0, 1, 0), scene); hemi.intensity = 0.75; hemi.diffuse = new BABYLON.Color3(.45, .65, 1);
+      const cyan = new BABYLON.PointLight('cyan', new BABYLON.Vector3(20, 4, 8), scene); cyan.diffuse = new BABYLON.Color3(0.1, .75, 1); cyan.intensity = 42; cyan.range = 34;
+      const pink = new BABYLON.PointLight('pink', new BABYLON.Vector3(-20, 3, 18), scene); pink.diffuse = new BABYLON.Color3(1, .15, .55); pink.intensity = 34; pink.range = 30;
+      const state = { contract: null, agents: [], meshes: {}, realMeshes: {}, realAsset: null, animationGroups: [], activeAnimation: null };
+      const $ = id => document.getElementById(id);
+      const material = (name, color, emissive, alpha) => { const m = new BABYLON.StandardMaterial(name, scene); m.diffuseColor = BABYLON.Color3.FromHexString(color); m.emissiveColor = BABYLON.Color3.FromHexString(emissive || color); m.emissiveIntensity = .35; if (alpha != null) { m.alpha = alpha; m.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND; } return m; };
+      const floorMat = material('floor', '#0b1427', '#071b35');
+      const neonMat = material('neon', '#12334c', '#22d3ee');
+      const glassMat = material('glass', '#172554', '#2563eb', .22);
+      function box(name, size, position, mat) { const mesh = BABYLON.MeshBuilder.CreateBox(name, size, scene); mesh.position = position; mesh.material = mat; return mesh; }
+      function buildWorld(contract) {
+        const w = contract.room.width, d = contract.room.depth;
+        box('floor', { width: w, height: .15, depth: d }, new BABYLON.Vector3(0, -.08, 0), floorMat);
+        box('north-wall', { width: w, height: 4.2, depth: .12 }, new BABYLON.Vector3(0, 2.1, d / 2), glassMat);
+        box('west-wall', { width: .12, height: 4.2, depth: d }, new BABYLON.Vector3(-w / 2, 2.1, 0), glassMat);
+        (contract.zones || []).forEach((zone, i) => {
+          const zmat = material('zone-' + i, zone.color || '#22d3ee', zone.color || '#22d3ee', .14);
+          box('zone-' + i, { width: zone.width || 8, height: .035, depth: zone.depth || 8 }, new BABYLON.Vector3(zone.x, .01, zone.z), zmat);
+        });
+        (contract.anchors ? Object.keys(contract.anchors) : []).forEach((key, i) => {
+          const p = contract.anchors[key]; if (!p || p.x == null || p.z == null) return;
+          const ring = BABYLON.MeshBuilder.CreateTorus('anchor-' + key, { diameter: 1.4, thickness: .025, tessellation: 32 }, scene);
+          ring.position = new BABYLON.Vector3(p.x, .08, p.z); ring.rotation.x = Math.PI / 2; ring.material = i % 2 ? neonMat : material('anchor-' + i, '#f472b6', '#f472b6');
+        });
+        Object.keys(contract.seats || {}).forEach((key, i) => {
+          const p = contract.seats[key];
+          const marker = BABYLON.MeshBuilder.CreateTorus('seat-' + key, { diameter: 1.05, thickness: .012, tessellation: 24 }, scene);
+          marker.position = new BABYLON.Vector3(p.x, .06, p.z - .9); marker.rotation.x = Math.PI / 2; marker.material = material('seat-' + i, '#334155', '#38bdf8', .32);
+        });
+      }
+      function agentPosition(agent) { const p = state.contract.seats[agent.id] || agent.position || { x: 0, z: 0 }; return { x: Number(p.x) || 0, z: (Number(p.z) || 0) - .9 }; }
+      function animationFor(agent) {
+        const status = String(agent && agent.status || 'idle').toLowerCase();
+        if (status === 'working') return ['typing', 'working', 'idle'];
+        if (status === 'meeting') return ['talking', 'conversation', 'idle'];
+        if (status === 'walking') return ['walking', 'locomotion'];
+        return ['idle', 'seated', 'sitting'];
+      }
+      function syncRealAnimation(agent) {
+        if (!state.animationGroups.length || !state.realMeshes[agent.id]) return;
+        const wanted = animationFor(agent);
+        const group = state.animationGroups.find(g => wanted.some(name => String(g.name || '').toLowerCase().includes(name)));
+        if (!group || state.activeAnimation === group) return;
+        state.animationGroups.forEach(g => g.stop()); group.start(true); state.activeAnimation = group;
+        $('animationText').textContent = 'Animation clips: ' + state.animationGroups.length + ' · active ' + (group.name || 'unnamed');
+      }
+      function renderAgents() {
+        state.agents.forEach(agent => {
+          const p = agentPosition(agent); let mesh = state.meshes[agent.id];
+          const real = state.realMeshes[agent.id];
+          if (real) { real.position.x = p.x; real.position.z = p.z; real.position.y = 0; syncRealAnimation(agent); return; }
+          if (!mesh) {
+            mesh = new BABYLON.TransformNode('agent-' + agent.id, scene);
+            const color = agent.color || '#38bdf8'; const body = BABYLON.MeshBuilder.CreateCapsule('body-' + agent.id, { height: 1.25, radius: .23 }, scene); body.parent = mesh; body.position.y = .68; body.material = material('agent-' + agent.id, color, color);
+            const head = BABYLON.MeshBuilder.CreateSphere('head-' + agent.id, { diameter: .38, segments: 16 }, scene); head.parent = mesh; head.position.y = 1.48; head.material = material('head-' + agent.id, '#e2b895', '#e2b895');
+            const ring = BABYLON.MeshBuilder.CreateTorus('ring-' + agent.id, { diameter: .86, thickness: .025, tessellation: 32 }, scene); ring.parent = mesh; ring.position.y = .03; ring.rotation.x = Math.PI / 2; ring.material = material('ring-' + agent.id, color, color);
+            mesh.metadata = { agentId: agent.id }; state.meshes[agent.id] = mesh;
+          }
+          mesh.position.x = p.x; mesh.position.z = p.z; mesh.position.y = 0;
+        });
+      }
+      function renderRoster() { $('agentList').innerHTML = state.agents.map(a => `<button class="agent" data-agent="${a.id}"><span class="dot" style="background:${a.color || '#38bdf8'}"></span><span><strong>${a.name || a.id}</strong><small>${a.status || 'idle'} · ${a.role || 'agent'}</small></span></button>`).join(''); $('agentList').querySelectorAll('[data-agent]').forEach(b => b.onclick = () => { const a = state.agents.find(x => x.id === b.dataset.agent); if (!a) return; const p = agentPosition(a); camera.target = new BABYLON.Vector3(p.x, .6, p.z); camera.radius = 22; }); }
+      function renderTelemetry() { $('agentCount').textContent = state.agents.length; $('zoneCount').textContent = (state.contract.zones || []).length; $('activeCount').textContent = state.agents.filter(a => ['working', 'meeting', 'walking'].includes(String(a.status || '').toLowerCase())).length; $('contractVersion').textContent = 'v' + state.contract.version; }
+      function applyAgents(agents) { state.agents = Array.isArray(agents) ? agents : []; renderAgents(); renderRoster(); renderTelemetry(); $('connection').textContent = 'LIVE'; $('notice').textContent = 'Babylon pilot · live agent state'; }
+      async function loadRealAvatar() {
+        if (!BABYLON.SceneLoader || !state.contract) return;
+        try {
+          const manifest = await fetch('/assets/asset-manifest.json', { cache: 'no-cache' }).then(r => r.json());
+          const asset = (manifest.assets || []).find(a => a.id === 'office-worker-glb' && a.model);
+          if (!asset) return;
+          const result = await BABYLON.SceneLoader.ImportMeshAsync(null, '/', asset.model.replace(/^\//, ''), scene);
+          const root = result.meshes[0];
+          if (!root) return;
+          const supervisor = state.agents.find(a => a.id === 'supervisor');
+          if (!supervisor) return;
+          const p = agentPosition(supervisor);
+          root.name = 'real-avatar-supervisor'; root.position = new BABYLON.Vector3(p.x, 0, p.z);
+          root.scaling.setAll(Number(asset.scale) || .01);
+          const seated = asset.seated || {};
+          const offset = seated.offset || {};
+          root.position.x += Number(offset.x) || 0; root.position.y += Number(offset.y) || 0; root.position.z += Number(offset.z) || 0;
+          root.rotation.y = Number(seated.rotation) || Math.PI;
+          root.computeWorldMatrix(true);
+          const bounds = root.getHierarchyBoundingVectors(true);
+          const height = Math.max(0, bounds.max.y - bounds.min.y);
+          $('alignmentText').textContent = 'office-worker-glb · height ' + height.toFixed(2) + 'm · seat z ' + p.z.toFixed(2) + ' · rotation ' + root.rotation.y.toFixed(2) + 'rad';
+          state.animationGroups = result.animationGroups || [];
+          $('animationText').textContent = state.animationGroups.length ? 'Animation clips: ' + state.animationGroups.length + ' · mapping live state' : 'Animation clips: 0 · stable pose fallback';
+          state.realMeshes.supervisor = root; state.realAsset = asset.id;
+          if (state.meshes.supervisor) { state.meshes.supervisor.dispose(false, true); delete state.meshes.supervisor; }
+          renderAgents(); syncRealAnimation(supervisor); $('notice').textContent = 'Babylon pilot · office-worker GLB loaded';
+        } catch (_) { $('notice').textContent = 'Babylon pilot · procedural avatar fallback'; }
+      }
+      async function boot() { if (location.protocol === 'file:') { $('fileNotice').style.display = 'grid'; return; } try { state.contract = await fetch('/api/scene', { cache: 'no-cache' }).then(r => r.json()); buildWorld(state.contract); const agents = await fetch('/api/agents', { cache: 'no-cache' }).then(r => r.json()); applyAgents(agents); loadRealAvatar(); const events = new EventSource('/events'); events.onmessage = e => { try { const payload = JSON.parse(e.data); if (payload.agents) applyAgents(payload.agents); } catch (_) {} }; events.onerror = () => { $('connection').textContent = 'RECONNECTING'; }; } catch (e) { $('notice').textContent = 'Pilot unavailable · check /api/scene and Babylon CDN'; $('connection').textContent = 'OFFLINE'; } }
+      engine.runRenderLoop(() => scene.render()); window.addEventListener('resize', () => engine.resize()); boot();
+    })();
+  </script>
+</body>
+</html>

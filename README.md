@@ -52,6 +52,18 @@ Configure per agent with `avatar.model`, `avatar.scale`, `avatar.offset`, `avata
 [`docs/AVATAR_ASSETS.md`](docs/AVATAR_ASSETS.md), [`public/assets/asset-manifest.json`](public/assets/asset-manifest.json),
 and [`scripts/install_cc0_assets.sh`](scripts/install_cc0_assets.sh).
 
+## Renderer-neutral scene contract
+
+The Python backend exposes `GET /api/scene`, a stable contract for future Babylon.js or Unreal
+clients. It contains the shared TEVA room dimensions, seat IDs, anchors, zones, navigation points,
+asset manifest URL, and live-state endpoints. The current `office.html` remains the reference client;
+see [`docs/ENGINE_MIGRATION_PLAN.md`](docs/ENGINE_MIGRATION_PLAN.md).
+
+The first experimental client is available at `/babylon-pilot.html`. It renders the shared floor
+contract, live agent roster, zone overlays, camera focus, and SSE updates without changing the main
+Three.js office. It also loads the bundled office-worker GLB for the supervisor seat and falls back
+to a procedural avatar if the external Babylon loader is unavailable.
+
 ## Modes
 
 1. Demo mode — generated sample agents (default).

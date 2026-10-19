@@ -17,9 +17,10 @@
     if (!entry) return;
     entry._t = (entry._t || 0) + (dt || 0);
     var state = Anim.mapBase(agent, now);
-    if (state !== entry.state && Av.clipFor && Av.setState) {
+    var Manager = root.TevaAvatarManager || {};
+    if (state !== entry.state && Av.clipFor && Manager.setState) {
       var clip = Av.clipFor(entry.avatar, state);
-      Av.setState(entry, state, clip);
+      Manager.setState(entry, state, clip);
     }
     return state;
   };

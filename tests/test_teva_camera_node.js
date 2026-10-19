@@ -22,6 +22,7 @@ check(Math.abs(C.easeInOutCubic(1) - 1) < 1e-6, 'ease 1');
 check(C.overviewPreset().mode === 'overview', 'overview preset');
 check(C.departmentPreset('Engineering').mode === 'department', 'department preset');
 check(C.workstationPreset({ x: 1, z: 2 }).mode === 'workstation', 'workstation preset');
+check(C.workstationPreset({ x: 1, z: 2 }).zoom <= 0.3, 'workstation close zoom');
 
 console.log(fail ? `FAIL ${fail}` : 'ok');
 process.exit(fail ? 1 : 0);

@@ -21,6 +21,7 @@ check(typeof sandbox.TevaDataBridge === 'object', 'bridge exists');
 check(typeof sandbox.TevaDataBridge.DataBridge === 'function', 'bridge class');
 let observed = 0;
 const bridge = new sandbox.TevaDataBridge.DataBridge(null, { positionResolver: function (a) { return { x: a.id.length, z: 2 }; }, onAgent: function () { observed++; } });
+check(bridge.setQuality('off') === 'off', 'bridge quality control');
 bridge.reconcile([{ id: 'alpha', status: 'working' }, { id: 'beta' }]);
 check(Object.keys(bridge.manager.entries).length === 2, 'reconcile adds agents');
 check(bridge.manager.entries.alpha.position.x === 5, 'position resolver');

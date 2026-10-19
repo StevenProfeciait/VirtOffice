@@ -111,6 +111,23 @@ body {
 .user-provenance { font-size: 7px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.32); }
 .mode-badge { display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 8px; padding: 4px 8px; border-radius: 999px; font-size: 8px; font-weight: 800; letter-spacing: 0.12em; color: #a7f3d0; background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.25); }
 .mode-badge.demo { color: #fcd34d; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.28); }
+.telemetry-dock {
+  position: fixed; left: 22px; top: 22px; width: 228px; padding: 14px 15px;
+  background: linear-gradient(145deg, rgba(7,14,28,.92), rgba(12,18,35,.72));
+  border: 1px solid rgba(56,189,248,.25); border-radius: 14px; pointer-events: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28), inset 0 0 26px rgba(34,211,238,.04);
+  backdrop-filter: blur(18px); font-variant-numeric: tabular-nums;
+}
+.telemetry-kicker { color: #67e8f9; font-size: 8px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+.telemetry-title { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; color: #e0f2fe; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.telemetry-live { display: inline-flex; align-items: center; gap: 5px; color: #86efac; font-size: 8px; letter-spacing: .1em; }
+.telemetry-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 10px #4ade80; animation: pulse 1.8s ease-in-out infinite; }
+.telemetry-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.telemetry-cell { padding: 7px 8px; border: 1px solid rgba(148,163,184,.13); border-radius: 8px; background: rgba(15,23,42,.55); }
+.telemetry-value { display: block; color: #f8fafc; font-size: 17px; font-weight: 800; }
+.telemetry-label { display: block; margin-top: 2px; color: rgba(186,230,253,.55); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }
+.telemetry-route { margin-top: 10px; color: rgba(186,230,253,.45); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scene-readout { position: fixed; right: 22px; bottom: 82px; padding: 9px 12px; border: 1px solid rgba(167,139,250,.24); border-radius: 9px; background: rgba(9,14,28,.78); color: rgba(221,214,254,.72); font-size: 9px; letter-spacing: .11em; text-transform: uppercase; pointer-events: none; backdrop-filter: blur(12px); }
 
 /* Right notification */
 .notification {
@@ -621,6 +638,11 @@ body.paused #pauseOverlay { display: block; }
 select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; }
 @media (max-width: 760px) {
   .header { top: env(safe-area-inset-top, 0px); width: calc(100% - 118px); overflow: hidden; }
+  .telemetry-dock { left: 10px; top: auto; bottom: 76px; width: 172px; padding: 10px; }
+  .telemetry-grid { gap: 5px; margin-top: 8px; }
+  .telemetry-cell { padding: 5px 6px; }
+  .telemetry-value { font-size: 14px; }
+  .scene-readout { right: 10px; bottom: 76px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .title { font-size: 10px; letter-spacing: 0.22em; }
   .user-bar { max-width: 100%; overflow-x: auto; justify-content: flex-start; padding: 8px 12px; gap: 10px; scrollbar-width: none; }
   .user-bar::-webkit-scrollbar { display: none; }
@@ -656,6 +678,19 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
     <div class="mode-badge demo" id="modeBadge">DEMO</div>
     <div class="user-bar" id="userBar"></div>
   </div>
+
+  <section class="telemetry-dock" aria-label="TEVA HQ telemetry">
+    <div class="telemetry-kicker">TEVA / SYS-01</div>
+    <div class="telemetry-title"><span>Command telemetry</span><span class="telemetry-live">ONLINE</span></div>
+    <div class="telemetry-grid">
+      <div class="telemetry-cell"><span class="telemetry-value" id="telemetryAgents">—</span><span class="telemetry-label">Agents</span></div>
+      <div class="telemetry-cell"><span class="telemetry-value" id="telemetryRooms">—</span><span class="telemetry-label">Zones</span></div>
+      <div class="telemetry-cell"><span class="telemetry-value" id="telemetryActive">—</span><span class="telemetry-label">Active</span></div>
+      <div class="telemetry-cell"><span class="telemetry-value" id="telemetrySignal">—</span><span class="telemetry-label">Signal</span></div>
+    </div>
+    <div class="telemetry-route" id="telemetryRoute">/api/agents · /events</div>
+  </section>
+  <div class="scene-readout" id="sceneReadout">MAIN FLOOR · 72 × 54 · THREE REFERENCE CLIENT</div>
 
   <div class="notification" id="needsSteveCard" style="cursor:pointer" onclick="selectAgent('needs-steve')">
     <div class="notif-title"><span class="notif-pulse"></span> <span id="needsSteveTitle">Needs Steve</span></div>
@@ -781,6 +816,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="/vendor/GLTFLoader.js"></script>
 <script src="vo_events.js"></script>
 <script src="office_layout.js"></script>
+<script src="js/teva_renderer_contract.js"></script>
 <script src="js/teva_assets.js"></script>
 <script src="js/teva_avatars.js"></script>
 <script src="js/teva_activity.js"></script>
@@ -1330,6 +1366,8 @@ function startLiveUpdates() {
 let modularBridge = null;
 let modularPrototype = null;
 const modularWorkstations = {};
+const modularRoomModules = {};
+const modularRoomAssets = {};
 function modularAvatarsEnabled() {
   try { return new URLSearchParams(location.search).get('modular') === '1' || localStorage.getItem('teva_modular') === '1'; }
   catch (e) { return false; }
@@ -1337,7 +1375,7 @@ function modularAvatarsEnabled() {
 function modularAgentPosition(agent) {
   if (window.TevaAssets && TevaAssets.resolveAgentPosition) return TevaAssets.resolveAgentPosition(agent);
   const p = (LAYOUT.seats && LAYOUT.seats[agent.id]) || (agent.home && LAYOUT.demoHomes && LAYOUT.demoHomes[agent.home]);
-  return p ? { x: p.x, z: p.z - 0.52, rotation: 0, seatHeight: 0.62 } : { x: 0, z: 0, rotation: 0, seatHeight: 0.62 };
+  return p ? { x: p.x, z: p.z - 0.9, rotation: 0, seatHeight: 0.62 } : { x: 0, z: 0, rotation: 0, seatHeight: 0.62 };
 }
 function syncModularWorkstationStatus(agent) {
   const ws = modularWorkstations[agent.id];
@@ -1365,6 +1403,7 @@ function buildModularWorkstations(allAgents) {
       color: origin.accent || agent.color,
       style: origin.style || 'standard',
       agentId: agent.id,
+      assetId: origin.config && origin.config.assetId,
       headphones: !!(agent.avatar && agent.avatar.appearance && agent.avatar.appearance.accessory === 'headphones')
     });
     if (!ws) return;
@@ -1378,20 +1417,86 @@ function buildModularWorkstations(allAgents) {
     }
   });
 }
+function hideLegacyWorkstations() {
+  // The modular office owns its desks and chairs. The legacy renderer builds
+  // a second workstation layout during scene bootstrap; leaving it visible
+  // makes the GLB characters appear to miss their seats.
+  if (!scene || !scene.traverse) return;
+  scene.traverse(function (object) {
+    if (object.userData && object.userData.tevaLegacyWorkstation) object.visible = false;
+  });
+}
+function buildExpansionStations() {
+  if (!window.TevaEnv || !TevaEnv.buildWorkstation || !LAYOUT.expansionStations) return 0;
+  let count = 0;
+  LAYOUT.expansionStations.forEach(function (station, index) {
+    const ws = TevaEnv.buildWorkstation({
+      x: station.x,
+      z: station.z,
+      rotation: station.rotation || 0,
+      color: station.color,
+      style: station.style || 'standard',
+      agentId: 'expansion-station-' + index,
+      assetId: 'cyberpunk-workstation-procedural',
+      cyberpunk: true
+    });
+    if (ws) {
+      ws.userData.expansionStation = true;
+      scene.add(ws);
+      count += 1;
+    }
+  });
+  return count;
+}
+function loadOptionalRoomModules() {
+  if (!window.TevaAssets || !TevaAssets.loadModelAsset) return;
+  Object.keys(modularRoomModules).forEach(function (roomId) {
+    const fallback = modularRoomModules[roomId];
+    const asset = TevaAssets.assetForRoom(roomId);
+    if (!asset || !asset.model || !fallback) return;
+    TevaAssets.loadModelAsset(roomId, function (model) {
+      if (!model || !scene) return;
+      const instance = model.clone(true);
+      const anchor = LAYOUT.anchors[asset.anchor];
+      if (!anchor) return;
+      const transform = asset.transform || {};
+      instance.position.set(anchor.x + (Number(transform.x) || 0), Number(transform.y) || 0, anchor.z + (Number(transform.z) || 0));
+      instance.rotation.y = Number(transform.rotation) || 0;
+      const scale = Number(transform.scale) || 1;
+      instance.scale.setScalar(scale);
+      instance.userData = Object.assign({}, instance.userData, { tevaRoomAsset: roomId, sourceAsset: asset.model });
+      scene.add(instance);
+      fallback.visible = false;
+      modularRoomAssets[roomId] = instance;
+      document.body.setAttribute('data-room-asset-' + roomId, 'loaded');
+    });
+  });
+}
 function startModularAvatars() {
   if (!modularAvatarsEnabled() || !window.TevaDataBridge || !window.TevaAvatarManager) return;
   const boot = () => {
     const resolver = agent => modularAgentPosition(agent);
     modularBridge = new TevaDataBridge.DataBridge(scene, {
       positionResolver: resolver,
-      onAgent: (agent) => syncModularWorkstationStatus(agent)
+      quality: typeof motionMode === 'function' ? motionMode() : 'full',
+      onAgent: (agent, entry) => {
+        syncModularWorkstationStatus(agent);
+        if (entry && modularBridge.manager && modularBridge.manager.getDiagnostics) {
+          document.body.setAttribute(`data-avatar-${agent.id}`, JSON.stringify(modularBridge.manager.getDiagnostics(agent.id)));
+        }
+      }
     });
+    hideLegacyWorkstations();
     buildModularWorkstations(AGENTS);
+    const expansionCount = buildExpansionStations();
+    loadOptionalRoomModules();
     modularBridge.reconcile(AGENTS);
     modularBridge.start();
     document.body.setAttribute('data-modular-avatars', 'on');
     const n = Object.keys(modularWorkstations).length;
-    showToast(n ? `Modular office: ${n} workstation(s)` : 'Modular avatars enabled');
+    showToast(n ? `Modular office: ${n + expansionCount} workstation(s) · ${expansionCount} expansion stations` : 'Modular avatars enabled');
+    const focus = new URLSearchParams(location.search).get('focus');
+    if (focus && AGENTS.some(agent => agent.id === focus)) setTimeout(() => focusWorkstation(focus), 80);
   };
   if (window.TevaAssets && TevaAssets.loadManifest) TevaAssets.loadManifest('/assets/asset-manifest.json', boot);
   else boot();
@@ -1454,6 +1559,7 @@ function init() {
     startModularAvatars();
     setupUI();
     updateStatusBar();
+    loadRendererContract();
     
     // Controls
     document.getElementById('zoomIn').addEventListener('click', () => { zoom = Math.max(ZOOM_MIN, zoom - 0.12); stopManualCameraDrive(); updateCamera(); });
@@ -2009,11 +2115,12 @@ function goToMainFloor() { applyCameraPreset('main'); showToast('Main floor'); }
 function goToWing() { applyCameraPreset('wing'); fetchCursorForWing(); showToast('Collab terrace'); }
 
 function setupLighting() {
-  const ambient = new THREE.AmbientLight(0xd8e0ea, 0.62);
+  const futuristic = modularAvatarsEnabled();
+  const ambient = new THREE.AmbientLight(futuristic ? 0x263653 : 0xd8e0ea, futuristic ? 0.34 : 0.62);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0xe8f0f8, 0xb8c0c8, 0.55);
+  const hemi = new THREE.HemisphereLight(futuristic ? 0x7dd3fc : 0xe8f0f8, futuristic ? 0x090f1e : 0xb8c0c8, futuristic ? 0.42 : 0.55);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xf5f8fc, 0.85);
+  const sun = new THREE.DirectionalLight(futuristic ? 0xb7c9ff : 0xf5f8fc, futuristic ? 0.48 : 0.85);
   sun.position.set(18, 40, 14);
   sun.castShadow = true;
   sun.shadow.mapSize.width = 4096;
@@ -2025,10 +2132,10 @@ function setupLighting() {
   sun.shadow.bias = -0.0005;
   sun.shadow.normalBias = 0.02;
   scene.add(sun);
-  const fill = new THREE.DirectionalLight(0xc8d8e8, 0.35);
+  const fill = new THREE.DirectionalLight(futuristic ? 0xff4fd8 : 0xc8d8e8, futuristic ? 0.22 : 0.35);
   fill.position.set(-18, 22, -12);
   scene.add(fill);
-  const meet = new THREE.PointLight(0xe8f0ff, 0.35, 24);
+  const meet = new THREE.PointLight(futuristic ? 0x38bdf8 : 0xe8f0ff, futuristic ? 0.65 : 0.35, 24);
   meet.position.set(LAYOUT.anchors.meeting.x, 4.5, LAYOUT.anchors.meeting.z);
   scene.add(meet);
   const serverGlow = new THREE.PointLight(0x6aa8ff, 0.22, 12);
@@ -2044,22 +2151,39 @@ function setupLighting() {
 
 function createRoom() {
   const mz = meetZ();
-  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.floor, color: 0xffffff, roughness: 0.92, metalness: 0.02 });
+  const futuristic = modularAvatarsEnabled();
+  const floorMat = new THREE.MeshStandardMaterial({ map: TEX.floor, color: futuristic ? 0x111b31 : 0xffffff, roughness: futuristic ? 0.48 : 0.92, metalness: futuristic ? 0.34 : 0.02 });
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
   rAdd(floor);
+  if (futuristic) {
+    const grid = new THREE.GridHelper(Math.max(ROOM_WIDTH, ROOM_DEPTH), 26, 0x2563eb, 0x164e63);
+    grid.scale.z = ROOM_DEPTH / ROOM_WIDTH;
+    grid.position.y = 0.012;
+    if (grid.material) {
+      const materials = Array.isArray(grid.material) ? grid.material : [grid.material];
+      materials.forEach(material => { material.transparent = true; material.opacity = 0.22; });
+    }
+    rAdd(grid);
+    const perimeter = new THREE.Mesh(
+      new THREE.BoxGeometry(ROOM_WIDTH * 0.92, 0.018, 0.035),
+      new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.75 })
+    );
+    perimeter.position.set(0, 0.03, -ROOM_DEPTH * 0.43);
+    rAdd(perimeter);
+  }
 
   const carpet = new THREE.Mesh(
     new THREE.CircleGeometry(5.0, 48),
-    new THREE.MeshStandardMaterial({ color: 0xe8ecf2, roughness: 1, metalness: 0 })
+    new THREE.MeshStandardMaterial({ color: futuristic ? 0x131d33 : 0xe8ecf2, roughness: futuristic ? 0.55 : 1, metalness: futuristic ? 0.26 : 0 })
   );
   carpet.rotation.x = -Math.PI / 2;
   carpet.position.set(LAYOUT.anchors.meeting.x, 0.015, mz);
   carpet.receiveShadow = true;
   rAdd(carpet);
 
-  const wallPaint = new THREE.MeshStandardMaterial({ color: 0xf4f5f7, roughness: 0.88, metalness: 0.02 });
+  const wallPaint = new THREE.MeshStandardMaterial({ color: futuristic ? 0x101827 : 0xf4f5f7, roughness: futuristic ? 0.42 : 0.88, metalness: futuristic ? 0.32 : 0.02 });
   const wt = 0.35;
   function wallPanel(w, h, d, x, y, z) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallPaint);
@@ -2166,6 +2290,69 @@ function createFurniture() {
   createWaterCooler();
   createPlants();
   createDecor();
+  if (modularAvatarsEnabled()) createFuturisticSpaces();
+}
+
+function createFuturisticSpaces() {
+  const a = LAYOUT.anchors;
+  modularRoomModules['innovation-lab-procedural'] = createCyberPod(a.innovationLab, 12, 8, 0x22d3ee, 'INNOVATION LAB');
+  modularRoomModules['simulation-bay-procedural'] = createCyberPod(a.simulationBay, 14, 9, 0xa78bfa, 'SIMULATION BAY');
+  modularRoomModules['briefing-room-procedural'] = createCyberPod(a.briefingRoom, 12, 7, 0xf472b6, 'BRIEFING ROOM');
+
+  if (a.commandDeck) {
+    const deck = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.8, 0.12, 48), new THREE.MeshStandardMaterial({ color: 0x101827, metalness: 0.72, roughness: 0.28 }));
+    base.position.set(a.commandDeck.x, 0.08, a.commandDeck.z);
+    deck.add(base);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.025, 8, 64), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.82 }));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(a.commandDeck.x, 0.18, a.commandDeck.z);
+    deck.add(ring);
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.9, 1.4, 24), new THREE.MeshStandardMaterial({ color: 0x07111f, emissive: 0x2563eb, emissiveIntensity: 0.55, metalness: 0.65, roughness: 0.2, transparent: true, opacity: 0.88 }));
+    core.position.set(a.commandDeck.x, 0.78, a.commandDeck.z);
+    deck.add(core);
+    const coreRing = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.018, 8, 40), new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.72 }));
+    coreRing.position.set(a.commandDeck.x, 1.35, a.commandDeck.z);
+    deck.add(coreRing);
+    rAdd(deck);
+  }
+
+  if (a.cyberLounge) {
+    const lounge = new THREE.Mesh(new THREE.BoxGeometry(16, 0.05, 7), new THREE.MeshStandardMaterial({ color: 0x141c30, metalness: 0.42, roughness: 0.48 }));
+    lounge.position.set(a.cyberLounge.x, 0.025, a.cyberLounge.z);
+    rAdd(lounge);
+    const loungeRing = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.025, 8, 48), new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.7 }));
+    loungeRing.rotation.x = Math.PI / 2;
+    loungeRing.position.set(a.cyberLounge.x, 0.08, a.cyberLounge.z);
+    rAdd(loungeRing);
+  }
+}
+
+function createCyberPod(origin, width, depth, color, label) {
+  if (!origin) return null;
+  const pod = new THREE.Group();
+  pod.userData = { tevaProceduralRoomModule: true, anchor: { x: origin.x, z: origin.z } };
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x131c2e, metalness: 0.72, roughness: 0.25 });
+  const glassMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.28, transparent: true, opacity: 0.14, metalness: 0.3, roughness: 0.12, side: THREE.DoubleSide });
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(width, 0.08, depth), new THREE.MeshStandardMaterial({ color: 0x0d1527, metalness: 0.55, roughness: 0.4 }));
+  floor.position.set(origin.x, 0.04, origin.z);
+  pod.add(floor);
+  [[-width / 2, -depth / 2], [width / 2, -depth / 2], [-width / 2, depth / 2], [width / 2, depth / 2]].forEach(function (corner) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.8, 0.09), frameMat);
+    post.position.set(origin.x + corner[0], 1.4, origin.z + corner[1]);
+    pod.add(post);
+  });
+  const back = new THREE.Mesh(new THREE.BoxGeometry(width, 2.4, 0.035), glassMat);
+  back.position.set(origin.x, 1.25, origin.z + depth / 2);
+  pod.add(back);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(width + 0.18, 0.06, depth + 0.18), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.5 }));
+  top.position.set(origin.x, 2.82, origin.z);
+  pod.add(top);
+  const sign = createLabel(label, '#' + color.toString(16).padStart(6, '0'));
+  sign.position.set(origin.x, 2.55, origin.z + depth / 2 - 0.05);
+  pod.add(sign);
+  rAdd(pod);
+  return pod;
 }
 
 function createServerRoom() {
@@ -2348,6 +2535,7 @@ function createDesk(x, z, angle, ownerId) {
   const group = new THREE.Group();
   group.position.set(x, 0, z);
   group.rotation.y = angle;
+  group.userData.tevaLegacyWorkstation = true;
 
   const deskMat = new THREE.MeshStandardMaterial({ color: 0xf7f8fa, roughness: 0.42, metalness: 0.08 });
   const top = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.04, 1.15), deskMat);
@@ -2419,7 +2607,8 @@ function createDesk(x, z, angle, ownerId) {
   led.userData = { blink: true, offset: (ownerId || '').length * 3 };
   group.add(led);
 
-  createChair(x + Math.sin(angle) * 1.55, z + Math.cos(angle) * 1.55, angle, 0x2a2a32);
+  const chair = createChair(x + Math.sin(angle) * 1.55, z + Math.cos(angle) * 1.55, angle, 0x2a2a32);
+  chair.userData.tevaLegacyWorkstation = true;
 
   rAdd(group);
   registerMonitor(ownerId, group);
@@ -2778,6 +2967,16 @@ function setupUI() {
   `; }).join('');
 }
 
+function loadRendererContract() {
+  if (!window.TevaRendererContract || !TevaRendererContract.load) return;
+  TevaRendererContract.load('/api/scene', function (contract) {
+    if (!contract) return;
+    const readout = document.getElementById('sceneReadout');
+    if (readout) readout.textContent = `MAIN FLOOR · ${contract.room.width} × ${contract.room.depth} · REFERENCE CLIENT · CONTRACT v${contract.version}`;
+    document.body.setAttribute('data-renderer-contract', 'loaded');
+  });
+}
+
 function updateStatusBar() {
   const modeBadge = document.getElementById('modeBadge');
   if (modeBadge) {
@@ -2811,6 +3010,19 @@ function updateStatusBar() {
       </div>
     `;
   }).join('');
+
+  const telemetry = {
+    agents: AGENTS.length,
+    rooms: (LAYOUT.zones || []).length,
+    active: counts.working + counts.meeting + counts.walking,
+    signal: Math.max(0, AGENTS.length - counts.nosignal)
+  };
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+  setText('telemetryAgents', telemetry.agents);
+  setText('telemetryRooms', telemetry.rooms);
+  setText('telemetryActive', telemetry.active);
+  setText('telemetrySignal', telemetry.signal + '/' + telemetry.agents);
+  document.body.setAttribute('data-telemetry', JSON.stringify(telemetry));
 }
 
 function showToast(msg) {
@@ -3388,6 +3600,7 @@ function renderView(view) {
     }));
     body.querySelectorAll('[data-setting-select]').forEach(sel => sel.addEventListener('change', () => {
       SETTINGS[sel.dataset.settingSelect] = sel.value; saveSettings();
+      if (sel.dataset.settingSelect === 'motion' && modularBridge && modularBridge.setQuality) modularBridge.setQuality(motionMode());
       refreshBases(); renderView('settings'); showToast('Motion: ' + motionMode());
     }));
     document.getElementById('testCursor').onclick = () => openUrl(cursorFileUrl(b.backlogPath, b.updatedLine));
@@ -3743,7 +3956,10 @@ function partColor(obj, kind, out) {
   return out;
 }
 function partVisible(obj, p, now) {
-  if ((modularBridge || document.body.getAttribute('data-modular-avatars') === 'on') && (p.kind === 'agent' || p.kind === 'helper' || p.kind === 'folder')) return false;
+  // Modular mode mounts the real GLB avatar alongside the legacy instanced
+  // renderer. Hide every legacy avatar part, otherwise head/hair/limbs/rings
+  // remain visible as duplicate "ghost" characters around the GLB model.
+  if (modularBridge || document.body.getAttribute('data-modular-avatars') === 'on') return false;
   if (p.kind === 'ring') return obj.base !== 'OFFLINE';
   if (p.kind === 'flag') return !!(FLAGGED[obj.agent.id] && now - FLAGGED[obj.agent.id] < FLAG_MS);
   if (p.kind === 'helper') return obj.base === 'DELEGATING' && p.n < VOE.helperCount(obj.agent);

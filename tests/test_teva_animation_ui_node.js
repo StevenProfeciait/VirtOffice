@@ -10,6 +10,8 @@ vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'teva
 let fail = 0;
 function check(condition, message) { if (!condition) { console.error('FAIL:', message); fail++; } }
 check(sandbox.TevaAnim.candidates('WORKING')[0] === 'seated_typing', 'working aliases');
+check(sandbox.TevaAnim.candidates('MOUSE')[0] === 'mouse', 'mouse aliases');
+check(sandbox.TevaAnim.candidates('STANDING_UP')[0] === 'standing_up', 'standing aliases');
 check(sandbox.TevaUI.statusText({ activity: { state: 'WAITING' } }) === 'WAITING', 'status text');
 console.log(fail ? `FAIL ${fail}` : 'ok');
 process.exit(fail ? 1 : 0);

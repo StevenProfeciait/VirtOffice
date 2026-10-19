@@ -4,17 +4,19 @@
  */
 (function (root) {
   'use strict';
-  var W = 52;
-  var D = 36;
-  var H = 3.2;
+  // Expanded TEVA HQ footprint. Existing agent seats stay central while the
+  // outer bays provide room for future teams, collaboration, and asset packs.
+  var W = 72;
+  var D = 54;
+  var H = 4.2;
   var halfW = W / 2;
   var halfD = D / 2;
-  var meetZ = -halfD + 8.5;
+  var meetZ = -9.5;
 
   var layout = {
     room: { width: W, depth: D, wallHeight: H },
     fog: { color: 0x0a0d14, near: 40, far: 120 },
-    exterior: { groundSize: 220, plazaWidth: 10, skylineCount: 10 },
+    exterior: { groundSize: 280, plazaWidth: 14, skylineCount: 16 },
     /** Seat id -> standing position (home in agents.json matches id) */
     seats: {
       supervisor: { x: -3.2, z: -6.2 },
@@ -39,7 +41,10 @@
       { name: 'Research', color: '#3B82F6', x: -12.5, z: -5, w: 16, d: 11 },
       { name: 'Business', color: '#10B981', x: -1.5, z: 2.5, w: 14, d: 9 },
       { name: 'Ingest', color: '#F59E0B', x: 16, z: 6, w: 8, d: 7 },
-      { name: 'Needs Steve', color: '#FF3B30', x: -7.5, z: 13, w: 12, d: 6 }
+      { name: 'Needs Steve', color: '#FF3B30', x: -7.5, z: 13, w: 12, d: 6 },
+      { name: 'Innovation Lab', color: '#22D3EE', x: 24, z: 10, w: 14, d: 12 },
+      { name: 'Simulation Bay', color: '#A78BFA', x: -24, z: 10, w: 16, d: 12 },
+      { name: 'Cyber Lounge', color: '#F472B6', x: 20, z: 21, w: 18, d: 9 }
     ],
     dividers: [
       { x: -6.5, z: -3.5, w: 0.12, d: 10, rot: 0, type: 'glass', h: 1.4 },
@@ -65,13 +70,18 @@
         [-halfW + 1.5, halfD - 2],
         [halfW - 2.5, halfD - 2],
         [0, halfD - 2.2]
-      ]
+      ],
+      innovationLab: { x: 24, z: 10 },
+      simulationBay: { x: -24, z: 10 },
+      briefingRoom: { x: -18, z: 20 },
+      commandDeck: { x: 0, z: 19 },
+      cyberLounge: { x: 20, z: 21 }
     },
     wing: {
       centerX: 0,
       centerZ: halfD + 11,
-      width: 44,
-      depth: 20,
+      width: 56,
+      depth: 22,
       floorY: 0,
       hotDesks: [
         { x: -12, z: 0 }, { x: -6, z: 0 }, { x: 0, z: 0 }, { x: 6, z: 0 }, { x: 12, z: 0 }
@@ -80,7 +90,7 @@
       whiteboard: { x: 14, z: 5 }
     },
     camera: {
-      main: { target: [0, 0, 0], zoom: 1.18, rotation: -Math.PI / 4 },
+      main: { target: [0, 0, 2], zoom: 1.02, rotation: -Math.PI / 4 },
       wing: { target: [0, 0, halfD + 11], zoom: 1.05, rotation: -Math.PI / 5 }
     },
     demoHomes: {
@@ -117,8 +127,19 @@
       meeting: { x: 0, z: meetZ },
       lounge: { x: 12, z: 10 },
       kitchen: { x: -halfW + 4, z: halfD - 4 },
-      collab: { x: 0, z: halfD + 11 }
+      collab: { x: 0, z: halfD + 11 },
+      innovation: { x: 24, z: 10 },
+      simulation: { x: -24, z: 10 },
+      command: { x: 0, z: 19 }
     },
+    expansionStations: [
+      { x: 22, z: 5, rotation: 0, color: '#22D3EE', style: 'gaming' },
+      { x: 27, z: 5, rotation: 0, color: '#22D3EE', style: 'standard' },
+      { x: -22, z: 5, rotation: Math.PI, color: '#A78BFA', style: 'standard' },
+      { x: -27, z: 5, rotation: Math.PI, color: '#A78BFA', style: 'gaming' },
+      { x: 22, z: 15, rotation: Math.PI, color: '#F472B6', style: 'standard' },
+      { x: 27, z: 15, rotation: Math.PI, color: '#F472B6', style: 'standard' }
+    ],
     departments: {
       Leadership: { target: [0, 0, -8], zoom: 1.35 },
       Engineering: { target: [12, 0, -3], zoom: 1.28 },

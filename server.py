@@ -948,6 +948,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             })
             return
 
+        if path == "/api/scene":
+            scene_path = DIRECTORY / "assets" / "teva-scene-contract.json"
+            try:
+                self._send_json(json.loads(scene_path.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                self._send_json({"ok": False, "error": "scene contract unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+            return
+
         if path == "/events":
             self._handle_sse()
             return
