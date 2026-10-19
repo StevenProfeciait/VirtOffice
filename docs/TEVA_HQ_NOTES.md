@@ -67,12 +67,25 @@ Every motion is caused by a field in `/api/agents` or by a click/key from Steve.
 - **Avatars** — procedural InstancedMesh humanoids restyled for HQ: rounded heads, slimmer torso/limbs, cool skin/hair, desaturated seat-color tops, light nameplates with a color accent bar. Pose / event system unchanged.
 - **Camera gestures** — drag to orbit, Shift-drag or right-drag to pan, scroll / pinch to zoom (`touch-action: none` on the canvas). Tap (not drag) still selects seats. Esc / sidebar presets reset pitch and view; `[` / `]` switch main floor vs terrace.
 
+## Command centre Phase 1 (2026-10-17)
+- **Agent registry** (`scripts/agent_registry.py`, `~/.teva_hq/agents_registry.json`) — stable seat identities + explicit session maps; `GET /api/registry`, `POST /api/registry/map`. Unassigned chats get a Map-to-seat control; nothing is guessed. See [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md).
+- **State aggregator** — each agent carries `activity` (state, confidence, source, lastSeenAt). Stale Cursor “active” is low-confidence, not live RUNNING/TYPING.
+- **Event store** — per-seat JSONL timeline (`GET /api/agents/<id>/timeline`); detail panel Activity history. Inbox save records `message_saved` only (not delivered).
+- **Office UI** — status-coloured rings, task on nameplate, confidence/last-seen chips, blocker / pending-decision cues.
+
+## Command centre Phase 2 (2026-10-17)
+- **Message store** (`scripts/message_store.py`, `~/.teva_hq/messages/`) — instruction lifecycle (QUEUED→…→RESPONDED / FAILED / CANCELLED). Distinct from `/api/inbox` notes.
+- **Delivery adapters** (`scripts/delivery_adapters.py`) — `CursorDeeplinkAdapter` (manual handoff; DELIVERED only after `handoff-opened`); `UnsupportedAdapter` for grok/none (truthful failure).
+- **APIs** — `POST/GET /api/messages`, actions: handoff-opened / acknowledge / respond / retry / cancel. Token + Origin locked. SSE `{type:"message"}`.
+- **Composer** — Queue instruction + lifecycle stepper; Save to inbox / Open in Cursor / Copy for Grok unchanged. Executed is never a message status.
+- Full detail: [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md).
+
 ## Open items
 - **Seats read the inbox only after PM/Supervisor agree.** No seat (Cursor or Grok Bot) is wired to
   read `inbox/<seat>.jsonl` or write `inbox/<seat>.read` yet. Until PM/Supervisor adopt a convention
-  ("read your inbox at the start of a turn, then record the line count"), inbox notes are a parking
-  place for Steve, not a delivery channel.
-- Phase 3 (gated on Steve + SA + a spike): Cursor CLI resume / replies into existing chats. Not built.
+  ("read your inbox at the start of a turn, then record the line count"), inbox notes remain a parking
+  place for Steve. Instructions use `/api/messages` with a truthful Cursor handoff (not programmatic send).
+- Phase 3 (gated on Steve + SA + a spike): task engine / approvals; Cursor CLI resume if ever proven safe. Not built.
 - `agents.json` is still tracked in git from before; run `git rm --cached agents.json` at the next commit.
 - Most of Steve's template_1 Cursor chats are ad-hoc (no seat in title/prompt), so they show as
   unassigned. To tag one, add it to `seat_map.json` or start the chat from the office composer

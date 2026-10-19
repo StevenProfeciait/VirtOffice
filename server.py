@@ -61,7 +61,16 @@ ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 INBOX_DIR = Path(os.environ.get("TEVA_INBOX_DIR") or (ROOT / "inbox"))
 INBOX_MAX_TEXT = int(os.environ.get("TEVA_INBOX_MAX_TEXT", "4096"))         # bytes of UTF-8 text per message
 INBOX_MAX_FILE = int(os.environ.get("TEVA_INBOX_MAX_BYTES", str(1024 * 1024)))  # bytes per inbox/<seat>.jsonl
-MAX_BODY = {"/webhook/agents": 1024 * 1024, "/api/inbox": 16 * 1024}
+MAX_BODY = {
+    "/webhook/agents": 1024 * 1024,
+    "/api/inbox": 16 * 1024,
+    "/api/registry/map": 4 * 1024,
+    "/api/messages": 16 * 1024,
+}
+MSG_ID_RE = re.compile(r"^msg_[a-f0-9]{12,32}$")
+MSG_ACTION_RE = re.compile(
+    r"^/api/messages/(msg_[a-f0-9]{12,32})/(handoff-opened|acknowledge|respond|retry|cancel)$"
+)
 CURSOR_SCAN_SECONDS = int(os.environ.get("CURSOR_SCAN_SECONDS", "10"))  # Phase 3a: 30 -> 10 s (tail reads only new bytes)
 # Phase 3a reactions: stored in the same token-locked inbox as notes, never sent to any chat
 REACTION_EMOJI = ("\U0001F44D", "\U0001F389", "\U0001F440", "\u270B")  # thumbs-up, party, eyes, raised hand
@@ -70,14 +79,30 @@ CURSOR_SNAPSHOT = os.environ.get("CURSOR_ACTIVITY_SNAPSHOT", "").strip()  # test
 TOKEN_META = '<meta name="teva-token" content="">'
 
 sys.path.insert(0, str(ROOT / "scripts"))
+agent_registry = None
+state_aggregator = None
+event_store = None
+message_store = None
+delivery_adapters = None
+cursor_activity = None
+SEAT_IDS = set()
 try:
-    import cursor_activity  # read-only transcript tailer
     import teva_sync
     SEAT_IDS = {r[0] for r in teva_sync.ROSTER}
-except Exception as _e:  # pragma: no cover - office still serves without the tailer
-    cursor_activity = None
-    SEAT_IDS = set()
+except Exception as _e:
+    logging.getLogger("hermes-office").error("teva_sync unavailable: %s", _e)
+try:
+    import cursor_activity  # read-only transcript tailer
+except Exception as _e:
     logging.getLogger("hermes-office").error("cursor_activity unavailable: %s", _e)
+try:
+    import agent_registry
+    import state_aggregator
+    import event_store
+    import message_store
+    import delivery_adapters
+except Exception as _e:
+    logging.getLogger("hermes-office").error("command-centre modules unavailable: %s", _e)
 SEAT_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 inbox_lock = threading.Lock()
 cursor_snapshot = None
@@ -183,6 +208,16 @@ def inbox_append(seat, text, kind=None, emoji=None):
         fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
         with os.fdopen(fd, "ab") as f:
             f.write(line)
+    if event_store:
+        try:
+            event_store.append_event(
+                seat, "message_saved",
+                f"inbox {kind}" + (f": {emoji}" if kind == "reaction" else ""),
+                source="user", provenance="user",
+                metadata={"kind": kind, "delivery": "saved_not_delivered"},
+            )
+        except Exception:
+            pass
     c = inbox_counts().get(seat, {})
     return HTTPStatus.OK, {"ok": True, "seat": seat, "kind": kind, "file": f"inbox/{seat}.jsonl", "sent": c.get("sent"), "unread": c.get("unread")}
 
@@ -389,16 +424,64 @@ def refresh_agents():
     normalized = _merge_overrides([_normalize_agent(a) for a in data])
     if cursor_activity and cursor_snapshot:
         normalized = cursor_activity.overlay(normalized, cursor_snapshot)
+    if agent_registry:
+        try:
+            agent_registry.load()  # seed / merge roster + seat_map
+            normalized = agent_registry.attach_registry(normalized)
+        except Exception as e:
+            logger.warning("registry attach failed: %s", e)
+    if state_aggregator:
+        try:
+            normalized = state_aggregator.enrich_agents(normalized)
+        except Exception as e:
+            logger.warning("state aggregator failed: %s", e)
     payload = json.dumps({"agents": normalized})
 
     with state_lock:
+        prev = list(latest_agents)
         latest_agents = normalized
         last_poll = time.time()
         changed = payload != last_payload
         last_payload = payload
 
     if changed:
+        _emit_agent_edge_events(prev, normalized)
         _broadcast_sse(payload)
+
+
+def _emit_agent_edge_events(prev, nxt):
+    """Best-effort server-side timeline from coarse status/cursor edges (not a full JS deriveEvents)."""
+    if not event_store:
+        return
+    try:
+        P = {a["id"]: a for a in (prev or []) if a.get("id")}
+        for n in nxt or []:
+            aid = n.get("id")
+            if not aid or aid == "needs-steve" or aid not in SEAT_IDS:
+                continue
+            p = P.get(aid) or {}
+            act = (n.get("activity") or {}).get("state")
+            pact = (p.get("activity") or {}).get("state")
+            if act and act != pact:
+                event_store.append_event(
+                    aid, "state_change",
+                    f"{pact or '?'} → {act} ({(n.get('activity') or {}).get('confidence', '?')})",
+                    source=(n.get("activity") or {}).get("source") or "server",
+                    provenance="server",
+                    metadata={"from": pact, "to": act, "activity": n.get("activity")},
+                )
+            nc = ((n.get("cursor") or {}).get("latest") or {})
+            pc = ((p.get("cursor") or {}).get("latest") or {})
+            if nc.get("id") and (nc.get("id") != pc.get("id") or nc.get("toolKind") != pc.get("toolKind")) and nc.get("state") == "active":
+                event_store.append_event(
+                    aid, "tool_activity",
+                    nc.get("step") or (nc.get("toolKind") or "tool"),
+                    source="cursor", provenance="observed",
+                    metadata={"chatId": nc.get("id"), "toolKind": nc.get("toolKind")},
+                    correlation_id=nc.get("id"),
+                )
+    except Exception as e:
+        logger.warning("edge events failed: %s", e)
 
 
 def _broadcast_sse(payload):
@@ -414,6 +497,216 @@ def _broadcast_sse(payload):
         for q in dead:
             if q in sse_clients:
                 sse_clients.remove(q)
+
+
+def _broadcast_message_update(msg):
+    """Push a lightweight message lifecycle update over SSE (does not invent agent state)."""
+    if not msg:
+        return
+    try:
+        _broadcast_sse(json.dumps({"type": "message", "message": msg}))
+    except Exception:
+        pass
+
+
+def _msg_summary(content, n=80):
+    s = str(content or "").replace("\n", " ").strip()
+    return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def _emit_msg_event(agent_id, event_type, summary, message_id, extra=None):
+    if not event_store or not agent_id:
+        return
+    try:
+        event_store.append_event(
+            agent_id, event_type, summary,
+            source="user" if event_type.startswith("message_") or "confirm" in event_type else "server",
+            provenance="user" if "acknowledged" in event_type or "responded" in event_type or "handoff" in event_type or event_type == "delivery_confirmed" else "server",
+            metadata=dict({"message_id": message_id}, **(extra or {})),
+            correlation_id=message_id,
+        )
+    except Exception:
+        pass
+
+
+def _agent_for_message(agent_id):
+    with state_lock:
+        for a in latest_agents:
+            if a.get("id") == agent_id:
+                return dict(a)
+    return {"id": agent_id, "name": agent_id, "role": "", "task": "", "docs": []}
+
+
+def _registry_entry(agent_id):
+    if not agent_registry:
+        return {}
+    try:
+        return agent_registry.get_agent(agent_id) or {}
+    except Exception:
+        return {}
+
+
+def messages_create(content, recipient_agent_id, task_id=None):
+    """Queue an instruction and run the delivery adapter. Returns (HTTPStatus, payload)."""
+    if not message_store or not delivery_adapters:
+        return HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "messaging unavailable"}
+    adapter, adapter_name, runtime = delivery_adapters.pick_adapter(
+        recipient_agent_id, _registry_entry(recipient_agent_id)
+    )
+    ok, msg = message_store.create_message(
+        recipient_agent_id, content, runtime=runtime, adapter=adapter_name,
+        task_id=task_id, seat_ids=SEAT_IDS,
+    )
+    if not ok:
+        return HTTPStatus.BAD_REQUEST, msg
+    _emit_msg_event(recipient_agent_id, "message_created", _msg_summary(content), msg["message_id"])
+    _emit_msg_event(recipient_agent_id, "message_queued", "queued for " + adapter_name, msg["message_id"])
+
+    agent = _agent_for_message(recipient_agent_id)
+    result = adapter.submit(msg, agent=agent, registry_entry=_registry_entry(recipient_agent_id))
+    caps = result.capabilities or adapter.capabilities()
+
+    if result.status == "DELIVERING":
+        ok2, msg2 = message_store.transition(
+            msg["message_id"], "DELIVERING",
+            {"handoff": result.handoff, "delivery_attempts": 1, "adapter": adapter_name, "runtime": runtime},
+        )
+        if ok2:
+            msg = msg2
+            _emit_msg_event(recipient_agent_id, "delivery_started", "manual Cursor handoff ready", msg["message_id"])
+    else:
+        ok2, msg2 = message_store.transition(
+            msg["message_id"], "FAILED",
+            {
+                "error_code": result.error_code,
+                "error_message": result.error_message,
+                "delivery_attempts": 1,
+                "adapter": adapter_name,
+                "runtime": runtime,
+            },
+        )
+        if ok2:
+            msg = msg2
+            _emit_msg_event(
+                recipient_agent_id, "delivery_failed",
+                result.error_message or result.error_code or "failed",
+                msg["message_id"],
+                {"error_code": result.error_code},
+            )
+
+    _broadcast_message_update(msg)
+    return HTTPStatus.OK, {"ok": True, "message": msg, "capabilities": caps}
+
+
+def messages_action(message_id, action, body=None):
+    """handoff-opened | acknowledge | respond | retry | cancel."""
+    if not message_store:
+        return HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "messaging unavailable"}
+    body = body or {}
+    msg = message_store.get_message(message_id)
+    if not msg:
+        return HTTPStatus.NOT_FOUND, {"ok": False, "error": "unknown message"}
+    aid = msg["recipient_agent_id"]
+
+    if action == "handoff-opened":
+        if msg.get("adapter") != "cursor_deeplink":
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "handoff only for cursor_deeplink"}
+        if msg.get("status") != "DELIVERING":
+            if msg.get("status") == "DELIVERED":
+                return HTTPStatus.OK, {"ok": True, "message": msg}
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": f"cannot confirm handoff from {msg.get('status')}"}
+        handoff = dict(msg.get("handoff") or {})
+        handoff["openedAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        ok, updated = message_store.transition(
+            message_id, "DELIVERED",
+            {"handoff": handoff, "delivered_at": handoff["openedAt"]},
+        )
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, updated
+        _emit_msg_event(aid, "delivery_confirmed", "user opened Cursor handoff", message_id)
+        _broadcast_message_update(updated)
+        return HTTPStatus.OK, {"ok": True, "message": updated}
+
+    if action == "acknowledge":
+        if msg.get("status") not in ("DELIVERED", "ACKNOWLEDGED"):
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": f"cannot acknowledge from {msg.get('status')}"}
+        if msg.get("status") == "ACKNOWLEDGED":
+            return HTTPStatus.OK, {"ok": True, "message": msg}
+        iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        ok, updated = message_store.transition(message_id, "ACKNOWLEDGED", {"acknowledged_at": iso})
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, updated
+        _emit_msg_event(aid, "message_acknowledged", "Steve marked acknowledged", message_id)
+        _broadcast_message_update(updated)
+        return HTTPStatus.OK, {"ok": True, "message": updated}
+
+    if action == "respond":
+        text = body.get("text") or body.get("response")
+        if not isinstance(text, str) or not text.strip():
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "text required"}
+        if msg.get("status") not in ("DELIVERED", "ACKNOWLEDGED", "RESPONDED"):
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": f"cannot respond from {msg.get('status')}"}
+        if msg.get("status") == "RESPONDED":
+            return HTTPStatus.OK, {"ok": True, "message": msg}
+        iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        patch = {"responded_at": iso, "response_text": text.strip()[:2000]}
+        if msg.get("status") == "DELIVERED":
+            # allow DELIVERED → RESPONDED per TRANSITIONS
+            pass
+        ok, updated = message_store.transition(message_id, "RESPONDED", patch)
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, updated
+        _emit_msg_event(aid, "message_responded", _msg_summary(text), message_id)
+        _broadcast_message_update(updated)
+        return HTTPStatus.OK, {"ok": True, "message": updated}
+
+    if action == "retry":
+        if not message_store.can_retry(msg):
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "retry not allowed"}
+        ok, queued = message_store.transition(message_id, "QUEUED", {"error_code": None, "error_message": None})
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, queued
+        _emit_msg_event(aid, "message_retry", "retry requested", message_id)
+        if not delivery_adapters:
+            return HTTPStatus.OK, {"ok": True, "message": queued}
+        adapter, adapter_name, runtime = delivery_adapters.pick_adapter(aid, _registry_entry(aid))
+        result = adapter.submit(queued, agent=_agent_for_message(aid), registry_entry=_registry_entry(aid))
+        attempts = int(queued.get("delivery_attempts") or 0) + 1
+        if result.status == "DELIVERING":
+            ok2, updated = message_store.transition(
+                message_id, "DELIVERING",
+                {"handoff": result.handoff, "delivery_attempts": attempts, "adapter": adapter_name},
+            )
+            if ok2:
+                _emit_msg_event(aid, "delivery_started", "retry handoff ready", message_id)
+                _broadcast_message_update(updated)
+                return HTTPStatus.OK, {"ok": True, "message": updated, "capabilities": result.capabilities}
+        else:
+            ok2, updated = message_store.transition(
+                message_id, "FAILED",
+                {
+                    "error_code": result.error_code,
+                    "error_message": result.error_message,
+                    "delivery_attempts": attempts,
+                },
+            )
+            if ok2:
+                _emit_msg_event(aid, "delivery_failed", result.error_message or "failed", message_id)
+                _broadcast_message_update(updated)
+                return HTTPStatus.OK, {"ok": True, "message": updated, "capabilities": result.capabilities}
+        return HTTPStatus.OK, {"ok": True, "message": queued}
+
+    if action == "cancel":
+        if msg.get("status") in ("CANCELLED", "RESPONDED", "EXPIRED"):
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": f"cannot cancel from {msg.get('status')}"}
+        ok, updated = message_store.transition(message_id, "CANCELLED")
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, updated
+        _emit_msg_event(aid, "message_cancelled", "cancelled by Steve", message_id)
+        _broadcast_message_update(updated)
+        return HTTPStatus.OK, {"ok": True, "message": updated}
+
+    return HTTPStatus.NOT_FOUND, {"ok": False, "error": "unknown action"}
 
 
 def _polling_loop():
@@ -499,7 +792,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if seat not in SEAT_IDS:
                     self._send_json({"ok": False, "error": "unknown seat"}, HTTPStatus.BAD_REQUEST)
                     return
-                self._send_json({"seat": seat, "counts": inbox_counts().get(seat), "messages": inbox_messages(seat)})
+                msg_summary = {}
+                if message_store:
+                    try:
+                        for m in message_store.list_messages(agent_id=seat, limit=200):
+                            st = m.get("status") or "?"
+                            msg_summary[st] = msg_summary.get(st, 0) + 1
+                    except Exception:
+                        pass
+                self._send_json({
+                    "seat": seat,
+                    "counts": inbox_counts().get(seat),
+                    "messages": inbox_messages(seat),
+                    "instructions": msg_summary,
+                })
                 return
             self._send_json({"counts": inbox_counts(), "maxText": INBOX_MAX_TEXT, "maxFile": INBOX_MAX_FILE})
             return
@@ -513,6 +819,56 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with state_lock:
                 agents = list(latest_agents)
             self._send_json(agents)
+            return
+
+        # GET /api/agents/<id>/timeline
+        m_tl = re.match(r"^/api/agents/([a-z0-9][a-z0-9-]{0,31})/timeline$", path)
+        if m_tl:
+            aid = m_tl.group(1)
+            if aid not in SEAT_IDS:
+                self._send_json({"ok": False, "error": "unknown agent"}, HTTPStatus.BAD_REQUEST)
+                return
+            q = parse_qs(parsed.query)
+            try:
+                limit = int((q.get("limit") or ["50"])[0])
+            except ValueError:
+                limit = 50
+            rows = event_store.read_timeline(aid, limit) if event_store else []
+            self._send_json({"agentId": aid, "events": rows})
+            return
+
+        if path == "/api/registry":
+            if not agent_registry:
+                self._send_json({"ok": False, "error": "registry unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            self._send_json(agent_registry.public_view())
+            return
+
+        if path == "/api/messages":
+            if not message_store:
+                self._send_json({"ok": False, "error": "messaging unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            q = parse_qs(parsed.query)
+            agent = (q.get("agent") or q.get("seat") or [None])[0]
+            status = (q.get("status") or [None])[0]
+            try:
+                limit = int((q.get("limit") or ["50"])[0])
+            except ValueError:
+                limit = 50
+            rows = message_store.list_messages(agent_id=agent, status=status, limit=limit)
+            self._send_json({"messages": rows})
+            return
+
+        m_one = re.match(r"^/api/messages/(msg_[a-f0-9]{12,32})$", path)
+        if m_one:
+            if not message_store:
+                self._send_json({"ok": False, "error": "messaging unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            msg = message_store.get_message(m_one.group(1))
+            if not msg:
+                self._send_json({"ok": False, "error": "unknown message"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"message": msg})
             return
 
         if path == "/api/config":
@@ -535,6 +891,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "cursor_scan_seconds": CURSOR_SCAN_SECONDS,
                 "reaction_emoji": list(REACTION_EMOJI),
                 "cursor_source": CURSOR_SNAPSHOT and "snapshot" or "live transcripts",
+                "command_centre_phase": 2,
             })
             return
 
@@ -553,7 +910,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path not in MAX_BODY:
+        path = parsed.path
+        action_m = MSG_ACTION_RE.match(path)
+        limit = MAX_BODY.get(path)
+        if limit is None and action_m:
+            limit = 16 * 1024
+        if limit is None:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         if not self._write_allowed():
@@ -562,11 +924,39 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({"ok": False, "error": "Content-Type must be application/json"}, HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
             return
         try:
-            if int(self.headers.get("Content-Length", "0")) > MAX_BODY[parsed.path]:
+            if int(self.headers.get("Content-Length", "0")) > limit:
                 self._send_json({"ok": False, "error": "body too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
                 return
         except ValueError:
             self._send_json({"ok": False, "error": "bad Content-Length"}, HTTPStatus.BAD_REQUEST)
+            return
+        if path == "/api/messages":
+            try:
+                body = self._read_json_body(limit)
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)}, HTTPStatus.BAD_REQUEST)
+                return
+            if not isinstance(body, dict):
+                self._send_json({"ok": False, "error": "JSON object expected"}, HTTPStatus.BAD_REQUEST)
+                return
+            rid = body.get("recipient_agent_id") or body.get("agentId") or body.get("seat")
+            status, payload = messages_create(body.get("content") or body.get("text"), rid, body.get("task_id"))
+            self._send_json(payload, status)
+            return
+        if action_m:
+            mid, action = action_m.group(1), action_m.group(2)
+            try:
+                body = self._read_json_body(limit) if int(self.headers.get("Content-Length", "0") or 0) else {}
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)}, HTTPStatus.BAD_REQUEST)
+                return
+            if body is None:
+                body = {}
+            if not isinstance(body, dict):
+                self._send_json({"ok": False, "error": "JSON object expected"}, HTTPStatus.BAD_REQUEST)
+                return
+            status, payload = messages_action(mid, action, body)
+            self._send_json(payload, status)
             return
         if parsed.path == "/api/inbox":
             try:
@@ -579,6 +969,38 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             status, payload = inbox_append(body.get("seat"), body.get("text"), body.get("kind"), body.get("emoji"))
             self._send_json(payload, status)
+            return
+        if parsed.path == "/api/registry/map":
+            if not agent_registry:
+                self._send_json({"ok": False, "error": "registry unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            try:
+                body = self._read_json_body(MAX_BODY["/api/registry/map"])
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)}, HTTPStatus.BAD_REQUEST)
+                return
+            if not isinstance(body, dict):
+                self._send_json({"ok": False, "error": "JSON object expected"}, HTTPStatus.BAD_REQUEST)
+                return
+            ok, payload = agent_registry.map_session(body.get("sessionId") or body.get("session_id"),
+                                                      body.get("agentId") or body.get("agent_id") or body.get("seat"))
+            if ok and event_store:
+                try:
+                    event_store.append_event(
+                        payload["agentId"], "session_mapped",
+                        f"mapped session {payload['sessionId'][:8]}…",
+                        source="user", provenance="user",
+                        metadata={"sessionId": payload["sessionId"], "previousAgentId": payload.get("previousAgentId")},
+                        correlation_id=payload["sessionId"],
+                    )
+                except Exception:
+                    pass
+            # Rescan overlay so mapping applies immediately
+            try:
+                refresh_agents()
+            except Exception:
+                pass
+            self._send_json(payload, HTTPStatus.OK if ok else HTTPStatus.BAD_REQUEST)
             return
         if parsed.path == "/webhook/agents":
             try:

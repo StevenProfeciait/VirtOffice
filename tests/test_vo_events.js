@@ -71,6 +71,12 @@ t('board working beats stale THINKING; YOUR_TURN still wins', () => {
     state: 'ended', endStatus: 'success', endedAt: NOW - 500, lastActivity: NOW - 500
   }, { status: 'working' }), NOW), 'YOUR_TURN');
 });
+t('server activity.presentationState is preferred when present', () => {
+  const a = seat('le', { activity: { state: 'RUNNING', presentationState: 'RUNNING', confidence: 'high', source: 'cursor' } });
+  assert.strictEqual(V.baseState(a, NOW), 'RUNNING');
+  const err = seat('le', { activity: { state: 'ERROR', presentationState: 'BLOCKED', confidence: 'high', source: 'cursor' } });
+  assert.strictEqual(V.baseState(err, NOW), 'BLOCKED');
+});
 t('read/search/fetch -> READING, shell -> RUNNING, task -> DELEGATING, other -> AT_DESK', () => {
   for (const k of ['read', 'search', 'fetch']) assert.strictEqual(V.baseState(withChat('x', { toolKind: k }), NOW), 'READING');
   assert.strictEqual(V.baseState(withChat('x', { toolKind: 'shell' }), NOW), 'RUNNING');

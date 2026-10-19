@@ -332,6 +332,13 @@ class Tailer:
             recent = sorted(sessions, key=lambda s: -s[1].stat().st_mtime)[:10]
             self.titles.update(load_titles(sorted(set(missing) | {s[0] for s in recent}), self.cursor_db))
         manual = self._seat_map()
+        # Registry explicit mappings win over seat_map.json (evidence labels stay distinct).
+        reg = {}
+        try:
+            import agent_registry as _ar
+            reg = {sid: aid for sid, aid in (_ar.session_map() or {}).items() if aid in SEAT_IDS}
+        except Exception:
+            pass
         chats = []
         for cid, f, subs in sessions:
             try:
@@ -341,7 +348,9 @@ class Tailer:
                 continue
             title = self.titles.get(cid, "")
             seat, evidence = None, ""
-            if cid in manual:
+            if cid in reg:
+                seat, evidence = reg[cid], "agent_registry"
+            elif cid in manual:
                 seat, evidence = manual[cid], "seat_map.json"
             else:
                 by_title, by_prompt = seats_named(title), seats_in_prompt(st["prompt"])

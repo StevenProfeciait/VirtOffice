@@ -16,7 +16,7 @@
   var THINK_DIM_MS = 10 * 60 * 1000;   // stale > 10 min: thinking glyph dims
   var THINK_MAX_MS = 60 * 60 * 1000;   // stale > 60 min: no longer animated as thinking (too old to be honest)
   var OVERLAY_GAP_MS = 4000;           // max one overlay per seat per 4 s; extra events go to the feed only
-  var BASE_STATES = ['OFFLINE', 'BLOCKED', 'MEETING', 'TYPING', 'READING', 'RUNNING', 'DELEGATING', 'THINKING', 'YOUR_TURN', 'AT_DESK', 'IDLE'];
+  var BASE_STATES = ['OFFLINE', 'BLOCKED', 'ERROR', 'WAITING_FOR_APPROVAL', 'MEETING', 'TYPING', 'READING', 'RUNNING', 'DELEGATING', 'THINKING', 'YOUR_TURN', 'AT_DESK', 'COMPLETED', 'IDLE'];
   var REACTIONS = {
     '1': { key: 'wave', emoji: '\uD83D\uDC4B', stored: false, overlay: 'wave', label: 'Wave' },
     '2': { key: 'thumbs', emoji: '\uD83D\uDC4D', stored: true, overlay: 'nod', label: 'Thumbs-up' },
@@ -37,10 +37,17 @@
   function endOk(c) { return !!c && c.endStatus === 'success'; }
   function endFailed(c) { return !!c && !!c.endStatus && c.endStatus !== 'success'; }
 
-  /** Continuous base state for a seat (brief §3.3). seenAt = local 👀 time for this seat's last turn end. */
+  /** Continuous base state for a seat (brief §3.3). seenAt = local 👀 time for this seat's last turn end.
+   * Prefer server activity.presentationState / activity.state when present (state_aggregator). */
   function baseState(a, now, seenAt) {
     if (!a) return 'IDLE';
     if (a.id === 'needs-steve') return 'IDLE';
+    if (a.activity && (a.activity.presentationState || a.activity.state)) {
+      var ps = a.activity.presentationState || a.activity.state;
+      if (ps === 'ERROR') return 'BLOCKED';
+      if (ps === 'COMPLETED' || ps === 'WAITING_FOR_APPROVAL') return 'IDLE'; // reserved; no pose yet
+      if (BASE_STATES.indexOf(ps) >= 0) return ps;
+    }
     var c = latest(a);
     var hasChat = !!(a.cursor && a.cursor.count);
     if (a.signal === false && !hasChat) return 'OFFLINE';

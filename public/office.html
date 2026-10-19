@@ -333,6 +333,19 @@ body {
 #msgText { width: 100%; min-height: 72px; resize: vertical; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 10px; font: inherit; font-size: 12px; }
 .msg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
 .msg-hint { font-size: 10.5px; color: rgba(255,255,255,0.45); margin-top: 6px; line-height: 1.4; }
+.lc-stepper { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 4px; }
+.lc-step { font-size: 9px; font-weight: 800; letter-spacing: 0.06em; padding: 3px 7px; border-radius: 6px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.35); border: 1px solid transparent; }
+.lc-step.reached { color: #93c5fd; border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.12); }
+.lc-step.current { color: #fff; border-color: rgba(94,226,181,0.5); background: rgba(94,226,181,0.18); }
+.lc-step.failed { color: #fca5a5; border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.15); }
+.instr-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.instr-row { font-size: 11px; padding: 8px 10px; border-radius: 9px; background: rgba(255,255,255,0.04); line-height: 1.4; }
+.instr-row .instr-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.instr-row .instr-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pill.QUEUED, .pill.DELIVERING { background: rgba(59,130,246,0.18); color: #93c5fd; }
+.pill.DELIVERED, .pill.ACKNOWLEDGED { background: rgba(94,226,181,0.18); color: #5ee2b5; }
+.pill.RESPONDED { background: rgba(96,165,250,0.18); color: #93c5fd; }
+.pill.FAILED, .pill.CANCELLED, .pill.EXPIRED { background: rgba(239,68,68,0.15); color: #fca5a5; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
 .set-row .set-desc { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 3px; }
 .set-row code { font-size: 11px; color: #c4b5fd; word-break: break-all; }
@@ -558,6 +571,16 @@ body.paused #pauseOverlay { display: block; }
 .pill.ended { background: rgba(96,165,250,0.18); color: #93c5fd; }
 .pill.stale { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); }
 .pill.unassigned { background: rgba(245,181,68,0.16); color: #f5b544; }
+.act-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 14px; }
+.act-chip { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 8px; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); }
+.act-chip.high { color: #5ee2b5; background: rgba(94,226,181,0.12); }
+.act-chip.medium { color: #f5b544; background: rgba(245,181,68,0.12); }
+.act-chip.low { color: #94a3b8; background: rgba(148,163,184,0.12); }
+.tl-row { font-size: 11px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); line-height: 1.4; }
+.tl-row .t { color: rgba(255,255,255,0.45); font-variant-numeric: tabular-nums; margin-right: 8px; }
+.tl-row .p { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; }
+.map-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.map-row select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 4px 6px; font: inherit; font-size: 11px; max-width: 160px; }
 .cur-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 11.5px; }
 .cur-row .t { display: flex; gap: 6px; align-items: center; }
 .cur-row .t b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -659,9 +682,14 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
       <span id="detailStatusPill" style="margin-left:auto"></span>
     </div>
     <div class="detail-source" id="detailSource"></div>
+    <div class="detail-section" id="activityMeta"></div>
     <div class="detail-section" id="reactSection">
       <div class="detail-section-title">React (keys 1–6) · 👋 👉 stay on this screen · 👍 🎉 👀 ✋ are saved to this seat's inbox · nothing is sent to any chat</div>
       <div class="react-row" id="reactRow"></div>
+    </div>
+    <div class="detail-section" id="detailTimelineWrap">
+      <div class="detail-section-title">Activity history (real events only)</div>
+      <div class="detail-task-list" id="detailTimeline"></div>
     </div>
     <div class="detail-section" id="detailCursorWrap">
       <div class="detail-section-title">Cursor activity (read-only, from IDE transcripts)</div>
@@ -702,9 +730,12 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
     </div>
     <div class="detail-section" id="msgSection">
       <div class="detail-section-title" id="msgTitle">Message</div>
-      <textarea id="msgText" placeholder="Write a note for this seat. Nothing is sent from here."></textarea>
+      <textarea id="msgText" placeholder="Write a note or instruction. Save ≠ deliver. Queue tracks lifecycle."></textarea>
       <div class="msg-actions" id="msgActions"></div>
       <div class="msg-hint" id="msgHint"></div>
+      <div id="msgLifecycle"></div>
+      <div id="msgInstrActions" class="msg-actions"></div>
+      <div id="msgInstrList" class="instr-list"></div>
       <div class="inbox-line" id="inboxLine"></div>
       <div id="inboxResult"></div>
       <div id="inboxRecent"></div>
@@ -807,14 +838,246 @@ async function saveToInbox(agent) {
     out.innerHTML = `<div class="inbox-err">Not saved: ${esc(e.message || e)}</div>`;
   }
 }
+
+const LC_STEPS = ['QUEUED', 'DELIVERING', 'DELIVERED', 'ACKNOWLEDGED', 'RESPONDED'];
+let SEAT_MESSAGES = {};
+
+function lcOrder(status) {
+  if (status === 'FAILED' || status === 'CANCELLED' || status === 'EXPIRED') return -1;
+  const i = LC_STEPS.indexOf(status);
+  return i < 0 ? 0 : i;
+}
+
+function renderLifecycle(msg) {
+  const el = document.getElementById('msgLifecycle');
+  const act = document.getElementById('msgInstrActions');
+  if (!el || !act) return;
+  if (!msg) { el.innerHTML = ''; act.innerHTML = ''; return; }
+  const st = msg.status || '';
+  const failed = st === 'FAILED' || st === 'CANCELLED' || st === 'EXPIRED';
+  const idx = lcOrder(st);
+  el.innerHTML = '<div class="detail-section-title" style="margin-top:10px">Instruction lifecycle</div>' +
+    `<div class="lc-stepper">${LC_STEPS.map((s, i) => {
+      let cls = 'lc-step';
+      if (failed && s === 'QUEUED') cls += ' failed';
+      else if (!failed && i < idx) cls += ' reached';
+      else if (!failed && i === idx) cls += ' current';
+      return `<span class="${cls}">${s}</span>`;
+    }).join('')}${failed ? `<span class="lc-step failed">${esc(st)}</span>` : ''}</div>` +
+    `<div class="msg-hint">${esc(msg.message_id)} · adapter ${esc(msg.adapter || '?')} · attempts ${esc(msg.delivery_attempts || 0)}` +
+    (msg.error_message ? ` · <span class="inbox-err">${esc(msg.error_message)}</span>` : '') +
+    (msg.response_text ? ` · response: ${esc(String(msg.response_text).slice(0, 80))}` : '') +
+    '. Executed is never a message status.</div>';
+  let btns = '';
+  if (st === 'DELIVERING' && msg.handoff && msg.handoff.url) {
+    btns += '<button class="act-btn" id="msgHandoff">Open handoff</button>';
+  }
+  if (st === 'DELIVERED' || st === 'ACKNOWLEDGED') {
+    if (st === 'DELIVERED') btns += '<button class="act-btn secondary" id="msgAck">Mark acknowledged</button>';
+    btns += '<button class="act-btn secondary" id="msgRespond">Record response</button>';
+  }
+  if (st === 'FAILED') btns += '<button class="act-btn secondary" id="msgRetry">Retry</button>';
+  if (['QUEUED', 'DELIVERING', 'DELIVERED', 'FAILED', 'ACKNOWLEDGED'].includes(st)) {
+    btns += '<button class="mini-btn" id="msgCancel">Cancel</button>';
+  }
+  act.innerHTML = btns;
+  const mid = msg.message_id;
+  const handoffBtn = document.getElementById('msgHandoff');
+  if (handoffBtn) handoffBtn.onclick = () => openHandoff(msg);
+  const ackBtn = document.getElementById('msgAck');
+  if (ackBtn) ackBtn.onclick = () => messageAction(mid, 'acknowledge');
+  const respBtn = document.getElementById('msgRespond');
+  if (respBtn) respBtn.onclick = () => {
+    const text = window.prompt('Record agent response (Steve-authored note — not auto-detected):');
+    if (text == null || !String(text).trim()) return;
+    messageAction(mid, 'respond', { text: String(text).trim() });
+  };
+  const retryBtn = document.getElementById('msgRetry');
+  if (retryBtn) retryBtn.onclick = () => messageAction(mid, 'retry');
+  const cancelBtn = document.getElementById('msgCancel');
+  if (cancelBtn) cancelBtn.onclick = () => messageAction(mid, 'cancel');
+}
+
+function renderInstrList(agent, rows) {
+  const el = document.getElementById('msgInstrList');
+  if (!el) return;
+  if (!rows.length) { el.innerHTML = '<div class="msg-hint">No queued instructions yet for this seat.</div>'; return; }
+  el.innerHTML = '<div class="detail-section-title">Recent instructions</div>' + rows.slice(0, 8).map(m => {
+    const preview = String(m.content || '').replace(/\n/g, ' ').slice(0, 100);
+    let acts = '';
+    if (m.status === 'FAILED') acts += `<button class="mini-btn" data-msg-act="retry" data-mid="${esc(m.message_id)}">Retry</button>`;
+    if (['QUEUED', 'DELIVERING', 'DELIVERED', 'FAILED', 'ACKNOWLEDGED'].includes(m.status)) {
+      acts += `<button class="mini-btn" data-msg-act="cancel" data-mid="${esc(m.message_id)}">Cancel</button>`;
+    }
+    if (m.status === 'DELIVERING' && m.handoff && m.handoff.url) {
+      acts += `<button class="mini-btn" data-msg-act="handoff" data-mid="${esc(m.message_id)}">Open handoff</button>`;
+    }
+    return `<div class="instr-row" data-mid="${esc(m.message_id)}">
+      <div class="instr-meta"><span class="pill ${esc(m.status)}">${esc(m.status)}</span>
+        <span class="doc-time">${esc(m.message_id)}</span>
+        <span class="doc-time">${esc(fmtTime(m.ts))}</span></div>
+      <div>${esc(preview)}${preview.length >= 100 ? '…' : ''}</div>
+      ${acts ? `<div class="instr-actions">${acts}</div>` : ''}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-msg-act]').forEach(btn => {
+    btn.onclick = () => {
+      const mid = btn.getAttribute('data-mid');
+      const act = btn.getAttribute('data-msg-act');
+      if (act === 'handoff') {
+        const m = (SEAT_MESSAGES[agent.id] || []).find(x => x.message_id === mid);
+        if (m) openHandoff(m);
+        return;
+      }
+      messageAction(mid, act);
+    };
+  });
+}
+
+async function loadInstructions(agent) {
+  if (!agent || agent.id === 'needs-steve') return;
+  try {
+    const res = await apiFetch('/api/messages?agent=' + encodeURIComponent(agent.id) + '&limit=20');
+    if (!res.ok || !selectedAgent || selectedAgent.id !== agent.id) return;
+    const rows = (await res.json()).messages || [];
+    SEAT_MESSAGES[agent.id] = rows;
+    renderLifecycle(rows[0] || null);
+    renderInstrList(agent, rows);
+  } catch (e) {}
+}
+
+async function queueInstruction(agent) {
+  const ta = document.getElementById('msgText');
+  const text = (ta.value || '').trim();
+  const out = document.getElementById('inboxResult');
+  if (!text) { out.innerHTML = '<div class="inbox-err">Write an instruction first.</div>'; return; }
+  try {
+    const res = await apiFetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-TEVA-Token': TEVA_TOKEN },
+      body: JSON.stringify({ recipient_agent_id: agent.id, content: text })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      out.innerHTML = `<div class="inbox-err">Not queued (${esc(res.status)}): ${esc(data.error || 'error')}</div>`;
+      return;
+    }
+    const m = data.message;
+    out.innerHTML = `<div class="inbox-ok">✓ Queued <code>${esc(m.message_id)}</code> → ${esc(m.status)}` +
+      (m.error_message ? ` · ${esc(m.error_message)}` : '') +
+      '. Not executed.</div>';
+    showToast(m.status === 'DELIVERING' ? 'Queued — open handoff to confirm delivery' : (m.status === 'FAILED' ? 'Queued but delivery unavailable' : 'Instruction queued'));
+    if (selectedAgent && selectedAgent.id === agent.id) {
+      await loadInstructions(agent);
+      if (selectedAgent) loadTimeline(selectedAgent.id);
+    }
+  } catch (e) {
+    out.innerHTML = `<div class="inbox-err">Not queued: ${esc(e.message || e)}</div>`;
+  }
+}
+
+async function openHandoff(msg) {
+  const url = msg && msg.handoff && msg.handoff.url;
+  if (!url) { showToast('No handoff URL'); return; }
+  openUrl(url);
+  try {
+    const res = await apiFetch('/api/messages/' + encodeURIComponent(msg.message_id) + '/handoff-opened', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-TEVA-Token': TEVA_TOKEN },
+      body: '{}'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.message) {
+      showToast('Handoff opened — marked DELIVERED (you still send in Cursor)');
+      const agent = selectedAgent;
+      if (agent) { await loadInstructions(agent); loadTimeline(agent.id); }
+    } else {
+      showToast('Opened Cursor; status update failed: ' + (data.error || res.status));
+    }
+  } catch (e) {
+    showToast('Opened Cursor; could not confirm handoff');
+  }
+}
+
+async function messageAction(messageId, action, body) {
+  try {
+    const res = await apiFetch('/api/messages/' + encodeURIComponent(messageId) + '/' + action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-TEVA-Token': TEVA_TOKEN },
+      body: JSON.stringify(body || {})
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      showToast((data.error || 'action failed') + ' (' + res.status + ')');
+      return;
+    }
+    showToast(action + ' → ' + (data.message && data.message.status));
+    if (selectedAgent) {
+      await loadInstructions(selectedAgent);
+      loadTimeline(selectedAgent.id);
+    }
+  } catch (e) {
+    showToast(String(e.message || e));
+  }
+}
+
+function onMessageUpdate(msg) {
+  if (!msg || !msg.recipient_agent_id) return;
+  const aid = msg.recipient_agent_id;
+  const list = SEAT_MESSAGES[aid] || [];
+  const i = list.findIndex(m => m.message_id === msg.message_id);
+  if (i >= 0) list[i] = msg; else list.unshift(msg);
+  list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  SEAT_MESSAGES[aid] = list;
+  if (selectedAgent && selectedAgent.id === aid) {
+    renderLifecycle(list[0] || msg);
+    renderInstrList(selectedAgent, list);
+  }
+}
+function seatOptionsHtml(selected) {
+  return AGENTS.filter(a => a.id !== 'needs-steve').map(a =>
+    `<option value="${esc(a.id)}"${a.id === selected ? ' selected' : ''}>${esc(a.emoji)} ${esc(a.name)}</option>`).join('');
+}
 function cursorRows(chats, showSeat) {
   return (chats || []).map(c => {
     const seat = c.seat ? AGENTS.find(a => a.id === c.seat) : null;
     const who = showSeat ? (seat ? `<a class="lnk" data-select-agent="${esc(seat.id)}">${esc(seat.emoji)} ${esc(seat.name)}</a>` : '<span class="pill unassigned">Unassigned Cursor chat</span>') : '';
+    const mapUi = !c.seat ? `<div class="map-row"><select data-map-session="${esc(c.id)}">${seatOptionsHtml()}</select>
+      <button class="mini-btn" data-map-btn="${esc(c.id)}" title="Explicit registry mapping — never guessed">Map to seat</button></div>` : '';
     return `<div class="cur-row"><div class="t"><span class="pill ${esc(c.state)}">${esc(c.state)}</span><b title="${esc(c.id)}">${esc(c.title)}</b>
       <span class="doc-time" title="${esc(fmtTime(c.lastActivity))}">${esc(fmtTime(c.lastActivity))} · ${esc(fmtAgo(c.lastActivity))}</span></div>
-      <div class="cur-step">${esc(c.step)}</div><div class="cur-ev">${who ? who + ' · ' : ''}Evidence: ${esc(c.evidence)}</div></div>`;
+      <div class="cur-step">${esc(c.step)}</div><div class="cur-ev">${who ? who + ' · ' : ''}Evidence: ${esc(c.evidence)}</div>${mapUi}</div>`;
   }).join('');
+}
+async function mapSessionToSeat(sessionId, agentId) {
+  if (!sessionId || !agentId || !TEVA_TOKEN) { showToast('Cannot map: missing token or seat'); return; }
+  try {
+    const res = await apiFetch('/api/registry/map', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-TEVA-Token': TEVA_TOKEN },
+      body: JSON.stringify({ sessionId, agentId })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) { showToast('Map failed: ' + (data.error || res.status)); return; }
+    showToast('Mapped session → ' + agentId);
+    fetchAgents();
+    if (currentView === 'tasks') renderView('tasks');
+  } catch (e) { showToast('Map failed: ' + (e.message || e)); }
+}
+async function loadTimeline(agentId) {
+  const el = document.getElementById('detailTimeline');
+  if (!el) return;
+  el.innerHTML = '<div class="detail-task">Loading…</div>';
+  try {
+    const res = await apiFetch('/api/agents/' + encodeURIComponent(agentId) + '/timeline?limit=40');
+    const data = await res.json();
+    const evs = (data && data.events) || [];
+    if (!evs.length) { el.innerHTML = '<div class="detail-task">No recorded events yet.</div>'; return; }
+    el.innerHTML = evs.map(e => `<div class="tl-row"><span class="t">${esc(fmtTime(e.ts || Date.parse(e.timestamp)))}</span>
+      <span class="p">${esc(e.provenance || 'server')}</span> · <b>${esc(e.event_type)}</b> — ${esc(e.summary || '')}</div>`).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="detail-task">Timeline unavailable.</div>';
+  }
 }
 
 // ---- R-VO-001 Phase 1: settings, links, provenance helpers ----
@@ -883,6 +1146,14 @@ document.addEventListener('click', (e) => {
   if (op) { e.preventDefault(); e.stopPropagation(); openUrl(cursorFileUrl(op.dataset.openPath, op.dataset.openLine)); return; }
   const cp = e.target.closest('[data-copy-path]');
   if (cp) { e.preventDefault(); e.stopPropagation(); copyText(cp.dataset.copyPath, 'Path copied'); return; }
+  const mapBtn = e.target.closest('[data-map-btn]');
+  if (mapBtn) {
+    e.preventDefault(); e.stopPropagation();
+    const sid = mapBtn.dataset.mapBtn;
+    const sel = document.querySelector(`select[data-map-session="${sid}"]`);
+    mapSessionToSeat(sid, sel && sel.value);
+    return;
+  }
   const sel = e.target.closest('[data-select-agent]');
   if (sel) { e.preventDefault(); selectAgent(sel.dataset.selectAgent); }
 });
@@ -2456,6 +2727,24 @@ function selectAgent(agentId, refreshOnly) {
   const upd = agent.updatedAt ? ` Updated ${esc(fmtTime(agent.updatedAt))} (${esc(fmtAgo(agent.updatedAt))}).` : '';
   document.getElementById('detailSource').innerHTML = sourceHtml(agent) + (agent.webhook ? ' · <b>live webhook override</b>' : '') + `<div style="margin-top:4px">${upd}</div>`
     + `<div class="anim-cause">Animation: ${esc(baseCause(agent))}</div>`;
+  const act = agent.activity || {};
+  const meta = document.getElementById('activityMeta');
+  const liveBase = (seatObj(agent.id) && seatObj(agent.id).base) || VOE.baseState(agent, Date.now(), SEEN[agent.id]);
+  if (isNS) { meta.innerHTML = ''; meta.style.display = 'none'; }
+  else {
+    meta.style.display = '';
+    const conf = act.confidence || 'low';
+    meta.innerHTML = `<div class="act-meta">
+      <span class="act-chip">${esc(act.state || liveBase || 'IDLE')}</span>
+      <span class="act-chip ${esc(conf)}">confidence ${esc(conf)}</span>
+      <span class="act-chip">source ${esc(act.source || '—')}</span>
+      <span class="act-chip" title="Last supporting evidence">last seen ${act.lastSeenAt ? esc(fmtAgo(act.lastSeenAt)) : '—'}</span>
+      ${agent.blocked ? '<span class="act-chip" style="color:#fbbf24">blocker</span>' : ''}
+      ${(liveBase === 'YOUR_TURN') ? '<span class="act-chip" style="color:#6ee7b7">pending decision</span>' : ''}
+    </div>`;
+  }
+  document.getElementById('detailTimelineWrap').style.display = isNS ? 'none' : '';
+  if (!isNS) loadTimeline(agent.id);
   document.getElementById('reactSection').style.display = isNS ? 'none' : '';
   document.getElementById('reactRow').innerHTML = Object.entries(VOE.REACTIONS).map(([k, r]) =>
     `<button class="react-btn${r.stored ? ' stored' : ''}" data-react="${k}" title="${esc(r.label)} (${k}): ${r.stored ? 'saved to inbox/' + esc(agent.id) + '.jsonl, not sent' : 'local animation only, nothing saved'}">${r.emoji}<small>${k}</small></button>`).join('');
@@ -2498,23 +2787,34 @@ function selectAgent(agentId, refreshOnly) {
   `).join('') : '<div class="detail-task">No docs owned yet</div>') +
     (agent.docsOwned === false && docs.length ? '<div class="msg-hint">No doc on disk matches this seat\'s filename patterns, so the board is shown instead.</div>' : '');
 
-  // Message composer (nothing is sent from the office)
+  // Message composer: Save to inbox (notes) vs Queue instruction (lifecycle). Neither auto-executes.
   const isCursor = agent.channel === 'cursor';
   document.getElementById('msgSection').style.display = isNS ? 'none' : '';
   document.getElementById('msgTitle').textContent = 'Message ' + agent.name;
   if (!sameSeat && !refreshOnly) document.getElementById('msgText').value = '';
-  const cursorBtn = `<button class="act-btn${isCursor ? '' : ' secondary'}" id="msgCursor" title="Opens Cursor with this prompt prefilled in a new chat. You press send.">Open in Cursor</button>`;
-  const grokBtn = `<button class="act-btn${isCursor ? ' secondary' : ''}" id="msgGrok" title="Copies the message for you to paste into your Grok Bot chat">Copy for Grok Bot</button>`;
-  const inboxBtn = '<button class="act-btn secondary" id="msgInbox" title="Appends this note to inbox/&lt;seat&gt;.jsonl on this Mac. Nothing is sent to any chat.">Save to inbox</button>';
-  document.getElementById('msgActions').innerHTML = (isCursor ? cursorBtn + grokBtn : grokBtn + cursorBtn) + inboxBtn +
+  const queueBtn = '<button class="act-btn" id="msgQueue" title="Creates a tracked instruction (QUEUED → delivery lifecycle). Does not mean executed.">Queue instruction</button>';
+  const cursorBtn = `<button class="act-btn secondary" id="msgCursor" title="Standalone deeplink — no message record. Opens Cursor with prompt; you press send.">Open in Cursor</button>`;
+  const grokBtn = `<button class="act-btn secondary" id="msgGrok" title="Copies the message for you to paste into your Grok Bot chat">Copy for Grok Bot</button>`;
+  const inboxBtn = '<button class="act-btn secondary" id="msgInbox" title="Appends a note to inbox/&lt;seat&gt;.jsonl. Saved only — not delivered.">Save to inbox</button>';
+  document.getElementById('msgActions').innerHTML = queueBtn + (isCursor ? cursorBtn + grokBtn : grokBtn + cursorBtn) + inboxBtn +
     '<button class="mini-btn" id="msgCopyPrompt" title="Copy the full prompt text">Copy prompt</button>';
   document.getElementById('msgInbox').onclick = () => saveToInbox(agent);
-  if (!sameSeat && !refreshOnly) { document.getElementById('inboxResult').innerHTML = ''; document.getElementById('inboxRecent').innerHTML = ''; }
-  if (!isNS && (!refreshOnly || !sameSeat)) renderInbox(agent);
-  else if (!isNS) document.getElementById('inboxLine').innerHTML = `📥 Inbox <code>inbox/${esc(agent.id)}.jsonl</code>: <b>${esc(inboxText(agent.id))}</b> <span class="cur-ev">(unread = no seat has read it; seats don't read the inbox yet)</span>`;
+  document.getElementById('msgQueue').onclick = () => queueInstruction(agent);
+  if (!sameSeat && !refreshOnly) {
+    document.getElementById('inboxResult').innerHTML = '';
+    document.getElementById('inboxRecent').innerHTML = '';
+    document.getElementById('msgLifecycle').innerHTML = '';
+    document.getElementById('msgInstrActions').innerHTML = '';
+    document.getElementById('msgInstrList').innerHTML = '';
+  }
+  if (!isNS && (!refreshOnly || !sameSeat)) { renderInbox(agent); loadInstructions(agent); }
+  else if (!isNS) {
+    document.getElementById('inboxLine').innerHTML = `📥 Inbox <code>inbox/${esc(agent.id)}.jsonl</code>: <b>${esc(inboxText(agent.id))}</b> <span class="cur-ev">(unread = no seat has read it; seats don't read the inbox yet)</span>`;
+    loadInstructions(agent);
+  }
   document.getElementById('msgCursor').onclick = () => {
     const url = cursorPromptUrl(buildPrompt(agent, document.getElementById('msgText').value, true));
-    openUrl(url); showToast('Opening Cursor with the prompt prefilled. Nothing was sent.');
+    openUrl(url); showToast('Opening Cursor with the prompt prefilled. Nothing was sent. (No message record.)');
   };
   document.getElementById('msgGrok').onclick = () => copyText(buildPrompt(agent, document.getElementById('msgText').value, false), 'Copied. Paste it into your Grok Bot chat.');
   document.getElementById('msgCopyPrompt').onclick = () => copyText(buildPrompt(agent, document.getElementById('msgText').value, false), 'Prompt copied');
@@ -2842,8 +3142,10 @@ function buildPrompt(agent, msg, forUrl) {
 function updateMsgHint() {
   if (!selectedAgent) return;
   const len = cursorPromptUrl(buildPrompt(selectedAgent, document.getElementById('msgText').value, false)).length;
-  const route = selectedAgent.channel === 'cursor' ? 'This seat works in Cursor: "Open in Cursor" prefills a new chat.' : 'This seat runs in Grok Bot: "Copy for Grok Bot", then paste it into your chat.';
-  document.getElementById('msgHint').textContent = `${route} Nothing is sent automatically. Link length ${len}/${CURSOR_PROMPT_MAX}${len > CURSOR_PROMPT_MAX ? ' (docs list will be trimmed for the Cursor link)' : ''}.`;
+  const route = selectedAgent.channel === 'cursor'
+    ? 'Cursor seat: Queue instruction tracks handoff; "Open handoff" confirms DELIVERED. Standalone "Open in Cursor" has no message id.'
+    : 'Non-Cursor seat: Queue instruction fails truthfully (use Copy for Grok / Save note). No fake delivery.';
+  document.getElementById('msgHint').textContent = `${route} Save ≠ deliver ≠ ack ≠ executed. Link length ${len}/${CURSOR_PROMPT_MAX}${len > CURSOR_PROMPT_MAX ? ' (docs trimmed for Cursor link)' : ''}.`;
 }
 
 function setPaused(on) {
@@ -3108,6 +3410,8 @@ function refreshBases() {
   agents.forEach(obj => {
     const b = VOE.baseState(obj.agent, now, SEEN[obj.agent.id]);
     if (b !== obj.base) { obj.prevBase = obj.base; obj.base = b; obj.colorDirty = true; if (b !== 'BLOCKED') obj.scratchUntil = 0; }
+    const conf = (obj.agent.activity && obj.agent.activity.confidence) || '';
+    if (conf !== obj.lastConf) { obj.lastConf = conf; obj.colorDirty = true; }
     // head-scratch repeats every 20 s, max 3, only after a real blocked/failed event (never on load)
     if (b === 'BLOCKED' && obj.scratchUntil > now && obj.scratchCount < 3 && now - (obj.lastScratch || 0) >= 20000 && !obj.overlay && motionMode() !== 'off') {
       obj.scratchCount++; obj.lastScratch = now; startOverlay(obj, 'headScratch', { repeat: obj.scratchCount }, 'repeat of the blocked event', now);
@@ -3155,6 +3459,12 @@ function snapToTargets() {
 function baseCause(agent) {
   const obj = seatObj(agent.id), b = obj ? obj.base : VOE.baseState(agent, Date.now(), SEEN[agent.id]);
   const c = agent.cursor && agent.cursor.latest, chat = c ? VOE.chatSource(c) : '';
+  const act = agent.activity;
+  if (act) {
+    const age = act.lastSeenAt ? ` · last seen ${fmtAgo(act.lastSeenAt)}` : '';
+    return `${b} · ${act.source || '?'} · confidence ${act.confidence || '?'}${age}` +
+      (act.observedState && act.observedState !== act.state ? ` · observed ${act.observedState}` : '');
+  }
   const why = {
     OFFLINE: 'no source on disk reports this seat and no Cursor chat is mapped, so it sits still and greyed out',
     BLOCKED: agent.blocked ? `the board marks it blocked (${VOE.lineSource(agent.blockedSource)})` : `${chat} ended with "${c && c.endStatus}" less than 15 min ago`,
@@ -3286,12 +3596,22 @@ function partColor(obj, kind, out) {
     case 'skin': out.set(0xf2e0d0); break;
     case 'legs': out.set(0x2a2a32); break;
     case 'shoe': out.set(0x141418); break;
-    case 'ring': out.set(a.color || '#8B5CF6'); break;
+    case 'ring': {
+      const st = obj.base || 'IDLE';
+      const RING = {
+        TYPING: 0x34d399, READING: 0x60a5fa, RUNNING: 0x4ade80, DELEGATING: 0xa78bfa,
+        YOUR_TURN: 0xfbbf24, BLOCKED: 0xf87171, THINKING: 0x94a3b8, MEETING: 0xc4b5fd,
+        AT_DESK: 0x38bdf8, IDLE: 0xcbd5e1, OFFLINE: 0x64748b
+      };
+      out.set(RING[st] != null ? RING[st] : (a.color || '#8B5CF6'));
+      break;
+    }
     case 'flag': out.set(0xff3b30); break;
     case 'folder': out.set(0xe8b84a); break;
     default: out.setRGB(1, 1, 1);
   }
   if (obj.base === 'OFFLINE' && kind !== 'flag') desat(out, 0.4);
+  if (kind === 'ring' && a.activity && a.activity.confidence === 'low') out.multiplyScalar(0.55);
   return out;
 }
 function partVisible(obj, p, now) {
@@ -3392,28 +3712,32 @@ function canvasTex(key, w, h, draw) {
   if (key) TEXCACHE[key] = tex;
   return tex;
 }
-function labelTex(agent, offline) {
-  return canvasTex(`label:v2:${agent.id}:${agent.name}:${agent.color}:${offline ? 1 : 0}`, 256, 64, (ctx, w, h) => {
+function labelTex(agent, offline, taskLine, conf) {
+  const task = String(taskLine || '').slice(0, 28);
+  const key = `label:v3:${agent.id}:${agent.name}:${agent.color}:${offline ? 1 : 0}:${task}:${conf || ''}`;
+  return canvasTex(key, 288, 72, (ctx, w, h) => {
     ctx.fillStyle = offline ? '#e5e7eb' : '#f8fafc';
     roundRect(ctx, 0, 0, w, h, 10); ctx.fill();
     ctx.fillStyle = offline ? '#9ca3af' : (agent.color || '#64748b');
     ctx.fillRect(0, 8, 8, h - 16);
     ctx.fillStyle = offline ? '#6b7280' : '#0f172a';
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    if (offline) {
-      ctx.font = 'bold 18px Inter, Helvetica, sans-serif'; ctx.fillText(agent.name, 22, 24);
-      ctx.font = '600 13px Inter, Helvetica, sans-serif'; ctx.fillStyle = '#94a3b8'; ctx.fillText('no live signal', 22, 46);
-    } else {
-      ctx.font = 'bold 20px Inter, Helvetica, sans-serif'; ctx.fillText(agent.name, 22, h / 2);
-    }
+    ctx.font = 'bold 18px Inter, Helvetica, sans-serif';
+    ctx.fillText(agent.name, 22, task || offline ? 22 : h / 2);
+    ctx.font = '600 12px Inter, Helvetica, sans-serif';
+    ctx.fillStyle = offline ? '#94a3b8' : '#64748b';
+    if (offline) ctx.fillText('no live signal', 22, 48);
+    else if (task) ctx.fillText(task + (conf === 'low' ? ' · ?' : ''), 22, 48);
   });
 }
 function updateLabel(obj) {
   if (!obj.label) return;
   const off = obj.base === 'OFFLINE';
-  if (obj.labelOffline === off && obj.labelName === obj.agent.name) return;
-  obj.labelOffline = off; obj.labelName = obj.agent.name;
-  obj.label.material.map = labelTex(obj.agent, off); obj.label.material.needsUpdate = true;
+  const task = (obj.agent.task || '').slice(0, 28);
+  const conf = (obj.agent.activity && obj.agent.activity.confidence) || '';
+  if (obj.labelOffline === off && obj.labelName === obj.agent.name && obj.labelTask === task && obj.labelConf === conf) return;
+  obj.labelOffline = off; obj.labelName = obj.agent.name; obj.labelTask = task; obj.labelConf = conf;
+  obj.label.material.map = labelTex(obj.agent, off, task, conf); obj.label.material.needsUpdate = true;
 }
 function badgeTex(kind, text) {
   const spec = {
@@ -3438,7 +3762,8 @@ function setBadge(obj, slot, kind, text, offset, scale) {
 function updateBadges(obj, now) {
   const a = obj.agent, c = a.cursor && a.cursor.latest;
   const failed = !a.blocked && c && c.state === 'ended' && c.endStatus && c.endStatus !== 'success';
-  setBadge(obj, 'warn', obj.base === 'BLOCKED' ? (failed ? 'fail' : 'warn') : null, '', [0.5, 1.9, 0], [0.42, 0.32]);
+  const errAct = a.activity && a.activity.state === 'ERROR';
+  setBadge(obj, 'warn', (obj.base === 'BLOCKED' || errAct) ? (failed || errAct ? 'fail' : 'warn') : null, '', [0.5, 1.9, 0], [0.42, 0.32]);
   setBadge(obj, 'turn', obj.base === 'YOUR_TURN' ? 'turn' : null, '', [0, 2.85, 0], [1.25, 0.36]);
   setBadge(obj, 'think', obj.base === 'THINKING' ? (VOE.thinkingDim(a, now) ? 'thinkDim' : 'think') : null, '', [0.45, 1.85, 0], [0.42, 0.32]);
   const u = (INBOX[a.id] || {}).unread || 0;
@@ -3854,7 +4179,13 @@ function liveStart() {
   if (liveConfig.enable_sse !== false && window.EventSource) {
     VO.sse++;
     LIVE.es = new EventSource('/events');
-    LIVE.es.onmessage = ev => { try { const d = JSON.parse(ev.data); if (d.agents) applyLiveAgents(d.agents); } catch (e) {} };
+    LIVE.es.onmessage = ev => {
+      try {
+        const d = JSON.parse(ev.data);
+        if (d.agents) applyLiveAgents(d.agents);
+        if (d.type === 'message' && d.message) onMessageUpdate(d.message);
+      } catch (e) {}
+    };
     LIVE.es.onerror = () => {};
   }
 }

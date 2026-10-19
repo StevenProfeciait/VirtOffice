@@ -31,10 +31,16 @@ class ServerSecurityTest(unittest.TestCase):
             "CURSOR_TRANSCRIPTS": str(cls.tmp / "no-transcripts"),
             "CURSOR_GLOBAL_DB": str(cls.tmp / "no.vscdb"),
             "TEVA_SEAT_MAP": str(cls.tmp / "no-map.json"),
+            "TEVA_AGENTS_REGISTRY": str(cls.tmp / "hq" / "agents_registry.json"),
+            "TEVA_EVENTS_DIR": str(cls.tmp / "hq" / "events"),
+            "TEVA_HQ_DIR": str(cls.tmp / "hq"),
+            "TEVA_MESSAGES_DIR": str(cls.tmp / "hq" / "messages"),
+            "TEVA_MESSAGES_INDEX": str(cls.tmp / "hq" / "messages" / "messages_index.jsonl"),
         })
         sys.path.insert(0, str(ROOT))
         sys.path.insert(0, str(ROOT / "scripts"))
-        for m in ("server", "cursor_activity"):
+        for m in ("server", "cursor_activity", "agent_registry", "state_aggregator", "event_store",
+                  "message_store", "delivery_adapters"):
             sys.modules.pop(m, None)
         cls.srv = importlib.import_module("server")
         cls.httpd = cls.srv.make_server("127.0.0.1", cls.port)
@@ -190,6 +196,91 @@ class ServerSecurityTest(unittest.TestCase):
         cfg = json.loads(out)
         self.assertIn(f"http://localhost:{self.port}", cfg["allowed_origins"])
         self.assertNotIn(self.token, out.decode())
+
+    # ---- Phase 1 command-centre: registry map + timeline
+    def test_registry_map_requires_token(self):
+        body = {"sessionId": "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb", "agentId": "le2"}
+        self.assertEqual(self.req("POST", "/api/registry/map", body, token=False)[0], 401)
+        self.assertEqual(self.req("POST", "/api/registry/map", body, origin=False)[0], 403)
+        s, out, _ = self.req("POST", "/api/registry/map", body)
+        self.assertEqual(s, 200, out)
+        self.assertTrue(json.loads(out)["ok"])
+        s, out, _ = self.req("GET", "/api/registry", token=False, origin=False)
+        self.assertEqual(s, 200)
+        reg = json.loads(out)
+        self.assertEqual(reg["sessionMap"].get(body["sessionId"]), "le2")
+        s, out, _ = self.req("GET", "/api/agents/le2/timeline", token=False, origin=False)
+        self.assertEqual(s, 200)
+        evs = json.loads(out)["events"]
+        self.assertTrue(any(e.get("event_type") == "session_mapped" for e in evs))
+        s, out, _ = self.req("POST", "/api/registry/map", {"sessionId": "x", "agentId": "nobody"})
+        self.assertEqual(s, 400)
+
+    # ---- Phase 2 messaging
+    def test_messages_require_token_and_origin(self):
+        body = {"recipient_agent_id": "le2", "content": "fix this"}
+        self.assertEqual(self.req("POST", "/api/messages", body, token=False)[0], 401)
+        self.assertEqual(self.req("POST", "/api/messages", body, origin=False)[0], 403)
+        self.assertEqual(self.req("POST", "/api/messages", body, origin="https://evil.example")[0], 403)
+
+    def test_messages_unknown_agent(self):
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "nobody", "content": "x"})
+        self.assertEqual(s, 400, out)
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "needs-steve", "content": "x"})
+        self.assertEqual(s, 400, out)
+
+    def test_messages_cursor_lifecycle_and_timeline(self):
+        body = {"recipient_agent_id": "le2", "content": "Please ship the fix"}
+        s, out, _ = self.req("POST", "/api/messages", body)
+        self.assertEqual(s, 200, out)
+        data = json.loads(out)
+        self.assertTrue(data["ok"])
+        msg = data["message"]
+        mid = msg["message_id"]
+        self.assertEqual(msg["status"], "DELIVERING")
+        self.assertEqual(msg["adapter"], "cursor_deeplink")
+        self.assertTrue((msg.get("handoff") or {}).get("url", "").startswith("cursor://"))
+        self.assertFalse(data["capabilities"]["programmatic_send"])
+
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/handoff-opened", {})
+        self.assertEqual(s, 200, out)
+        self.assertEqual(json.loads(out)["message"]["status"], "DELIVERED")
+
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/acknowledge", {})
+        self.assertEqual(s, 200, out)
+        self.assertEqual(json.loads(out)["message"]["status"], "ACKNOWLEDGED")
+
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/respond", {"text": "done on my side"})
+        self.assertEqual(s, 200, out)
+        self.assertEqual(json.loads(out)["message"]["status"], "RESPONDED")
+
+        s, out, _ = self.req("GET", f"/api/messages/{mid}", token=False, origin=False)
+        self.assertEqual(s, 200)
+        self.assertEqual(json.loads(out)["message"]["status"], "RESPONDED")
+
+        s, out, _ = self.req("GET", "/api/agents/le2/timeline", token=False, origin=False)
+        types = {e.get("event_type") for e in json.loads(out)["events"]}
+        for need in ("message_created", "message_queued", "delivery_started", "delivery_confirmed",
+                     "message_acknowledged", "message_responded"):
+            self.assertIn(need, types, need)
+
+    def test_messages_unsupported_runtime_fails(self):
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "grok", "content": "ingest this"})
+        self.assertEqual(s, 200, out)
+        data = json.loads(out)
+        self.assertEqual(data["message"]["status"], "FAILED")
+        self.assertEqual(data["message"]["error_code"], "runtime_unsupported")
+
+    def test_messages_retry_and_cancel(self):
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "grok", "content": "retry me"})
+        mid = json.loads(out)["message"]["message_id"]
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/retry", {})
+        self.assertEqual(s, 200, out)
+        # still unsupported → FAILED again
+        self.assertEqual(json.loads(out)["message"]["status"], "FAILED")
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/cancel", {})
+        self.assertEqual(s, 200, out)
+        self.assertEqual(json.loads(out)["message"]["status"], "CANCELLED")
 
 
 if __name__ == "__main__":
