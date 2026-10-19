@@ -1,10 +1,10 @@
 {
   "name": "virtoffice",
   "version": "1.0.0",
-  "description": "Virtual office platform \u2014 shared workspaces, video rooms, team chat, and collaborative document editing with Docker deployment.",
-  "main": "index.js",
+  "private": true,
+  "description": "TEVA HQ / VirtOffice local-only Python server and 3D agent office dashboard. Not an npm package.",
   "scripts": {
-    "test": "echo 'ok' && exit 0"
+    "test": "python3 -m unittest discover -s tests -v"
   },
   "keywords": [
     "virtoffice",
@@ -21,13 +21,5 @@
   "bugs": {
     "url": "https://github.com/OneByJorah/VirtOffice/issues"
   },
-  "homepage": "https://github.com/OneByJorah/VirtOffice#readme",
-  "files": [
-    "dist/",
-    "README.md",
-    "LICENSE"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+  "homepage": "https://github.com/OneByJorah/VirtOffice#readme"
 }

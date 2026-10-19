@@ -29,7 +29,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "agents.json"
-REPO = Path(os.environ.get("TEVA_REPO", "/Users/stevenayensu/Documents/GitHub/template_1"))
+try:
+    from local_env import load as _load_env  # project-local .env; real env wins
+    _load_env(ROOT / ".env")
+except Exception:  # pragma: no cover - .env is optional
+    pass
+# Workspace repo that holds docs/TEVA_COMPANY_BACKLOG.md. Neutral default (this
+# repo); set TEVA_REPO in .env to point at your workspace — no personal paths here.
+REPO = Path(os.environ.get("TEVA_REPO", "").strip() or ROOT)
 DOCS = REPO / "docs"
 BACKLOG = DOCS / "TEVA_COMPANY_BACKLOG.md"
 RESEARCH = DOCS / "TEVA_RESEARCH_BACKLOG.md"

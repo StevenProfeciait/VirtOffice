@@ -1,31 +1,24 @@
-<div align="center">
+# TEVA HQ / VirtOffice
 
-![VirtOffice banner](docs/assets/banner.svg)
+Local-only Python server and 3D AI-agent office dashboard. The server uses only the Python standard library.
 
-# VirtOffice
-
-Virtual office platform — shared workspaces, video rooms, team chat, and collaborative document editing with Docker deployment.
-
-[![GitHub release](https://img.shields.io/github/v/release/OneByJorah/VirtOffice?color=a78bfa&label=release&logo=github)](https://github.com/OneByJorah/VirtOffice/releases)
-[![npm version](https://img.shields.io/npm/v/virtoffice?color=a78bfa&label=npm&logo=npm)](https://www.npmjs.com/package/virtoffice)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?color=FFB300&logo=open-source-initiative&logoColor=FFB300)](https://opensource.org/licenses/MIT)
-
-</div>
-
-![VirtOffice screenshot](docs/assets/screenshot.png)
+![TEVA HQ screenshot](docs/assets/screenshot.png)
 
 ## What This Is
 
-Virtual office platform — shared workspaces, video rooms, team chat, and collaborative document editing with Docker deployment.
+TEVA HQ (built on VirtOffice) is a self-hosted command centre for AI agents. It serves a 3D office dashboard, live agent state, activity events, inbox notes, and message-delivery tracking. It runs locally by default and is not an npm package.
 
 ## Quick Start
 
-### npm
+### From source
 
 ```bash
-npm install virtoffice
+git clone https://github.com/OneByJorah/VirtOffice.git
+cd VirtOffice
+python3 server.py
 ```
+
+Open `http://127.0.0.1:9502`.
 
 ### Docker
 
@@ -35,39 +28,34 @@ cd VirtOffice
 docker compose up -d
 ```
 
-### From Source
+The host port is published on `127.0.0.1` only. Open `http://127.0.0.1:9502`.
+
+## Configuration
+
+Copy `.env.example` to `.env` only when you need overrides. `.env` is optional; real environment variables always win. Defaults are local-only (`HOST=127.0.0.1`, `PORT=9502`).
+
+The server refuses non-loopback binds unless `TEVA_ALLOW_NON_LOOPBACK=1` is set (container use only).
+
+## Modes
+
+1. Demo mode — generated sample agents (default).
+2. Static JSON drop — serve `AGENTS_JSON_PATH` if it exists.
+3. Hermes status API — poll `HERMES_AGENT_API`.
+4. Webhook push — `POST /webhook/agents` with `X-TEVA-Token` and allowed Origin.
+
+## Tests
 
 ```bash
-git clone https://github.com/OneByJorah/VirtOffice.git
-cd VirtOffice
-npm install
-npm run dev
+python3 -m unittest discover -s tests -v
+python3 -m compileall server.py scripts tests
 ```
 
-## Features
+## Security
 
-- **Self-hosted** — run on your own hardware
-- **Docker Compose** — full stack with one command
-- **npm package** — install via npm
-- **Dark theme** — operational UI
-
-- **Shared workspaces** — virtual office spaces for teams
-- **Video rooms** — WebRTC-based video conferencing
-- **Team chat** — real-time messaging and channels
-- **Document collaboration** — shared editing and comments
-- **Docker Compose deployment** — multi-service stack
-- **Dark theme** — modern, collaborative UI
-
-## Package Badges
-
-[![GitHub release](https://img.shields.io/github/v/release/OneByJorah/VirtOffice?color=a78bfa&label=release&logo=github)](https://github.com/OneByJorah/VirtOffice/releases)
-[![npm version](https://img.shields.io/npm/v/virtoffice?color=a78bfa&label=npm&logo=npm)](https://www.npmjs.com/package/virtoffice)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?color=FFB300&logo=open-source-initiative&logoColor=FFB300)](https://opensource.org/licenses/MIT)
-
-## Contributing
-
-[Open an issue](https://github.com/OneByJorah/VirtOffice/issues) to report a bug or request a feature.
+- Local-only by default.
+- Host header allowlist blocks DNS rebinding.
+- POST endpoints require allowed Origin and per-install token.
+- Token file is created outside the repository with `0600` permissions.
 
 ## License
 

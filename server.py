@@ -10,13 +10,20 @@ Three wiring modes are supported out of the box:
 3. Static JSON drop     - Serve AGENTS_JSON_PATH if it exists.
 4. Webhook push         - Receive updates on POST /webhook/agents.
 
-Environment variables (see .env.example):
-    PORT                  Server port (default 9502)
-    HOST                  Bind address (default 0.0.0.0)
-    HERMES_AGENT_API      URL to Hermes GET /api/agents/status endpoint
-    AGENTS_JSON_PATH      Path to agents.json file drop
-    POLL_INTERVAL_SECONDS Polling interval for HERMES_AGENT_API
-    ENABLE_SSE            Enable Server-Sent Events for live browser updates
+Configuration (see .env.example):
+      A project-local .env file is loaded automatically (standard library only).
+      Real environment variables always override .env values.
+
+    Environment variables:
+    PORT                    Server port (default 9502)
+    HOST                    Bind address (default 127.0.0.1, loopback only)
+    TEVA_ALLOW_NON_LOOPBACK Explicit opt-in to bind 0.0.0.0/:: — for the Docker
+                            container only; the host port is published on 127.0.0.1
+    HERMES_AGENT_API        URL to Hermes GET /api/agents/status endpoint
+    AGENTS_JSON_PATH        Path to agents.json file drop
+    POLL_INTERVAL_SECONDS   Polling interval for HERMES_AGENT_API
+    ENABLE_SSE              Enable Server-Sent Events for live browser updates
+    TEVA_REPO               Workspace repo for board/doc sync (default: this repo)
 """
 import hmac
 import http.server
@@ -36,6 +43,16 @@ from urllib.parse import parse_qs, urlparse
 
 logger = logging.getLogger("hermes-office")
 
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from local_env import load as _load_env_file
+except ImportError:  # pragma: no cover - scripts/ ships next to server.py
+    _load_env_file = None
+# Load project-local .env before reading configuration. setdefault semantics:
+# real environment variables (and Docker `environment:`) always win.
+LOADED_ENV_FILE = _load_env_file() if _load_env_file else None
+
 PORT = int(os.environ.get("PORT", "9502"))
 HOST = os.environ.get("HOST", "127.0.0.1")
 HERMES_AGENT_API = os.environ.get("HERMES_AGENT_API", "").strip()
@@ -46,11 +63,26 @@ ENABLE_SSE = os.environ.get("ENABLE_SSE", "true").lower() in ("1", "true", "yes"
 # on every poll, so the 5 s file refresh no longer reverts them (R-VO-001 Phase 1).
 WEBHOOK_TTL = int(os.environ.get("WEBHOOK_TTL_SECONDS", "900"))
 TEVA_SYNC_INTERVAL = int(os.environ.get("TEVA_SYNC_INTERVAL", "180"))
-TEVA_REPO = os.environ.get("TEVA_REPO", "/Users/stevenayensu/Documents/GitHub/template_1")
+TEVA_REPO = os.environ.get("TEVA_REPO", "").strip()
 DEMO_MODE = not (HERMES_AGENT_API or AGENTS_JSON_PATH)
 
 DIRECTORY = Path(__file__).parent / "public"
-ROOT = Path(__file__).parent
+
+# ---- Local-only bind fence (R-VO-001) ---------------------------------------
+# Loopback always allowed. Wildcard binds only with the explicit container
+# opt-in TEVA_ALLOW_NON_LOOPBACK=1, and only for the wildcard addresses —
+# an arbitrary LAN IP is still refused. Docker publishes the host port on
+# 127.0.0.1, so public exposure stays loopback.
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+WILDCARD_HOSTS = {"0.0.0.0", "::"}
+ALLOW_NON_LOOPBACK = os.environ.get("TEVA_ALLOW_NON_LOOPBACK", "").strip().lower() in ("1", "true", "yes")
+
+
+def bind_allowed(host, allow_flag=False):
+    """True when `host` may be bound: loopback always, wildcard only with the flag."""
+    if host in LOOPBACK_HOSTS:
+        return True
+    return bool(allow_flag) and host in WILDCARD_HOSTS
 
 # ---- R-VO-001 Phase 2: write lock, inbox, Cursor activity ----------------------------
 # Every POST needs BOTH an allowed Origin and the per-install token (X-TEVA-Token).
@@ -78,7 +110,6 @@ INBOX_KINDS = ("note", "reaction")
 CURSOR_SNAPSHOT = os.environ.get("CURSOR_ACTIVITY_SNAPSHOT", "").strip()  # tests/box: serve a saved scan
 TOKEN_META = '<meta name="teva-token" content="">'
 
-sys.path.insert(0, str(ROOT / "scripts"))
 agent_registry = None
 state_aggregator = None
 event_store = None
@@ -381,6 +412,19 @@ def _normalize_agent(agent):
         "mood": agent.get("mood", 0.8),
         "typing": agent.get("typing", False),
         "position": agent.get("position", None),
+        "workstation": agent.get("workstation", agent.get("home", "center")),
+        "zone": agent.get("zone"),
+        "avatar": agent.get("avatar") or {
+            "model": None,
+            "fallback": {
+                "color": agent.get("color", "#8B5CF6"),
+                "shape": "capsule",
+                "emoji": agent.get("emoji", "🤖"),
+            },
+            "workstation": agent.get("workstation", agent.get("home", "center")),
+            "zone": agent.get("zone"),
+            "animations": {},
+        },
     })
     return defaults
 
@@ -892,6 +936,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "reaction_emoji": list(REACTION_EMOJI),
                 "cursor_source": CURSOR_SNAPSHOT and "snapshot" or "live transcripts",
                 "command_centre_phase": 2,
+                "allow_non_loopback": ALLOW_NON_LOOPBACK,
+                "env_file": str(LOADED_ENV_FILE) if LOADED_ENV_FILE else None,
+                "avatar_formats": ["glb", "gltf"],
+                "avatar_asset_root": "/assets/avatars",
             })
             return
 
@@ -1086,8 +1134,14 @@ def make_server(host=None, port=None):
 
 
 def main():
-    if HOST not in ("127.0.0.1", "localhost", "::1"):
-        print(f"Refusing to bind {HOST}: TEVA HQ is local-only (R-VO-001 fence).", flush=True)
+    if not bind_allowed(HOST, ALLOW_NON_LOOPBACK):
+        print(
+            f"Refusing to bind {HOST}: TEVA HQ is local-only (R-VO-001 fence).\n"
+            "  Default is 127.0.0.1. To listen on all interfaces inside an isolated\n"
+            "  container network, set TEVA_ALLOW_NON_LOOPBACK=1 (containers only) and\n"
+            "  publish the host port on 127.0.0.1.",
+            flush=True,
+        )
         sys.exit(2)
     with make_server() as httpd:
         mode = "DEMO" if DEMO_MODE else ("Hermes API" if HERMES_AGENT_API else "agents.json file")

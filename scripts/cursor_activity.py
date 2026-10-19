@@ -41,9 +41,12 @@ sys.path.insert(0, str(HERE))
 import teva_sync as ts  # noqa: E402  (ROSTER, match, eng_owner, BOARD)
 
 HOME = Path.home()
-REPO = Path(os.environ.get("TEVA_REPO", "/Users/stevenayensu/Documents/GitHub/template_1"))
+REPO = Path(os.environ.get("TEVA_REPO", "").strip() or ROOT)
+# Cursor project slug: the absolute repo path sanitised to [A-Za-z0-9] -> '-'.
+# Override with CURSOR_TRANSCRIPTS when the transcript folder lives elsewhere.
+PROJECT_SLUG = re.sub(r"[^A-Za-z0-9]", "-", str(REPO)).lstrip("-")
 TRANSCRIPTS = Path(os.environ.get("CURSOR_TRANSCRIPTS") or (
-    HOME / ".cursor/projects" / ("Users-stevenayensu-Documents-GitHub-template-1") / "agent-transcripts"))
+    HOME / ".cursor/projects" / PROJECT_SLUG / "agent-transcripts"))
 CURSOR_DB = Path(os.environ.get("CURSOR_GLOBAL_DB") or (
     HOME / "Library/Application Support/Cursor/User/globalStorage/state.vscdb"))
 SEAT_MAP = Path(os.environ.get("TEVA_SEAT_MAP") or (ROOT / "seat_map.json"))

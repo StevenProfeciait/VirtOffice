@@ -13,7 +13,7 @@
 
   var layout = {
     room: { width: W, depth: D, wallHeight: H },
-    fog: { color: 0xc8d0dc, near: 55, far: 160 },
+    fog: { color: 0x0a0d14, near: 40, far: 120 },
     exterior: { groundSize: 220, plazaWidth: 10, skylineCount: 10 },
     /** Seat id -> standing position (home in agents.json matches id) */
     seats: {

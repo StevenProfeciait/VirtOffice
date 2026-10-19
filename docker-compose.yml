@@ -1,11 +1,14 @@
-version: "3.9"
-
 # ============================================================================
-# Hermes 3D Office — Virtual agent office dashboard
+# TEVA HQ / VirtOffice — Virtual agent office dashboard
 # JorahOne
 #
 # Serves the static 3D office dashboard with live agent-state API.
 # Supports demo mode, Hermes API polling, or agents.json file drop.
+#
+# Local-only by design: the container listens on 0.0.0.0 (explicit
+# TEVA_ALLOW_NON_LOOPBACK opt-in, container network only) while the host port
+# is published on 127.0.0.1 — open http://127.0.0.1:9502 locally.
+# .env is OPTIONAL: copy .env.example to .env only if you want overrides.
 # ============================================================================
 
 services:
@@ -16,18 +19,24 @@ services:
     image: jorahone/hermes-3d-office:latest
     container_name: hermes-3d-office
     ports:
-      - "${PORT:-9502}:${PORT:-9502}"
+      # Host side is loopback-only. PORT must match on both sides because the
+      # server's Host/Origin allowlist is built from PORT.
+      - "127.0.0.1:${PORT:-9502}:${PORT:-9502}"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       - PORT=${PORT:-9502}
-      - HOST=${HOST:-0.0.0.0}
+      - HOST=0.0.0.0
+      - TEVA_ALLOW_NON_LOOPBACK=1
       - HERMES_AGENT_API=${HERMES_AGENT_API:-}
       - AGENTS_JSON_PATH=${AGENTS_JSON_PATH:-/app/agents.json}
       - POLL_INTERVAL_SECONDS=${POLL_INTERVAL_SECONDS:-5}
       - ENABLE_SSE=${ENABLE_SSE:-true}
-    volumes:
-      - ./agents.json:/app/agents.json:ro
+      - TEVA_REPO=${TEVA_REPO:-}
+    # File mode (optional): cp agents.json.example agents.json, then uncomment —
+    # volumes:
+    #   - ./agents.json:/app/agents.json:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-9502}/api/config', timeout=5)"]

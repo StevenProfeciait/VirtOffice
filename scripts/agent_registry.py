@@ -29,7 +29,7 @@ except ImportError:  # pragma: no cover
 HOME_HQ = Path(os.environ.get("TEVA_HQ_DIR") or (Path.home() / ".teva_hq"))
 REGISTRY_PATH = Path(os.environ.get("TEVA_AGENTS_REGISTRY") or (HOME_HQ / "agents_registry.json"))
 SEAT_MAP_PATH = Path(os.environ.get("TEVA_SEAT_MAP") or (ROOT / "seat_map.json"))
-WORKSPACE_DEFAULT = os.environ.get("TEVA_REPO", "/Users/stevenayensu/Documents/GitHub/template_1")
+WORKSPACE_DEFAULT = os.environ.get("TEVA_REPO", "").strip() or str(ROOT)
 
 _lock = threading.Lock()
 _cache = None  # type: ignore

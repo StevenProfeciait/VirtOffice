@@ -16,3 +16,10 @@ README.md
 CONTRIBUTING.md
 SECURITY.md
 AUDIT_REPORT.md
+
+# Local state and editor/agent backups never belong in the image
+**/*.bak-*
+**/*.bak
+inbox/
+.freebuff/
+seat_map.json

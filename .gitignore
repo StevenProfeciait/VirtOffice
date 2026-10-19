@@ -18,3 +18,10 @@ agents.json
 inbox/
 seat_map.json
 *.bak-phase2
+
+# Backups, local agent state and generated agent data (never commit)
+*.bak
+*.bak-*
+.freebuff/
+agents.json
+agents.json.demo-backup-*

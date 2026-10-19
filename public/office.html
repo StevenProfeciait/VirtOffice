@@ -750,9 +750,11 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
   <div id="toast"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/vendor/three.min.js"></script>
 <script src="vo_events.js"></script>
 <script src="office_layout.js"></script>
+<script src="js/teva_avatars.js"></script>
+<script src="js/teva_activity.js"></script>
 <script>
 const AGENTS = (window.__HERMES_AGENTS__ && window.__HERMES_AGENTS__.length)
   ? window.__HERMES_AGENTS__
@@ -1623,7 +1625,7 @@ function createSkyDome() {
   skyDome = new THREE.Mesh(geo, mat);
   skyDome.userData.dynamic = true;
   scene.add(skyDome);
-  scene.background = new THREE.Color(0xd5dee8);
+  scene.background = new THREE.Color(0x0a0d14);
 }
 function makeExteriorGroundTexture(size) {
   const c = document.createElement('canvas');
