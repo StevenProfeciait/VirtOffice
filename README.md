@@ -36,6 +36,20 @@ Copy `.env.example` to `.env` only when you need overrides. `.env` is optional; 
 
 The server refuses non-loopback binds unless `TEVA_ALLOW_NON_LOOPBACK=1` is set (container use only).
 
+## Modular 3D prototype
+
+The established office renderer is the default. The modular avatar/workstation layer can be enabled
+without changing the default dashboard:
+
+```text
+http://127.0.0.1:9502/office.html?modular=1&prototype=1
+```
+
+This enables live avatar reconciliation, procedural humanoid fallbacks, and a dual-monitor workstation
+prototype. Real GLB characters can be configured per agent with `avatar.model`, `avatar.scale`,
+`avatar.offset`, and `avatar.animations`; missing assets fall back safely. See
+[`docs/AVATAR_ASSETS.md`](docs/AVATAR_ASSETS.md) and [`public/assets/avatars/README.md`](public/assets/avatars/README.md).
+
 ## Modes
 
 1. Demo mode — generated sample agents (default).

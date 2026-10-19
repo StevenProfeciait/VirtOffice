@@ -18,6 +18,8 @@ const avatar = A.normalizeAvatar(agent);
 check(avatar.model === '/assets/avatars/le/model.glb', 'model path');
 check(A.hasModel(avatar), 'has model');
 check(A.clipFor(avatar, 'WORKING') === 'Typing', 'clip');
+check(A.normalizeAvatar({ avatar: { seated: { enabled: true, seatHeight: 0.7 } } }).seated.seatHeight === 0.7, 'seated config');
+check(A.resolveClip([{ name: 'SeatedTyping' }], 'WORKING').name === 'SeatedTyping', 'automatic seated clip');
 check(A.clipFor(avatar, 'IDLE') === null, 'idle clip fallback');
 check(A.stateFromActivity({ activity: { state: 'READING' } }) === 'RESEARCHING', 'activity mapping');
 check(A.stateFromActivity({ status: 'working' }) === 'WORKING', 'status mapping');

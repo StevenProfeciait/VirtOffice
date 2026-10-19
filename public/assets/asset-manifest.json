@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "procedural-humanoid-fallback",
+      "type": "procedural",
+      "roles": ["all"],
+      "model": null,
+      "animations": ["seated_idle", "seated_typing", "reading", "walking", "waiting"],
+      "scale": 1,
+      "rootOffset": {"x": 0, "y": 0, "z": 0},
+      "seat": {"height": 0.62, "chairOffset": {"x": 0, "y": 0, "z": -0.9}},
+      "license": "Original project fallback; no external asset"
+    }
+  ]
+}

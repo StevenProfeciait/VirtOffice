@@ -107,6 +107,10 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.user-state { font-size: 8px; color: rgba(255,255,255,0.52); max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-provenance { font-size: 7px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.32); }
+.mode-badge { display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 8px; padding: 4px 8px; border-radius: 999px; font-size: 8px; font-weight: 800; letter-spacing: 0.12em; color: #a7f3d0; background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.25); }
+.mode-badge.demo { color: #fcd34d; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.28); }
 
 /* Right notification */
 .notification {
@@ -615,6 +619,27 @@ body.paused #pauseOverlay { display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .anim-cause { margin-top: 6px; font-size: 10.5px; color: #c4b5fd; }
 select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; }
+@media (max-width: 760px) {
+  .header { top: env(safe-area-inset-top, 0px); width: calc(100% - 118px); overflow: hidden; }
+  .title { font-size: 10px; letter-spacing: 0.22em; }
+  .user-bar { max-width: 100%; overflow-x: auto; justify-content: flex-start; padding: 8px 12px; gap: 10px; scrollbar-width: none; }
+  .user-bar::-webkit-scrollbar { display: none; }
+  .user-circle { width: 32px; height: 32px; font-size: 15px; }
+  .user-name { font-size: 8px; max-width: 54px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-state, .user-provenance { display: none; }
+  .notification { top: auto; bottom: calc(68px + env(safe-area-inset-bottom, 0px)); left: 12px; right: 12px; min-width: 0; padding: 9px 12px; }
+  .standup-btn { top: auto; bottom: calc(122px + env(safe-area-inset-bottom, 0px)); right: 12px; padding: 9px 12px; }
+  #nextAttn { top: calc(96px + env(safe-area-inset-top, 0px)); right: 12px; padding: 7px 9px; }
+  .left-sidebar { left: 10px; top: auto; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: none; flex-direction: row; gap: 6px; max-width: calc(100vw - 20px); overflow-x: auto; }
+  .sidebar-icon { width: 38px; height: 38px; border-radius: 11px; font-size: 17px; flex: 0 0 auto; }
+  .right-sidebar { display: none; }
+  .controls { right: 10px; bottom: calc(132px + env(safe-area-inset-bottom, 0px)); }
+  .ctrl-btn { width: 36px; height: 36px; }
+  #view-panel { width: calc(100vw - 20px); max-height: 72vh; left: 10px; right: 10px; top: 18%; }
+  #detail-panel { width: min(100vw - 20px, 430px); right: 10px; top: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .status-footer { display: none; }
+  #feedTicker { left: 10px; right: 10px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-width: none; }
+}
 </style>
 </head>
 <body>
@@ -628,6 +653,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <div id="ui">
   <div class="header">
     <div class="title">TEVA Headquarters</div>
+    <div class="mode-badge demo" id="modeBadge">DEMO</div>
     <div class="user-bar" id="userBar"></div>
   </div>
 
@@ -665,6 +691,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
     <button class="ctrl-btn" id="zoomOut">−</button>
     <button class="ctrl-btn" id="rotateBtn">↻</button>
     <button class="ctrl-btn active" id="labelsBtn" title="Toggle labels">🏷</button>
+    <button class="ctrl-btn" id="resetCameraBtn" title="Reset camera (Esc)">⌂</button>
   </div>
 
   <div id="detail-panel">
@@ -762,9 +789,9 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="js/teva_animation_state.js"></script>
 <script src="js/teva_ui.js"></script>
 <script src="js/teva_ui_helpers.js"></script>
-<script src="js/teva_data_bridge.js"></script>
 <script src="js/teva_camera.js"></script>
 <script src="js/teva_avatar_manager.js"></script>
+<script src="js/teva_data_bridge.js"></script>
 <script>
 const AGENTS = (window.__HERMES_AGENTS__ && window.__HERMES_AGENTS__.length)
   ? window.__HERMES_AGENTS__
@@ -1081,9 +1108,9 @@ async function loadTimeline(agentId) {
   if (!el) return;
   el.innerHTML = '<div class="detail-task">Loading…</div>';
   try {
-    const res = await apiFetch('/api/agents/' + encodeURIComponent(agentId) + '/timeline?limit=40');
-    const data = await res.json();
-    const evs = (data && data.events) || [];
+    const evs = window.TevaActivity && TevaActivity.DataService
+      ? await TevaActivity.DataService.loadTimeline(agentId, 40)
+      : await apiFetch('/api/agents/' + encodeURIComponent(agentId) + '/timeline?limit=40').then(res => res.json()).then(data => (data && data.events) || []);
     if (!evs.length) { el.innerHTML = '<div class="detail-task">No recorded events yet.</div>'; return; }
     el.innerHTML = evs.map(e => `<div class="tl-row"><span class="t">${esc(fmtTime(e.ts || Date.parse(e.timestamp)))}</span>
       <span class="p">${esc(e.provenance || 'server')}</span> · <b>${esc(e.event_type)}</b> — ${esc(e.summary || '')}</div>`).join('');
@@ -1286,7 +1313,7 @@ async function fetchAgents() {
 async function fetchConfig() {
   try {
     const res = await apiFetch('/api/config');
-    if (res.ok) liveConfig = await res.json();
+    if (res.ok) { liveConfig = await res.json(); updateStatusBar(); setupUI(); }
   } catch (e) {}
 }
 
@@ -1295,6 +1322,45 @@ function startLiveUpdates() {
   fetchConfig();
   document.addEventListener('visibilitychange', onVisibility);
   if (!document.hidden) liveStart();
+}
+
+// The modular avatar layer is opt-in while the legacy instanced renderer remains
+// the production default. Enable with ?modular=1 or localStorage.teva_modular=1.
+let modularBridge = null;
+let modularPrototype = null;
+function modularAvatarsEnabled() {
+  try { return new URLSearchParams(location.search).get('modular') === '1' || localStorage.getItem('teva_modular') === '1'; }
+  catch (e) { return false; }
+}
+function startModularAvatars() {
+  if (!modularAvatarsEnabled() || !window.TevaDataBridge || !window.TevaAvatarManager) return;
+  const resolver = agent => {
+    const p = (LAYOUT.seats && LAYOUT.seats[agent.id]) || (agent.home && LAYOUT.demoHomes && LAYOUT.demoHomes[agent.home]);
+    return p ? { x: p.x, z: p.z - 0.9 } : { x: 0, z: 0 };
+  };
+  modularBridge = new TevaDataBridge.DataBridge(scene, {
+    positionResolver: resolver,
+    onAgent: agent => {
+      if (!modularPrototype || !modularPrototype.userData || modularPrototype.userData.agentId !== agent.id) return;
+      const activity = agent.activity || {};
+      modularPrototype.userData.setStatus((activity.presentationState || activity.state || agent.status || 'IDLE').toUpperCase());
+    }
+  });
+  try {
+    const prototype = new URLSearchParams(location.search).get('prototype') === '1';
+    const first = AGENTS.find(a => a.id !== 'needs-steve') || AGENTS[0];
+    if (prototype && first && window.TevaEnv && TevaEnv.buildWorkstation) {
+      const p = resolver(first);
+      modularPrototype = TevaEnv.buildWorkstation({ x: p.x, z: p.z, color: first.color, agentId: first.id });
+      scene.add(modularPrototype);
+      clickableObjects.push(modularPrototype);
+      window.__tevaWorkstationPrototype = modularPrototype;
+    }
+  } catch (e) {}
+  modularBridge.reconcile(AGENTS);
+  modularBridge.start();
+  document.body.dataset.modularAvatars = 'on';
+  showToast(modularPrototype ? 'Workstation prototype enabled' : 'Modular avatars enabled (experimental)');
 }
 
 function hideLoading() {
@@ -1351,6 +1417,7 @@ function init() {
     initBeacon();
     initFx();
     createAgents();
+    startModularAvatars();
     setupUI();
     updateStatusBar();
     
@@ -1367,6 +1434,7 @@ function init() {
       document.getElementById('labelsBtn').classList.toggle('active', labelsVisible);
       labels.forEach(l => l.visible = labelsVisible);
     });
+    document.getElementById('resetCameraBtn').addEventListener('click', resetCamera);
     document.getElementById('detailClose').addEventListener('click', closeDetail);
     document.getElementById('userBar').addEventListener('click', (e) => {
       const avatar = e.target.closest('.user-avatar');
@@ -2660,18 +2728,29 @@ function roundRect(ctx, x, y, width, height, radius) {
 
 function setupUI() {
   const userBar = document.getElementById('userBar');
-  userBar.innerHTML = AGENTS.map(a => `
+  userBar.innerHTML = AGENTS.map(a => {
+    const d = window.TevaUIH ? TevaUIH.displayFor(a) : { state: a.status || 'idle', demo: a.signal === false, provenance: 'server' };
+    const provenance = window.TevaUIH ? TevaUIH.provenanceFor(a) : (d.demo ? 'Simulated' : 'Reported');
+    return `
     <div class="user-avatar" data-agent="${esc(a.id)}">
       <div class="user-circle" style="background: ${esc(a.color)}22; border-color: ${esc(a.color)}70">
         <span class="user-status-ring" style="border-color: ${esc(a.color)}"></span>
         ${esc(a.emoji)}
       </div>
       <span class="user-name" style="color:${esc(a.color)}">${esc(a.name)}</span>
+      <span class="user-state">${esc(d.state)}</span>
+      <span class="user-provenance">${esc(provenance)}</span>
     </div>
-  `).join('');
+  `; }).join('');
 }
 
 function updateStatusBar() {
+  const modeBadge = document.getElementById('modeBadge');
+  if (modeBadge) {
+    const mode = window.TevaUIH ? TevaUIH.computeMode(liveConfig, AGENTS) : (liveConfig.mode || 'real');
+    modeBadge.textContent = mode === 'demo' ? 'DEMO DATA' : 'LIVE DATA';
+    modeBadge.classList.toggle('demo', mode === 'demo');
+  }
   const footer = document.getElementById('statusFooter');
   const counts = {
     working: AGENTS.filter(a => agentStates[a.id].status === 'working').length,
@@ -2760,7 +2839,7 @@ function selectAgent(agentId, refreshOnly) {
   document.getElementById('reactSection').style.display = isNS ? 'none' : '';
   document.getElementById('reactRow').innerHTML = Object.entries(VOE.REACTIONS).map(([k, r]) =>
     `<button class="react-btn${r.stored ? ' stored' : ''}" data-react="${k}" title="${esc(r.label)} (${k}): ${r.stored ? 'saved to inbox/' + esc(agent.id) + '.jsonl, not sent' : 'local animation only, nothing saved'}">${r.emoji}<small>${k}</small></button>`).join('');
-  if (!refreshOnly && !sameSeat) focusSeat(agentId);
+  if (!refreshOnly && !sameSeat) focusWorkstation(agentId);
   if (isNS && (agent.needsSteveItems || []).length) {
     document.getElementById('detailTasks').innerHTML = agent.needsSteveItems.map(it => `
       <div class="detail-task" style="color:${esc(agent.color)}"><span style="flex:1;color:rgba(255,255,255,0.85)">${esc(it.text)}</span>
@@ -4098,6 +4177,15 @@ function focusSeat(id) {
   const obj = seatObj(id); if (!obj) return;
   autoRotate = false; const rb = document.getElementById('rotateBtn'); if (rb) rb.classList.remove('active');
   tweenCamera(new THREE.Vector3(obj.group.position.x, 0, obj.group.position.z), 0.55);
+}
+function focusWorkstation(id) {
+  if (modularPrototype && modularPrototype.userData && modularPrototype.userData.agentId === id) {
+    autoRotate = false;
+    const rb = document.getElementById('rotateBtn'); if (rb) rb.classList.remove('active');
+    tweenCamera(new THREE.Vector3(modularPrototype.position.x, 0.75, modularPrototype.position.z), 0.42);
+    return;
+  }
+  focusSeat(id);
 }
 function resetCamera() {
   CAM.follow = null;

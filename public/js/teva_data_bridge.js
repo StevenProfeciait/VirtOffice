@@ -1,40 +1,68 @@
 /* TEVA HQ data bridge — hooks Activity DataService to AvatarManager/Anim. */
 (function (root) {
   'use strict';
-  var Avm = root.TevaAvatarManager;
-  var Anim = root.TevaAnim;
   var Act = root.TevaActivity;
-  function DataBridge(scene) {
+  function DataBridge(scene, options) {
+    options = options || {};
     this.scene = scene;
-    this.manager = new Avm.Manager(scene);
+    this.manager = new root.TevaAvatarManager.Manager(scene);
     this.service = Act.DataService;
+    this.positionResolver = options.positionResolver || function () { return { x: 0, z: 0 }; };
+    this.onAgent = options.onAgent || null;
+    this.pollTimer = null;
+    this.tickTimer = null;
   }
+  DataBridge.prototype.reconcile = function (agents) {
+    var self = this;
+    var incoming = {};
+    (agents || []).forEach(function (agent) {
+      if (!agent || !agent.id) return;
+      incoming[agent.id] = true;
+      var entry = self.manager.entries[agent.id];
+      if (entry) self.manager.updateAgent(agent);
+      else self.manager.addAgent(agent, self.positionResolver(agent) || { x: 0, z: 0 });
+      if (agent.movement && agent.movement.destination && self.manager.moveAgent) {
+        self.manager.moveAgent(agent.id, agent.movement.destination, { duration: agent.movement.duration, path: agent.movement.path });
+      }
+      if (self.onAgent) self.onAgent(agent, self.manager.entries[agent.id]);
+    });
+    Object.keys(self.manager.entries).forEach(function (id) {
+      if (!incoming[id] && self.manager.removeAgent) self.manager.removeAgent(id);
+    });
+  };
   DataBridge.prototype.start = function () {
     var self = this;
     var s = this.service;
     s.setHandlers({
       onConfig: function () {},
       onAgents: function (agents) {
-        // rebuild minimal if needed: update existing
-        (agents || []).forEach(function (a) {
-          if (self.manager.updateAgent) self.manager.updateAgent(a);
-          else if (self.manager.entries[a.id]) self.manager.entries[a.id].agent = a;
-        });
+        self.reconcile(agents);
       },
       onTimeline: function () {},
       onEvent: function (evt) {
         var msg = evt && evt.message;
         if (msg && msg.recipient_agent_id) {
-          self.manager.updateAgent({ id: msg.recipient_agent_id });
+          var entry = self.manager.entries[msg.recipient_agent_id];
+          if (entry) self.manager.updateAgent(entry.agent);
         }
       }
     });
     s.loadConfig();
     s.loadAgents();
     s.connectSSE();
-    if (root.setInterval) root.setInterval(function () { s.loadAgents(); }, 5000);
-    if (root.setInterval) root.setInterval(function () { self.manager.update(0.05, Date.now()); }, 50);
+    if (root.setInterval) this.pollTimer = root.setInterval(function () { s.loadAgents(); }, 5000);
+    if (root.setInterval) this.tickTimer = root.setInterval(function () { self.manager.update(0.05, Date.now()); }, 50);
     return this;
+  };
+  DataBridge.prototype.stop = function () {
+    if (this.pollTimer && root.clearInterval) root.clearInterval(this.pollTimer);
+    if (this.tickTimer && root.clearInterval) root.clearInterval(this.tickTimer);
+    this.pollTimer = this.tickTimer = null;
+    if (this.service && this.service.disconnect) this.service.disconnect();
+  };
+  DataBridge.prototype.dispose = function () {
+    this.stop();
+    if (this.manager && this.manager.dispose) this.manager.dispose();
   };
   root.TevaDataBridge = { DataBridge: DataBridge };
 })(typeof window !== 'undefined' ? window : global);

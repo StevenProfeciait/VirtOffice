@@ -29,6 +29,21 @@ check(Object.keys(mgr.entries).length === 0, 'disposed');
 
 check(typeof M.proceduralPose === 'function', 'proceduralPose');
 check(A.stateFromActivity({}) === 'IDLE', 'idle');
+check(A.normalizeAvatar({ id: 'scale', avatar: { scale: 1.5, offset: { x: 1 } } }).scale === 1.5, 'scale');
+check(A.normalizeAvatar({ id: 'offset', avatar: { offset: { x: 1 } } }).offset.x === 1, 'offset');
+check(A.resolveClip([{ name: 'WorkingLoop' }], 'WORKING').name === 'WorkingLoop', 'clip discovery');
+check(A.resolveClip([{ name: 'SeatedTyping' }], 'WORKING').name === 'SeatedTyping', 'seated clip discovery');
+check(A.normalizeAvatar({ id: 'seat', avatar: { seated: { seatHeight: 0.7, pose: 'seated_typing' } } }).seated.seatHeight === 0.7, 'seated config');
+const moved = new M.Manager(null);
+moved.addAgent({ id: 'move' }, { x: 0, z: 0 });
+check(moved.moveAgent('move', { x: 2, z: 0 }, { duration: 1 }) === true, 'movement accepted');
+moved.update(0.5, Date.now());
+check(moved.entries.move.position.x > 0 && moved.entries.move.position.x < 2, 'movement interpolates');
+const routed = new M.Manager(null);
+routed.addAgent({ id: 'route' }, { x: 0, z: 0 });
+routed.moveAgent('route', { x: 2, z: 2 }, { duration: 1, path: [{ x: 0, z: 2 }] });
+routed.update(0.5, Date.now());
+check(routed.entries.route.position.z > 0, 'movement follows supplied waypoint');
 
 console.log(fail ? `FAIL ${fail}` : 'ok');
 process.exit(fail ? 1 : 0);

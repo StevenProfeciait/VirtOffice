@@ -19,5 +19,13 @@ function check(cond, msg) { if (!cond) { console.error('FAIL:', msg); fail++; } 
 
 check(typeof sandbox.TevaDataBridge === 'object', 'bridge exists');
 check(typeof sandbox.TevaDataBridge.DataBridge === 'function', 'bridge class');
+let observed = 0;
+const bridge = new sandbox.TevaDataBridge.DataBridge(null, { positionResolver: function (a) { return { x: a.id.length, z: 2 }; }, onAgent: function () { observed++; } });
+bridge.reconcile([{ id: 'alpha', status: 'working' }, { id: 'beta' }]);
+check(Object.keys(bridge.manager.entries).length === 2, 'reconcile adds agents');
+check(bridge.manager.entries.alpha.position.x === 5, 'position resolver');
+check(observed === 2, 'agent callback');
+bridge.reconcile([{ id: 'alpha', status: 'idle' }]);
+check(Object.keys(bridge.manager.entries).length === 1, 'reconcile removes missing agents');
 console.log(fail ? `FAIL ${fail}` : 'ok');
 process.exit(fail ? 1 : 0);
