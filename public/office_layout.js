@@ -35,7 +35,7 @@
     meetingSpaces: {
       main: { id: 'main', x: 0, z: meetZ, radius: 3, chairs: 6, label: 'ALL-HANDS', roles: ['default'] },
       leadership: { id: 'leadership', x: 26, z: -4.8, radius: 2.2, chairs: 4, label: 'LEADERSHIP', agentIds: ['supervisor', 'pm', 'ba'] },
-      engineering: { id: 'engineering', x: 0, z: 1.2, radius: 2.2, chairs: 4, label: 'ENG STANDUP', agentIds: ['le', 'le2', 'sa', 'debugger'] },
+      engineering: { id: 'engineering', x: 11, z: meetZ, radius: 2.2, chairs: 4, label: 'ENG STANDUP', agentIds: ['le', 'le2', 'sa', 'debugger'] },
       research: { id: 'research', x: -33, z: 0.5, radius: 2.2, chairs: 3, label: 'RESEARCH LAB', agentIds: ['research-mgr', 'ai-research', 'erp-research'] },
       business: { id: 'business', x: 30, z: 2.5, radius: 2.2, chairs: 3, label: 'BUSINESS SUITE', agentIds: ['product', 'competitor', 'ui-docs'] },
       briefing: { id: 'briefing', x: -18, z: 21, radius: 2, chairs: 4, label: 'BRIEFING', agentIds: [] },
@@ -91,7 +91,7 @@
       cyberLounge: { x: 20, z: 23 },
       researchCollab: { x: -33, z: 0.5 },
       businessCollab: { x: 30, z: 2.5 },
-      engStandup: { x: 0, z: 1.2 },
+      engStandup: { x: 11, z: meetZ },
       leadershipStandup: { x: 26, z: -4.8 }
     },
     wing: {
@@ -143,7 +143,7 @@
       meeting: { x: 0, z: meetZ },
       leadershipStandup: { x: 26, z: -4.8 },
       leadershipBay: { x: 26, z: -6 },
-      engHuddle: { x: 0, z: 1.2 },
+      engHuddle: { x: 11, z: meetZ },
       researchHuddle: { x: -33, z: 0.5 },
       businessHuddle: { x: 30, z: 2.5 },
       fun: { x: 6, z: 12 },
@@ -179,7 +179,7 @@
     collabPresets: {
       main: { target: [0, 0, meetZ], zoom: 1.22 },
       leadership: { target: [26, 0, -4.8], zoom: 1.3 },
-      engineering: { target: [0, 0, 1.2], zoom: 1.3 },
+      engineering: { target: [11, 0, meetZ], zoom: 1.28 },
       research: { target: [-33, 0, 0.5], zoom: 1.28 },
       business: { target: [30, 0, 2.5], zoom: 1.28 },
       fun: { target: [6, 0, 12], zoom: 1.28 },
