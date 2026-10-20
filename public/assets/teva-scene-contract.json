@@ -16,14 +16,14 @@
     "le2": { "x": 12, "z": -3.0 },
     "sa": { "x": 16.2, "z": -3.0 },
     "debugger": { "x": 12, "z": 0.5 },
-    "research-mgr": { "x": -19.6, "z": -2.8 },
-    "ai-research": { "x": -15, "z": -2.8 },
-    "erp-research": { "x": -10.4, "z": -2.8 },
+    "research-mgr": { "x": -15, "z": -7.6 },
+    "ai-research": { "x": -17.5, "z": -2.8 },
+    "erp-research": { "x": -12.5, "z": -2.8 },
     "product": { "x": -5.6, "z": 6.6 },
     "competitor": { "x": -1, "z": 6.6 },
     "ui-docs": { "x": 3.6, "z": 6.6 },
     "grok": { "x": 15.5, "z": 8 },
-    "needs-steve": { "x": -7.5, "z": 12.4 }
+    "needs-steve": { "x": -22, "z": -20.5 }
   },
   "meetingSpaces": {
     "main": { "id": "main", "x": 0, "z": -15.5, "radius": 3, "chairs": 6, "label": "ALL-HANDS" },
@@ -34,12 +34,12 @@
     "briefing": { "id": "briefing", "x": -18, "z": 21, "radius": 2, "chairs": 4, "label": "BRIEFING" },
     "innovation": { "id": "innovation", "x": 26, "z": 11, "radius": 2, "chairs": 4, "label": "INNOVATION" },
     "simulation": { "id": "simulation", "x": -26, "z": 11, "radius": 2, "chairs": 4, "label": "SIMULATION" },
-    "fun": { "id": "fun", "x": 6, "z": 12, "radius": 0, "chairs": 0, "label": "FUN ZONE", "type": "fun" }
+    "fun": { "id": "fun", "x": 46, "z": 12, "radius": 0, "chairs": 0, "label": "FUN STATION", "type": "fun" }
   },
   "anchors": {
     "meeting": { "x": 0, "z": -15.5 },
-    "funZone": { "x": 6, "z": 12 },
-    "pingPong": { "x": 3, "z": 13 },
+    "funZone": { "x": 46, "z": 12 },
+    "pingPong": { "x": 46, "z": 10 },
     "innovationLab": { "x": 26, "z": 11 },
     "simulationBay": { "x": -26, "z": 11 },
     "briefingRoom": { "x": -18, "z": 21 },
@@ -52,17 +52,21 @@
     "businessCollab": { "x": 30, "z": 2.5 },
     "engStandup": { "x": 11, "z": -15.5 },
     "leadershipStandup": { "x": 26, "z": -4.8 },
-    "leadershipBay": { "x": 26, "z": -6 }
+    "leadershipBay": { "x": 26, "z": -6 },
+    "researchMgrOffice": { "x": -15, "z": -7.6 },
+    "steveCommand": { "x": -22, "z": -20.5 }
   },
   "zones": [
     { "name": "Leadership", "color": "#8B5CF6", "x": 26, "z": -6, "width": 12, "depth": 9 },
     { "name": "Engineering", "color": "#EF4444", "x": 12.2, "z": -1.8, "width": 13.2, "depth": 6.5 },
-    { "name": "Research", "color": "#3B82F6", "x": -15, "z": -2.6, "width": 14.8, "depth": 5 },
+    { "name": "Research", "color": "#3B82F6", "x": -15, "z": -4.8, "width": 14.8, "depth": 9.2 },
     { "name": "Business", "color": "#10B981", "x": -1, "z": 5.5, "width": 14.4, "depth": 3.8 },
-    { "name": "Fun Zone", "color": "#F472B6", "x": 6, "z": 12, "width": 11, "depth": 6 },
+    { "name": "Needs Steve", "color": "#FF3B30", "x": -22, "z": -20.5, "width": 11, "depth": 9.5 },
+    { "name": "Fun Station", "color": "#F472B6", "x": 46, "z": 12, "width": 20, "depth": 26 },
     { "name": "Innovation Lab", "color": "#22D3EE", "x": 26, "z": 11, "width": 11.5, "depth": 11.5 },
     { "name": "Simulation Bay", "color": "#A78BFA", "x": -26, "z": 11, "width": 16, "depth": 11.5 },
     { "name": "Cyber Lounge", "color": "#C026D3", "x": 20, "z": 23, "width": 18, "depth": 9 },
+    { "name": "Collab Terrace", "color": "#38BDF8", "x": 0, "z": 39, "width": 48, "depth": 18 },
     { "name": "Research Collab", "color": "#60A5FA", "x": -33, "z": 0.5, "width": 5.5, "depth": 3.8 },
     { "name": "Business Collab", "color": "#34D399", "x": 30, "z": 2.5, "width": 5.5, "depth": 3.8 }
   ],
@@ -73,7 +77,7 @@
     "engHuddle": { "x": 11, "z": -15.5 },
     "researchHuddle": { "x": -33, "z": 0.5 },
     "businessHuddle": { "x": 30, "z": 2.5 },
-    "fun": { "x": 6, "z": 12 },
+    "fun": { "x": 46, "z": 12 },
     "lounge": { "x": 8, "z": 11.5 },
     "innovation": { "x": 26, "z": 11 },
     "simulation": { "x": -26, "z": 11 },

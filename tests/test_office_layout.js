@@ -58,20 +58,83 @@ if (!layout.anchors.funZone) {
   console.error('anchors.funZone missing');
   fail++;
 }
+if (!layout.funWing || !layout.camera.fun) {
+  console.error('funWing / fun camera preset missing');
+  fail++;
+}
+if (!layout.funWing.idleSpots || layout.funWing.idleSpots.length < 4) {
+  console.error('funWing.idleSpots needs at least 4 spots');
+  fail++;
+}
+const funZone = (layout.zones || []).find(z => z.name === 'Fun Station');
+if (!funZone) {
+  console.error('Fun Station zone missing');
+  fail++;
+}
+if (layout.departments && layout.departments['Fun Zone']) {
+  console.error('legacy Fun Zone department should be renamed to Fun Station');
+  fail++;
+}
+if (layout.departments && layout.departments['Fun Station']) {
+  const t = layout.departments['Fun Station'].target;
+  if (t && t[0] === 6 && t[2] === 12) {
+    console.error('Fun Station department still aimed at old interior Fun Zone');
+    fail++;
+  }
+}
 
-// Desks are 2.85 x 1.28 (public/js/teva_environment.js buildWorkstation) and sit
-// 0.9 behind their seat. Neighbouring workstations must keep clear floor, both
-// inside a team and across team boundaries.
+// Default desks are 2.85 x 1.28; needs-steve command desk can override via workstations.
 const DESK_W = 2.85, DESK_D = 1.28, DESK_Z_OFFSET = 0.9, MIN_CLEARANCE = 1.2;
+function deskSize(id) {
+  const ws = (layout.workstations && layout.workstations[id]) || {};
+  return {
+    w: Number(ws.deskW) || DESK_W,
+    d: Number(ws.deskD) || DESK_D,
+    rot: Number(ws.rotation) || 0
+  };
+}
+function deskAabb(id) {
+  const seat = layout.seats[id];
+  const s = deskSize(id);
+  // π/2 and 3π/2 swap local width/depth onto world XZ.
+  const rot = ((s.rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  const quarter = Math.abs(rot - Math.PI / 2) < 0.2 || Math.abs(rot - 3 * Math.PI / 2) < 0.2;
+  const halfX = (quarter ? s.d : s.w) / 2;
+  const halfZ = (quarter ? s.w : s.d) / 2;
+  let cx = seat.x;
+  let cz = seat.z;
+  if (quarter) {
+    // Desk origin is the seat; local -Z offset maps onto ±X.
+    const sign = Math.abs(rot - Math.PI / 2) < 0.2 ? 1 : -1;
+    cx = seat.x + sign * DESK_Z_OFFSET * 0; // keep origin at seat for command desks
+  } else {
+    // Historical clearance model: desk center 0.9m along -world-Z from seat.
+    cz = seat.z - DESK_Z_OFFSET;
+  }
+  return { cx, cz, halfX, halfZ, w: halfX * 2, d: halfZ * 2 };
+}
+// Fun Wing must not overlap seat desk AABBs.
+if (layout.funWing) {
+  const fw = layout.funWing;
+  const fwHalfW = fw.width / 2, fwHalfD = fw.depth / 2;
+  Object.keys(layout.seats).forEach(id => {
+    const box = deskAabb(id);
+    const gapX = Math.max(0, Math.abs(box.cx - fw.centerX) - (box.w / 2 + fwHalfW));
+    const gapZ = Math.max(0, Math.abs(box.cz - fw.centerZ) - (box.d / 2 + fwHalfD));
+    if (gapX < 1e-6 && gapZ < 1e-6) {
+      console.error(`funWing overlaps desk ${id}`);
+      fail++;
+    }
+  });
+}
 // Leadership shares the meeting table instead of owning desks.
 const TABLE_ONLY = ['supervisor', 'pm', 'ba'];
 const deskIds = required.filter(id => !TABLE_ONLY.includes(id));
 deskIds.forEach((id, i) => {
   deskIds.slice(i + 1).forEach(other => {
-    const a = layout.seats[id], b = layout.seats[other];
-    const gapX = Math.max(0, Math.abs(a.x - b.x) - DESK_W);
-    // The desk offset is the same for every seat, so it cancels out here.
-    const gapZ = Math.max(0, Math.abs((a.z - DESK_Z_OFFSET) - (b.z - DESK_Z_OFFSET)) - DESK_D);
+    const a = deskAabb(id), b = deskAabb(other);
+    const gapX = Math.max(0, Math.abs(a.cx - b.cx) - (a.w + b.w) / 2);
+    const gapZ = Math.max(0, Math.abs(a.cz - b.cz) - (a.d + b.d) / 2);
     const gap = Math.hypot(gapX, gapZ);
     if (gap < MIN_CLEARANCE) {
       console.error(`workstation clearance ${gap.toFixed(2)} between ${id} and ${other}`);
@@ -106,10 +169,9 @@ Object.keys(teamSeats).forEach(name => {
   const zone = zones.find(z => z.name === name);
   if (!zone) { console.error('missing zone for team:', name); fail++; return; }
   teamSeats[name].forEach(id => {
-    const seat = layout.seats[id];
-    const halfW = DESK_W / 2, halfD = DESK_D / 2, z0 = seat.z - DESK_Z_OFFSET;
-    const inside = seat.x - halfW >= zone.x - zone.w / 2 && seat.x + halfW <= zone.x + zone.w / 2
-      && z0 - halfD >= zone.z - zone.d / 2 && z0 + halfD <= zone.z + zone.d / 2;
+    const box = deskAabb(id);
+    const inside = box.cx - box.halfX >= zone.x - zone.w / 2 && box.cx + box.halfX <= zone.x + zone.w / 2
+      && box.cz - box.halfZ >= zone.z - zone.d / 2 && box.cz + box.halfZ <= zone.z + zone.d / 2;
     if (!inside) {
       console.error(`desk ${id} sticks out of zone ${name}`);
       fail++;
