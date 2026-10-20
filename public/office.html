@@ -2417,15 +2417,146 @@ function createFuturisticSpaces() {
     rAdd(deck);
   }
 
-  if (a.cyberLounge) {
-    const lounge = new THREE.Mesh(new THREE.BoxGeometry(16, 0.05, 7), new THREE.MeshStandardMaterial({ color: 0x141c30, metalness: 0.42, roughness: 0.48 }));
-    lounge.position.set(a.cyberLounge.x, 0.025, a.cyberLounge.z);
-    rAdd(lounge);
-    const loungeRing = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.025, 8, 48), new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.7 }));
-    loungeRing.rotation.x = Math.PI / 2;
-    loungeRing.position.set(a.cyberLounge.x, 0.08, a.cyberLounge.z);
-    rAdd(loungeRing);
+  createCyberLounge();
+}
+
+function createCyberLounge() {
+  const a = LAYOUT.anchors && LAYOUT.anchors.cyberLounge;
+  if (!a) return;
+  const pod = createCyberPod(a, 16, 8, 0xc026d3, 'CYBER LOUNGE');
+  if (pod) modularRoomModules['cyber-lounge-procedural'] = pod;
+  const ox = a.x;
+  const oz = a.z;
+
+  const sofaMat = new THREE.MeshStandardMaterial({ color: 0x1e1230, roughness: 0.88, metalness: 0.08 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x131c2e, metalness: 0.72, roughness: 0.28 });
+  const glowMat = new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.85 });
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: 0x86198f, metalness: 0.7, roughness: 0.3, emissive: 0xc026d3, emissiveIntensity: 0.35
+  });
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(3.6, 0.025, 8, 56),
+    new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.78 })
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(ox, 0.08, oz);
+  rAdd(ring);
+
+  function addSofa(sx, sz, w, d, backAlongX) {
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(w, 0.38, d), sofaMat);
+    seat.position.set(ox + sx, 0.28, oz + sz);
+    seat.castShadow = true;
+    rAdd(seat);
+    const back = new THREE.Mesh(
+      new THREE.BoxGeometry(backAlongX ? w : 0.12, 0.48, backAlongX ? 0.12 : d),
+      sofaMat
+    );
+    back.position.set(
+      ox + sx + (backAlongX ? 0 : -d * 0.35),
+      0.58,
+      oz + sz + (backAlongX ? d * 0.4 : 0)
+    );
+    rAdd(back);
+    const strip = new THREE.Mesh(
+      new THREE.BoxGeometry(backAlongX ? w * 0.92 : 0.04, 0.03, backAlongX ? 0.04 : d * 0.92),
+      glowMat
+    );
+    strip.position.set(ox + sx, 0.06, oz + sz);
+    rAdd(strip);
   }
+  addSofa(-3.2, 1.8, 3.4, 0.9, true);
+  addSofa(1.2, 2.4, 0.9, 2.6, false);
+
+  const ottomanMat = new THREE.MeshStandardMaterial({ color: 0x2a1538, roughness: 0.8, metalness: 0.12 });
+  [-2.2, 2.2].forEach(function (dx) {
+    const ott = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.32, 20), ottomanMat);
+    ott.position.set(ox + dx, 0.18, oz - 0.4);
+    ott.castShadow = true;
+    rAdd(ott);
+  });
+
+  const table = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.55, 0.58, 0.04, 24),
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.35, metalness: 0.45 })
+  );
+  table.position.set(ox, 0.38, oz + 1.2);
+  table.castShadow = true;
+  rAdd(table);
+  const tLeg = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.06, 0.36, 10),
+    new THREE.MeshStandardMaterial({ color: 0x1a1a1f, metalness: 0.75, roughness: 0.3 })
+  );
+  tLeg.position.set(ox, 0.18, oz + 1.2);
+  rAdd(tLeg);
+  const tableEdge = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.012, 6, 32), glowMat);
+  tableEdge.rotation.x = Math.PI / 2;
+  tableEdge.position.set(ox, 0.41, oz + 1.2);
+  rAdd(tableEdge);
+
+  const barZ = oz - 3.2;
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(6, 0.9, 0.55), frameMat);
+  bar.position.set(ox, 0.45, barZ);
+  bar.castShadow = true;
+  rAdd(bar);
+  const barTop = new THREE.Mesh(
+    new THREE.BoxGeometry(6.08, 0.04, 0.6),
+    new THREE.MeshStandardMaterial({ color: 0x2a2a34, metalness: 0.65, roughness: 0.22 })
+  );
+  barTop.position.set(ox, 0.92, barZ);
+  rAdd(barTop);
+  const barTrim = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.03, 0.04), trimMat);
+  barTrim.position.set(ox, 0.72, barZ + 0.28);
+  rAdd(barTrim);
+
+  [-1.8, 0, 1.8].forEach(function (dx) {
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.035, 0.55, 8),
+      new THREE.MeshStandardMaterial({ color: 0x1a1a1f, metalness: 0.8, roughness: 0.25 })
+    );
+    pole.position.set(ox + dx, 0.28, barZ + 0.85);
+    rAdd(pole);
+    const seat = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.24, 0.08, 16),
+      sofaMat
+    );
+    seat.position.set(ox + dx, 0.58, barZ + 0.85);
+    seat.castShadow = true;
+    rAdd(seat);
+  });
+
+  const screenFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(4.2, 1.4, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0x0e0e12, metalness: 0.6, roughness: 0.3 })
+  );
+  screenFrame.position.set(ox, 1.55, oz - 3.85);
+  rAdd(screenFrame);
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.9, 1.15),
+    new THREE.MeshStandardMaterial({
+      color: 0x1e1030, emissive: 0xc026d3, emissiveIntensity: 0.35, metalness: 0.2, roughness: 0.4
+    })
+  );
+  screen.position.set(ox, 1.55, oz - 3.82);
+  rAdd(screen);
+  const screenBorder = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.04, 0.02), glowMat);
+  screenBorder.position.set(ox, 0.95, oz - 3.81);
+  rAdd(screenBorder);
+
+  [-5.5, 5.5].forEach(function (dx) {
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.05, 2.2, 10),
+      frameMat
+    );
+    post.position.set(ox + dx, 1.1, oz);
+    rAdd(post);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), glowMat);
+    cap.position.set(ox + dx, 2.25, oz);
+    rAdd(cap);
+    const lamp = new THREE.PointLight(0xc026d3, 0.28, 10);
+    lamp.position.set(ox + dx, 2.15, oz);
+    scene.add(lamp);
+  });
 }
 
 function createCyberPod(origin, width, depth, color, label) {

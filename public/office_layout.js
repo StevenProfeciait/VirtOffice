@@ -120,8 +120,8 @@
       meeting: { x: 0, z: meetZ },
       left: { x: -14, z: -2.5 },
       center: { x: 0, z: 0 },
-      right: { x: 6.5, z: meetZ },
-      right2: { x: 11, z: 2.5 }
+      right: { x: 16.2, z: 0.5 },
+      right2: { x: 20, z: 8 }
     },
     workstations: {
       supervisor: { accent: '#8B5CF6', style: 'executive', rotation: Math.PI },
@@ -142,8 +142,8 @@
       meeting: { accent: '#8B5CF6', style: 'collab', rotation: 0, agentLocal: { x: 0, z: 0.2 }, seatHeight: 0.55 },
       left: { accent: '#3B82F6', style: 'standard', rotation: 0 },
       center: { accent: '#EC4899', style: 'standard', rotation: 0 },
-      right: { accent: '#F59E0B', style: 'standard', rotation: 0 },
-      right2: { accent: '#10B981', style: 'gaming', rotation: 0 }
+      right: { accent: '#F59E0B', style: 'standard', rotation: Math.PI },
+      right2: { accent: '#10B981', style: 'gaming', rotation: Math.PI }
     },
     navPoints: {
       meeting: { x: 0, z: meetZ },
