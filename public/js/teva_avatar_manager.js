@@ -173,6 +173,7 @@
       applyToScene(entry, group, position);
       group.scale.multiplyScalar(avatar.scale || 1);
       if (group.userData) group.userData.baseScale = avatar.scale || 1;
+      group.visible = true;
       self.scene.add(group);
       // Start the initial state clip as soon as a model is attached. Without
       // this, an agent that begins in IDLE never crosses a state boundary and

@@ -70,18 +70,31 @@
       mesh.rotation.y = div.rot || 0;
       group.add(mesh);
     });
-    if (L.anchors && L.anchors.meeting) {
-      var meet = L.anchors.meeting;
-      var glass = new THREE.Mesh(
-        new THREE.BoxGeometry(8, 2.4, 0.08),
-        mat(0x7dd3fc, { roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.22 })
-      );
-      glass.position.set(meet.x, 1.2, meet.z - 2.2);
-      group.add(glass);
-      var table = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.08, 1.4), mat(0x334155, { roughness: 0.7 }));
-      table.position.set(meet.x, 0.78, meet.z);
-      group.add(table);
+    var accentSpaces = (L.meetingSpaces && Object.keys(L.meetingSpaces).map(function (k) { return L.meetingSpaces[k]; })) || [];
+    if (!accentSpaces.length && L.anchors && L.anchors.meeting) {
+      accentSpaces = [{ id: 'main', x: L.anchors.meeting.x, z: L.anchors.meeting.z, radius: 3 }];
     }
+    accentSpaces.forEach(function (space) {
+      if (!space || space.type === 'fun' || !(space.radius > 0)) return;
+      var tx = Number(space.x) || 0;
+      var tz = Number(space.z) || 0;
+      var isMain = space.id === 'main';
+      if (isMain) {
+        var glass = new THREE.Mesh(
+          new THREE.BoxGeometry(8, 2.4, 0.08),
+          mat(0x7dd3fc, { roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.22 })
+        );
+        glass.position.set(tx, 1.2, tz - 2.2);
+        group.add(glass);
+      }
+      var tableW = isMain ? 3.6 : Math.max(1.6, (space.radius || 2) * 0.9);
+      var table = new THREE.Mesh(
+        new THREE.BoxGeometry(tableW, 0.08, isMain ? 1.4 : tableW * 0.55),
+        mat(0x334155, { roughness: 0.7 })
+      );
+      table.position.set(tx, 0.78, tz);
+      group.add(table);
+    });
     (L.anchors && L.anchors.plantRing || []).forEach(function (p) {
       var pot = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.35, 8), mat(0x78350f, { roughness: 0.85 }));
       pot.position.set(p[0], 0.18, p[1]);

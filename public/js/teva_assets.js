@@ -8,9 +8,8 @@
     workstation: {
       assetId: 'cyberpunk-workstation-procedural',
       seatHeight: 0.62,
-      agentLocal: { x: 0, z: -0.9 },
-      // The bundled Quaternius character faces -Z in its source pose while
-      // workstations face +Z. Rotate the seated avatar into the desk.
+      agentLocal: { x: 0, z: -0.52 },
+      // Seat the avatar slightly forward of the chair mesh (chair at chairLocalZ).
       agentRotation: Math.PI,
       chairLocalZ: -0.9
     },
@@ -72,6 +71,8 @@
 
   function roleKey(agent) {
     agent = agent || {};
+    var id = String(agent.id || '');
+    if (id === 'supervisor' || id === 'pm' || id === 'ba') return 'supervision';
     var role = String(agent.role || agent.avatar && agent.avatar.rolePreset || '').toLowerCase();
     var zone = String((agent.avatar && agent.avatar.zone) || agent.zone || '').toLowerCase();
     if (role.indexOf('dev') !== -1 || role.indexOf('engineer') !== -1 || zone.indexOf('engineer') !== -1) return 'development';

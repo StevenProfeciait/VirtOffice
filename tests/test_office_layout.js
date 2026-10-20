@@ -46,6 +46,18 @@ if (!layout.navPoints || !layout.navPoints.meeting) {
   console.error('navPoints missing');
   fail++;
 }
+if (!layout.meetingSpaces || !layout.meetingSpaces.main) {
+  console.error('meetingSpaces missing');
+  fail++;
+}
+if (layout.meetingSpaces.main.z !== layout.anchors.meeting.z) {
+  console.error('meetingSpaces.main.z must match anchors.meeting.z');
+  fail++;
+}
+if (!layout.anchors.funZone) {
+  console.error('anchors.funZone missing');
+  fail++;
+}
 
 // Desks are 2.85 x 1.28 (public/js/teva_environment.js buildWorkstation) and sit
 // 0.9 behind their seat. Neighbouring workstations must keep clear floor, both
@@ -122,6 +134,24 @@ Object.keys(contract.seats || {}).forEach(id => {
     fail++;
   }
 });
+if (contract.meetingSpaces && layout.meetingSpaces) {
+  Object.keys(contract.meetingSpaces).forEach(key => {
+    const a = contract.meetingSpaces[key];
+    const b = layout.meetingSpaces[key];
+    if (!b || a.x !== b.x || a.z !== b.z || a.radius !== b.radius) {
+      console.error('scene contract meetingSpace out of sync:', key, a, b);
+      fail++;
+    }
+  });
+}
+if (contract.anchors && contract.anchors.meeting) {
+  const am = contract.anchors.meeting;
+  const bm = layout.anchors.meeting;
+  if (am.x !== bm.x || am.z !== bm.z) {
+    console.error('scene contract meeting anchor out of sync', am, bm);
+    fail++;
+  }
+}
 
 console.log(fail ? `FAIL ${fail}` : 'ok', 'seats', Object.keys(layout.seats).length, 'room', layout.room.width + 'x' + layout.room.depth);
 process.exit(fail ? 1 : 0);

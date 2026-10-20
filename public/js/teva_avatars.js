@@ -238,6 +238,11 @@
     if (ps === 'SITTING_DOWN' || ps === 'SIT_DOWN') return 'SITTING_DOWN';
     if (ps === 'STANDING') return 'STANDING';
     if (ps === 'WORKING' || ps === 'TYPING' || ps === 'RUNNING' || ps === 'DELEGATING') return 'WORKING';
+    if (ps === 'AT_DESK') {
+      if (agent && (agent.status === 'working' || (activity.boardWorking === true) || agent.typing)) return 'WORKING';
+      return 'IDLE';
+    }
+    if (ps === 'OFFLINE') return 'IDLE';
     if (agent && agent.status === 'meeting') return 'PLANNING';
     if (agent && agent.status === 'walking') return 'WALKING';
     if (agent && agent.status === 'working') return 'WORKING';

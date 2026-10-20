@@ -4,70 +4,71 @@
  */
 (function (root) {
   'use strict';
-  // Expanded TEVA HQ footprint. Existing agent seats stay central while the
-  // outer bays provide room for future teams, collaboration, and asset packs.
   var W = 72;
   var D = 54;
   var H = 4.2;
   var halfW = W / 2;
   var halfD = D / 2;
-  var meetZ = -9.5;
+  var meetZ = -15.5;
 
   var layout = {
     room: { width: W, depth: D, wallHeight: H },
     fog: { color: 0x0a0d14, near: 40, far: 120 },
     exterior: { groundSize: 280, plazaWidth: 14, skylineCount: 16 },
-    /**
-     * Seat id -> standing position (home in agents.json matches id).
-     * Desks are ~2.85 wide, so seats inside a team sit at least 4.2 apart on x and
-     * teams keep ~2.4 of clear floor between their outermost desks (see
-     * tests/test_office_layout.js, which guards the minimum clearance).
-     */
     seats: {
-      supervisor: { x: -3.6, z: -6.2 },
-      pm: { x: 0, z: -5.6 },
-      ba: { x: 3.6, z: -6.2 },
-      le: { x: 7.8, z: -3 },
-      le2: { x: 12, z: -3 },
-      sa: { x: 16.2, z: -3 },
-      debugger: { x: 12, z: 2.4 },
-      'research-mgr': { x: -19.6, z: -2.2 },
-      'ai-research': { x: -15, z: -2.2 },
-      'erp-research': { x: -10.4, z: -2.2 },
+      supervisor: { x: 22, z: -7.4 },
+      pm: { x: 26, z: -7.0 },
+      ba: { x: 30, z: -7.4 },
+      le: { x: 7.8, z: -3.0 },
+      le2: { x: 12, z: -3.0 },
+      sa: { x: 16.2, z: -3.0 },
+      debugger: { x: 12, z: 0.5 },
+      'research-mgr': { x: -19.6, z: -2.8 },
+      'ai-research': { x: -15, z: -2.8 },
+      'erp-research': { x: -10.4, z: -2.8 },
       product: { x: -5.6, z: 6.6 },
       competitor: { x: -1, z: 6.6 },
       'ui-docs': { x: 3.6, z: 6.6 },
       grok: { x: 15.5, z: 8 },
       'needs-steve': { x: -7.5, z: 12.4 }
     },
-    /**
-     * Team floor areas. Each rectangle is drawn as a coloured outline, so they must
-     * never cross: every pair keeps >= ~0.9 of empty floor between edges while still
-     * enclosing that team's desks and chairs (guarded in tests/test_office_layout.js).
-     * `signZ` optionally floats a team label off-centre so it does not land on desks.
-     */
+    meetingSpaces: {
+      main: { id: 'main', x: 0, z: meetZ, radius: 3, chairs: 6, label: 'ALL-HANDS', roles: ['default'] },
+      leadership: { id: 'leadership', x: 26, z: -4.8, radius: 2.2, chairs: 4, label: 'LEADERSHIP', agentIds: ['supervisor', 'pm', 'ba'] },
+      engineering: { id: 'engineering', x: 0, z: 1.2, radius: 2.2, chairs: 4, label: 'ENG STANDUP', agentIds: ['le', 'le2', 'sa', 'debugger'] },
+      research: { id: 'research', x: -33, z: 0.5, radius: 2.2, chairs: 3, label: 'RESEARCH LAB', agentIds: ['research-mgr', 'ai-research', 'erp-research'] },
+      business: { id: 'business', x: 30, z: 2.5, radius: 2.2, chairs: 3, label: 'BUSINESS SUITE', agentIds: ['product', 'competitor', 'ui-docs'] },
+      briefing: { id: 'briefing', x: -18, z: 21, radius: 2, chairs: 4, label: 'BRIEFING', agentIds: [] },
+      innovation: { id: 'innovation', x: 26, z: 11, radius: 2, chairs: 4, label: 'INNOVATION', agentIds: [] },
+      simulation: { id: 'simulation', x: -26, z: 11, radius: 2, chairs: 4, label: 'SIMULATION', agentIds: [] },
+      fun: { id: 'fun', x: 6, z: 12, radius: 0, chairs: 0, label: 'FUN ZONE', agentIds: [], type: 'fun' }
+    },
     zones: [
-      { name: 'Leadership', color: '#8B5CF6', x: 0, z: -halfD + 3.2, w: 14, d: 8 },
-      { name: 'Engineering', color: '#EF4444', x: 12.2, z: -1.9, w: 13.2, d: 9.2 },
-      { name: 'Research', color: '#3B82F6', x: -15, z: -4.6, w: 14.8, d: 5 },
+      { name: 'Leadership', color: '#8B5CF6', x: 26, z: -6, w: 12, d: 9 },
+      { name: 'Engineering', color: '#EF4444', x: 12.2, z: -1.8, w: 13.2, d: 6.5 },
+      { name: 'Research', color: '#3B82F6', x: -15, z: -2.6, w: 14.8, d: 5 },
       { name: 'Business', color: '#10B981', x: -1, z: 5.5, w: 14.4, d: 3.8, signZ: 4.4 },
       { name: 'Ingest', color: '#F59E0B', x: 15.5, z: 6.4, w: 4.6, d: 4 },
       { name: 'Needs Steve', color: '#FF3B30', x: -7.5, z: 10.95, w: 5.8, d: 4.5 },
-      { name: 'Innovation Lab', color: '#22D3EE', x: 25.5, z: 9.5, w: 11.5, d: 13 },
-      { name: 'Simulation Bay', color: '#A78BFA', x: -24, z: 9.5, w: 16, d: 13 },
-      { name: 'Cyber Lounge', color: '#F472B6', x: 20, z: 21.5, w: 18, d: 9 }
+      { name: 'Fun Zone', color: '#F472B6', x: 6, z: 12, w: 11, d: 6 },
+      { name: 'Innovation Lab', color: '#22D3EE', x: 26, z: 11, w: 11.5, d: 11.5 },
+      { name: 'Simulation Bay', color: '#A78BFA', x: -26, z: 11, w: 16, d: 11.5 },
+      { name: 'Cyber Lounge', color: '#F472B6', x: 20, z: 23, w: 18, d: 9 },
+      { name: 'Research Collab', color: '#60A5FA', x: -33, z: 0.5, w: 5.5, d: 3.8 },
+      { name: 'Business Collab', color: '#34D399', x: 30, z: 2.5, w: 5.5, d: 3.8 }
     ],
     dividers: [
-      { x: -8, z: -3.5, w: 0.12, d: 10, rot: 0, type: 'glass', h: 1.4 },
-      { x: 5.5, z: 0, w: 0.12, d: 12, rot: 0, type: 'glass', h: 1.35 },
+      { x: -8, z: -4.2, w: 0.12, d: 10, rot: 0, type: 'glass', h: 1.4 },
+      { x: 5.5, z: -0.5, w: 0.12, d: 12, rot: 0, type: 'glass', h: 1.35 },
       { x: -2, z: 1.5, w: 8, d: 0.35, rot: 0, type: 'shelf', h: 1.1 }
     ],
     anchors: {
       meeting: { x: 0, z: meetZ },
       server: { x: -halfW + 6, z: -halfD + 4.5 },
       kitchen: { x: -halfW + 4, z: halfD - 4 },
-      lounge: { x: 12, z: 10 },
-      pingPong: [[halfW - 4.5, -halfD + 12], [halfW - 4.5, -halfD + 16]],
+      lounge: { x: 8, z: 11.5 },
+      funZone: { x: 6, z: 12 },
+      pingPong: { x: 3, z: 13 },
       phoneBoothX: -halfW + 2.5,
       bookshelf: { x: -halfW + 2.5, z: -halfD + 10 },
       waterCooler: { x: -halfW + 3, z: -halfD + 11 },
@@ -82,11 +83,16 @@
         [halfW - 2.5, halfD - 2],
         [0, halfD - 2.2]
       ],
-      innovationLab: { x: 24, z: 10 },
-      simulationBay: { x: -24, z: 10 },
-      briefingRoom: { x: -18, z: 20 },
-      commandDeck: { x: 0, z: 19 },
-      cyberLounge: { x: 20, z: 21 }
+      innovationLab: { x: 26, z: 11 },
+      simulationBay: { x: -26, z: 11 },
+      leadershipBay: { x: 26, z: -6 },
+      briefingRoom: { x: -18, z: 21 },
+      commandDeck: { x: 0, z: 20 },
+      cyberLounge: { x: 20, z: 23 },
+      researchCollab: { x: -33, z: 0.5 },
+      businessCollab: { x: 30, z: 2.5 },
+      engStandup: { x: 0, z: 1.2 },
+      leadershipStandup: { x: 26, z: -4.8 }
     },
     wing: {
       centerX: 0,
@@ -95,7 +101,7 @@
       depth: 22,
       floorY: 0,
       hotDesks: [
-        { x: -12, z: 0 }, { x: -6, z: 0 }, { x: 0, z: 0 }, { x: 6, z: 0 }, { x: 12, z: 0 }
+        { x: -13.5, z: 0 }, { x: -6.75, z: 0 }, { x: 0, z: 0 }, { x: 6.75, z: 0 }, { x: 13.5, z: 0 }
       ],
       lounge: { x: -14, z: 6 },
       whiteboard: { x: 14, z: 5 }
@@ -111,11 +117,10 @@
       right: { x: 6, z: -1 },
       right2: { x: 11, z: 2.5 }
     },
-    /** Per-seat workstation overrides (origin = seat x/z; agentLocal from manifest defaults). */
     workstations: {
-      supervisor: { accent: '#8B5CF6', style: 'executive', rotation: 0 },
-      pm: { accent: '#8B5CF6', style: 'executive', rotation: 0 },
-      ba: { accent: '#8B5CF6', style: 'standard', rotation: 0 },
+      supervisor: { accent: '#8B5CF6', style: 'executive', rotation: Math.PI },
+      pm: { accent: '#8B5CF6', style: 'executive', rotation: Math.PI },
+      ba: { accent: '#8B5CF6', style: 'standard', rotation: Math.PI },
       le: { accent: '#10B981', style: 'gaming', rotation: 0 },
       le2: { accent: '#10B981', style: 'gaming', rotation: 0 },
       sa: { accent: '#EF4444', style: 'gaming', rotation: 0 },
@@ -136,28 +141,51 @@
     },
     navPoints: {
       meeting: { x: 0, z: meetZ },
-      lounge: { x: 12, z: 10 },
+      leadershipStandup: { x: 26, z: -4.8 },
+      leadershipBay: { x: 26, z: -6 },
+      engHuddle: { x: 0, z: 1.2 },
+      researchHuddle: { x: -33, z: 0.5 },
+      businessHuddle: { x: 30, z: 2.5 },
+      fun: { x: 6, z: 12 },
+      lounge: { x: 8, z: 11.5 },
       kitchen: { x: -halfW + 4, z: halfD - 4 },
       collab: { x: 0, z: halfD + 11 },
-      innovation: { x: 24, z: 10 },
-      simulation: { x: -24, z: 10 },
-      command: { x: 0, z: 19 }
+      innovation: { x: 26, z: 11 },
+      simulation: { x: -26, z: 11 },
+      briefing: { x: -18, z: 21 },
+      command: { x: 0, z: 20 }
     },
     expansionStations: [
-      { x: 22, z: 5, rotation: 0, color: '#22D3EE', style: 'gaming' },
-      { x: 27, z: 5, rotation: 0, color: '#22D3EE', style: 'standard' },
-      { x: -22, z: 5, rotation: Math.PI, color: '#A78BFA', style: 'standard' },
-      { x: -27, z: 5, rotation: Math.PI, color: '#A78BFA', style: 'gaming' },
-      { x: 22, z: 15, rotation: Math.PI, color: '#F472B6', style: 'standard' },
-      { x: 27, z: 15, rotation: Math.PI, color: '#F472B6', style: 'standard' }
+      { x: 24, z: 7, rotation: 0, color: '#22D3EE', style: 'gaming' },
+      { x: 28, z: 7, rotation: 0, color: '#22D3EE', style: 'standard' },
+      { x: -24, z: 7, rotation: Math.PI, color: '#A78BFA', style: 'standard' },
+      { x: -28, z: 7, rotation: Math.PI, color: '#A78BFA', style: 'gaming' },
+      { x: 24, z: 17, rotation: Math.PI, color: '#F472B6', style: 'standard' },
+      { x: 28, z: 17, rotation: Math.PI, color: '#F472B6', style: 'standard' }
     ],
     departments: {
-      Leadership: { target: [0, 0, -8], zoom: 1.35 },
-      Engineering: { target: [12, 0, -3], zoom: 1.28 },
-      Research: { target: [-15, 0, -2], zoom: 1.28 },
+      Leadership: { target: [26, 0, -6], zoom: 1.28 },
+      Engineering: { target: [12, 0, -2.5], zoom: 1.28 },
+      Research: { target: [-15, 0, -2.6], zoom: 1.28 },
       Business: { target: [-1, 0, 6.6], zoom: 1.3 },
       Ingest: { target: [15.5, 0, 8], zoom: 1.32 },
-      'Needs Steve': { target: [-7.5, 0, 12.4], zoom: 1.25 }
+      'Needs Steve': { target: [-7.5, 0, 12.4], zoom: 1.25 },
+      'Fun Zone': { target: [6, 0, 12], zoom: 1.3 },
+      'Innovation Lab': { target: [26, 0, 11], zoom: 1.25 },
+      'Simulation Bay': { target: [-26, 0, 11], zoom: 1.25 },
+      'Research Collab': { target: [-33, 0, 0.5], zoom: 1.28 },
+      'Business Collab': { target: [30, 0, 2.5], zoom: 1.28 },
+    },
+    collabPresets: {
+      main: { target: [0, 0, meetZ], zoom: 1.22 },
+      leadership: { target: [26, 0, -4.8], zoom: 1.3 },
+      engineering: { target: [0, 0, 1.2], zoom: 1.3 },
+      research: { target: [-33, 0, 0.5], zoom: 1.28 },
+      business: { target: [30, 0, 2.5], zoom: 1.28 },
+      fun: { target: [6, 0, 12], zoom: 1.28 },
+      briefing: { target: [-18, 0, 21], zoom: 1.22 },
+      innovation: { target: [26, 0, 11], zoom: 1.22 },
+      simulation: { target: [-26, 0, 11], zoom: 1.22 }
     }
   };
 

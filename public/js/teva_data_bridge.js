@@ -61,7 +61,12 @@
     s.setHandlers({
       onConfig: function () {},
       onAgents: function (agents) {
+        if (root.applyLiveAgents && Array.isArray(agents) && agents.length) {
+          root.applyLiveAgents(agents);
+          return;
+        }
         self.reconcile(agents);
+        if (root.syncModularOffice) root.syncModularOffice({ reconcile: false });
       },
       onTimeline: function () {},
       onEvent: function (evt) {

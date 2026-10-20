@@ -17,6 +17,7 @@ function check(cond, msg) { if (!cond) { console.error('FAIL:', msg); fail++; } 
 A.setManifest(JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'public', 'assets', 'asset-manifest.json'), 'utf8')));
 check(A.getManifest().version === 2, 'manifest version');
 check(A.roleKey({ role: 'Dev' }) === 'development', 'dev role');
+check(A.roleKey({ id: 'ba', role: 'Leadership' }) === 'supervision', 'leadership seat ids use supervision preset');
 const enriched = A.enrichAgent({ id: 'coder', role: 'Dev', avatar: { fallback: { emoji: '💻' } } });
 check(enriched.avatar.appearance && enriched.avatar.appearance.outfit === 'hoodie', 'dev preset appearance');
 const assetEnriched = A.enrichAgent({ id: 'coder', role: 'Dev', avatar: { assetId: 'office-worker-glb' } });
@@ -33,7 +34,7 @@ check(optionalModel === null, 'room asset falls back when model is not installed
 const pos = A.resolveAgentPosition({ id: 'le' });
 check(Number.isFinite(pos.x) && Number.isFinite(pos.z), 'agent position');
 check(pos.seatHeight === 0.62, 'seat height default');
-check(pos.z === -3.9, 'agent aligns to chair center');
+check(Math.abs(pos.z - (-3.52)) < 0.001, 'agent sits forward of chair center');
 check(A.resolveWorkstationOrigin({ id: 'le' }).style === 'gaming', 'le workstation style');
 check(A.resolveNavPoint('meeting') && A.resolveNavPoint('meeting').x === 0, 'nav meeting');
 const modelPath = path.join(__dirname, '..', 'public', 'assets', 'avatars', 'office-worker', 'model.glb');

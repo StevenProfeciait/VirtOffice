@@ -3,8 +3,8 @@
   "workstation": {
     "assetId": "cyberpunk-workstation-procedural",
     "seatHeight": 0.62,
-    "agentLocal": { "x": 0, "z": -0.9 },
-    "agentRotation": 0,
+    "agentLocal": { "x": 0, "z": -0.52 },
+    "agentRotation": 3.141592653589793,
     "chairLocalZ": -0.9
   },
   "rolePresets": {
@@ -143,6 +143,18 @@
       "fallback": "procedural-cyber-pod",
       "dimensions": { "width": 12, "depth": 7, "height": 2.8 },
       "anchor": "briefingRoom",
+      "transform": { "scale": 1, "rotation": 0 },
+      "source": "https://quaternius.com/packs/modularscifimegakit.html",
+      "license": "CC0 1.0 for optional Quaternius module; procedural fallback is original project code",
+      "status": "optional-external-asset-ready"
+    },
+    {
+      "id": "leadership-suite-procedural",
+      "type": "room-module",
+      "model": null,
+      "fallback": "procedural-cyber-pod",
+      "dimensions": { "width": 12, "depth": 9, "height": 2.8 },
+      "anchor": "leadershipBay",
       "transform": { "scale": 1, "rotation": 0 },
       "source": "https://quaternius.com/packs/modularscifimegakit.html",
       "license": "CC0 1.0 for optional Quaternius module; procedural fallback is original project code",

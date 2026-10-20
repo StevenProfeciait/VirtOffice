@@ -837,6 +837,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="/vendor/GLTFLoader.js"></script>
 <script src="vo_events.js"></script>
 <script src="office_layout.js"></script>
+<script src="js/teva_meeting_spaces.js"></script>
 <script src="js/teva_renderer_contract.js"></script>
 <script src="js/teva_assets.js"></script>
 <script src="js/teva_avatars.js"></script>
@@ -2242,14 +2243,25 @@ function createRoom() {
     rAdd(perimeter);
   }
 
-  const carpet = new THREE.Mesh(
-    new THREE.CircleGeometry(5.0, 48),
-    new THREE.MeshStandardMaterial({ color: futuristic ? 0x131d33 : 0xe8ecf2, roughness: futuristic ? 0.55 : 1, metalness: futuristic ? 0.26 : 0 })
-  );
-  carpet.rotation.x = -Math.PI / 2;
-  carpet.position.set(LAYOUT.anchors.meeting.x, 0.015, mz);
-  carpet.receiveShadow = true;
-  rAdd(carpet);
+  const carpetMat = new THREE.MeshStandardMaterial({ color: futuristic ? 0x131d33 : 0xe8ecf2, roughness: futuristic ? 0.55 : 1, metalness: futuristic ? 0.26 : 0 });
+  const spaces = LAYOUT.meetingSpaces || {};
+  Object.keys(spaces).forEach(function (key) {
+    const space = spaces[key];
+    if (!space || space.type === 'fun' || !(space.radius > 0)) return;
+    const rad = key === 'main' ? 5.0 : Math.max(2.4, (space.radius || 2) + 0.8);
+    const carpet = new THREE.Mesh(new THREE.CircleGeometry(rad, 40), carpetMat.clone ? carpetMat.clone() : carpetMat);
+    carpet.rotation.x = -Math.PI / 2;
+    carpet.position.set(space.x, 0.014, space.z);
+    carpet.receiveShadow = true;
+    rAdd(carpet);
+  });
+  if (!spaces.main) {
+    const carpet = new THREE.Mesh(new THREE.CircleGeometry(5.0, 48), carpetMat);
+    carpet.rotation.x = -Math.PI / 2;
+    carpet.position.set(LAYOUT.anchors.meeting.x, 0.015, mz);
+    carpet.receiveShadow = true;
+    rAdd(carpet);
+  }
 
   const wallPaint = new THREE.MeshStandardMaterial({ color: futuristic ? 0x101827 : 0xf4f5f7, roughness: futuristic ? 0.42 : 0.88, metalness: futuristic ? 0.32 : 0.02 });
   const wt = 0.35;
@@ -2348,9 +2360,10 @@ function createPoster(x, y, z, bg, label) {
 
 function createFurniture() {
   createServerRoom();
-  createMeetingArea();
+  createMeetingAreas();
   createWorkstations();
   createLounge();
+  createFunArea();
   createKitchen();
   createPhoneBooths();
   createPingPong();
@@ -2358,7 +2371,40 @@ function createFurniture() {
   createWaterCooler();
   createPlants();
   createDecor();
+  createLeadershipBay();
   if (modularAvatarsEnabled()) createFuturisticSpaces();
+}
+
+function createLeadershipBay() {
+  const bay = LAYOUT.anchors && LAYOUT.anchors.leadershipBay;
+  if (!bay) return;
+  const pod = createCyberPod(bay, 12, 9, 0x8b5cf6, 'LEADERSHIP SUITE');
+  if (pod) modularRoomModules['leadership-suite-procedural'] = pod;
+  const ox = bay.x;
+  const oz = bay.z;
+  const benchMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, metalness: 0.62, roughness: 0.34 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x4c1d95, metalness: 0.72, roughness: 0.28, emissive: 0x5b21b6, emissiveIntensity: 0.22 });
+  [-3.4, 3.4].forEach(function (dx) {
+    const credenza = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.78, 0.55), benchMat);
+    credenza.position.set(ox + dx, 0.39, oz + 2.6);
+    credenza.castShadow = true;
+    rAdd(credenza);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.62, 0.04, 0.58), trimMat);
+    top.position.set(ox + dx, 0.8, oz + 2.6);
+    rAdd(top);
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.024, 8, 56), new THREE.MeshBasicMaterial({ color: 0xc4b5fd, transparent: true, opacity: 0.78 }));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(ox, 0.075, oz - 0.35);
+  rAdd(ring);
+  const holo = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.25, 0.045), new THREE.MeshStandardMaterial({
+    color: 0x0f172a, emissive: 0x7c3aed, emissiveIntensity: 0.5, metalness: 0.55, roughness: 0.18
+  }));
+  holo.position.set(ox, 1.45, oz - 3.85);
+  rAdd(holo);
+  const sideLamp = new THREE.PointLight(0xa78bfa, 0.22, 11);
+  sideLamp.position.set(ox, 2.4, oz);
+  scene.add(sideLamp);
 }
 
 function createFuturisticSpaces() {
@@ -2475,35 +2521,62 @@ function createServerRoom() {
   }
 }
 
-function createMeetingArea() {
-  const tx = LAYOUT.anchors.meeting.x, tz = LAYOUT.anchors.meeting.z;
+function createCollabTable(space) {
+  if (!space || space.type === 'fun') return;
+  const tx = Number(space.x) || 0;
+  const tz = Number(space.z) || 0;
+  const isMain = space.id === 'main';
+  const tableR = isMain ? 2.45 : Math.max(1.15, (space.radius || 2) * 0.55);
+  const chairR = space.radius || (isMain ? 3 : 2);
+  const chairCount = Math.max(1, space.chairs || (isMain ? 6 : 4));
 
   const table = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.45, 2.45, 0.06, 48),
-    new THREE.MeshStandardMaterial({ color: 0xf7f8fa, roughness: 0.35, metalness: 0.12 })
+    new THREE.CylinderGeometry(tableR, tableR, 0.06, 32),
+    new THREE.MeshStandardMaterial({ color: isMain ? 0xf7f8fa : 0xe8ecf2, roughness: 0.35, metalness: 0.12 })
   );
-  table.position.set(tx, 0.9, tz);
+  table.position.set(tx, isMain ? 0.9 : 0.82, tz);
   table.castShadow = true;
   table.receiveShadow = true;
   rAdd(table);
-  const inset = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.6, 1.6, 0.02, 32),
-    new THREE.MeshStandardMaterial({ color: 0xe8ecf2, roughness: 0.5, metalness: 0.05 })
-  );
-  inset.position.set(tx, 0.935, tz);
-  rAdd(inset);
 
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.5, 0.85, 20), new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.3, metalness: 0.75 }));
-  base.position.set(tx, 0.42, tz);
-  rAdd(base);
-
-  const colors = [0x2a2a32, 0x34343e, 0x2a2a32, 0x3a3a46, 0x2a2a32, 0x34343e];
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2;
-    createChair(tx + Math.cos(angle) * 3, tz + Math.sin(angle) * 3, angle + Math.PI / 2, colors[i]);
+  if (isMain) {
+    const inset = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.6, 1.6, 0.02, 32),
+      new THREE.MeshStandardMaterial({ color: 0xe8ecf2, roughness: 0.5, metalness: 0.05 })
+    );
+    inset.position.set(tx, 0.935, tz);
+    rAdd(inset);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.5, 0.85, 20), new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.3, metalness: 0.75 }));
+    base.position.set(tx, 0.42, tz);
+    rAdd(base);
+  } else {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.78, 12), new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.3, metalness: 0.75 }));
+    leg.position.set(tx, 0.39, tz);
+    rAdd(leg);
   }
 
-  // Wall-mounted digital board (thin OLED-style)
+  const colors = [0x2a2a32, 0x34343e, 0x2a2a32, 0x3a3a46, 0x34343e, 0x2a2a32];
+  for (let i = 0; i < chairCount; i++) {
+    const angle = (i / chairCount) * Math.PI * 2;
+    createChair(tx + Math.cos(angle) * chairR, tz + Math.sin(angle) * chairR, angle + Math.PI / 2, colors[i % colors.length]);
+  }
+
+  if (space.label && typeof createLabel === 'function') {
+    const sign = createLabel(space.label, '#8B5CF6');
+    sign.position.set(tx, isMain ? 2.1 : 1.65, tz - (isMain ? 0 : 0.2));
+    rAdd(sign);
+  }
+}
+
+function createMeetingAreas() {
+  const spaces = LAYOUT.meetingSpaces || {};
+  Object.keys(spaces).forEach(function (key) {
+    createCollabTable(spaces[key]);
+  });
+  createMeetingWallBoard();
+}
+
+function createMeetingWallBoard() {
   const bx = LAYOUT.anchors.whiteboard.x, bz = LAYOUT.anchors.whiteboard.z;
   const boardFrame = new THREE.Mesh(new THREE.BoxGeometry(3.7, 1.85, 0.05), new THREE.MeshStandardMaterial({ color: 0x0e0e12, metalness: 0.65, roughness: 0.3 }));
   boardFrame.position.set(bx, 1.75, bz - 0.02);
@@ -2814,8 +2887,28 @@ function createPhoneBooths() {
   });
 }
 
+function createFunArea() {
+  const fun = (LAYOUT.anchors && LAYOUT.anchors.funZone) || { x: 6, z: 12 };
+  const pad = new THREE.Mesh(
+    new THREE.BoxGeometry(10, 0.04, 6),
+    new THREE.MeshStandardMaterial({ color: 0x141c30, metalness: 0.42, roughness: 0.48 })
+  );
+  pad.position.set(fun.x, 0.022, fun.z);
+  rAdd(pad);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.8, 0.022, 8, 48), new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.65 }));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(fun.x, 0.06, fun.z);
+  rAdd(ring);
+  if (typeof createLabel === 'function') {
+    const sign = createLabel('FUN ZONE', '#F472B6');
+    sign.position.set(fun.x, 2.0, fun.z - 2.2);
+    rAdd(sign);
+  }
+}
+
 function createPingPong() {
-  const x = -2, z = 10.5;
+  const pp = (LAYOUT.anchors && LAYOUT.anchors.pingPong) || { x: 3, z: 13 };
+  const x = pp.x, z = pp.z;
   
   const table = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.06, 1.5), new THREE.MeshStandardMaterial({ color: 0x3d4a52, roughness: 0.45, metalness: 0.15 }));
   table.position.set(x, 0.85, z);
@@ -3435,7 +3528,14 @@ function animateAgents(delta) {
         case 'YOUR_TURN': face = cameraFacing(a); Object.assign(P, { headRx: -0.05, headRy: Math.sin(t * 0.5) * 0.08 }); break;
         default: Object.assign(P, { headRy: Math.sin(t * 0.4) * 0.2, headRx: Math.sin(t * 0.3) * 0.05, lArmRz: Math.sin(t * 0.8) * 0.05, rArmRz: -Math.sin(t * 0.8) * 0.05 });
       }
-      if (base === 'MEETING') face = Math.atan2(LAYOUT.anchors.meeting.x - a.group.position.x, LAYOUT.anchors.meeting.z - a.group.position.z);
+      if (base === 'MEETING') {
+        const meetSpace = window.TevaMeetingSpaces && TevaMeetingSpaces.resolveMeetingSpace
+          ? TevaMeetingSpaces.resolveMeetingSpace(a.agent)
+          : null;
+        const cx = meetSpace ? meetSpace.x : LAYOUT.anchors.meeting.x;
+        const cz = meetSpace ? meetSpace.z : LAYOUT.anchors.meeting.z;
+        face = Math.atan2(cx - a.group.position.x, cz - a.group.position.z);
+      }
     }
     // one-shot overlays on top of the base pose
     if (ov && !walking && base !== 'OFFLINE') {
@@ -3843,7 +3943,13 @@ function refreshBases() {
   updateAttention(now);
 }
 function meetingSlot(id) {
-  const ids = AGENTS.filter(a => a.status === 'meeting' && a.id !== 'needs-steve').map(a => a.id);
+  const agent = AGENTS.find(a => a.id === id) || { id };
+  const meetingAgents = AGENTS.filter(a => a.status === 'meeting' && a.id !== 'needs-steve');
+  if (window.TevaMeetingSpaces && TevaMeetingSpaces.meetingSlotForAgent) {
+    const slot = TevaMeetingSpaces.meetingSlotForAgent(agent, meetingAgents);
+    return { x: slot.x, z: slot.z };
+  }
+  const ids = meetingAgents.map(a => a.id);
   const k = Math.max(0, ids.indexOf(id)), tz = meetZ();
   const ang = (k % 6) / 6 * Math.PI * 2 + (k >= 6 ? Math.PI / 6 : 0), r = 3.0 + (k >= 6 ? 0.9 : 0);
   return { x: Math.cos(ang) * r, z: tz + Math.sin(ang) * r };
