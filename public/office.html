@@ -1348,6 +1348,7 @@ function applyLiveAgents(newAgents) {
   // change becomes a sourced event (task changes included, as the Phase 1 bubble did).
   if (!firstSync && !rosterChanged && before) handleEvents(VOE.deriveEvents(before, newAgents, Date.now()), Date.now());
   if (firstSync || boardChanged) showToast(firstSync ? 'TEVA team connected' : 'Board updated');
+  syncModularOffice();
 }
 
 function updateNeedsSteve() {
@@ -1405,6 +1406,33 @@ function syncModularWorkstationStatus(agent) {
   const st = (activity.presentationState || activity.state || agent.status || 'IDLE').toUpperCase();
   ws.userData.setStatus(st);
 }
+const LEADERSHIP_SEATS = ['supervisor', 'pm', 'ba'];
+
+function syncModularOffice(options) {
+  if (!modularBridge || !modularAvatarsEnabled()) return;
+  options = options || {};
+  buildModularWorkstations(AGENTS);
+  hideLegacyWorkstations();
+  hideMeetingChairsWhenModular();
+  if (options.reconcile !== false) modularBridge.reconcile(AGENTS);
+  AGENTS.forEach(syncModularWorkstationStatus);
+}
+window.applyLiveAgents = applyLiveAgents;
+window.syncModularOffice = syncModularOffice;
+
+function hideMeetingChairsWhenModular() {
+  if (!modularAvatarsEnabled() || !scene || !scene.traverse) return;
+  scene.traverse(obj => {
+    if (obj.userData && obj.userData.tevaMeetingChair) obj.visible = false;
+  });
+}
+
+function modularAvatarReady(agentId) {
+  if (!modularAvatarsEnabled() || !modularBridge || !modularBridge.manager) return false;
+  const entry = modularBridge.manager.entries[agentId];
+  return !!(entry && entry.group && entry.group.parent);
+}
+
 function buildModularWorkstations(allAgents) {
   if (!window.TevaEnv || !TevaEnv.buildWorkstation) return;
   const params = new URLSearchParams(location.search);
@@ -1415,11 +1443,15 @@ function buildModularWorkstations(allAgents) {
   const list = prototypeOnly
     ? [(allAgents || AGENTS).find(a => a.id !== 'needs-steve') || (allAgents || AGENTS)[0]].filter(Boolean)
     : (allAgents || AGENTS).filter(Boolean);
+  const occupiedSeats = new Set();
   list.forEach(agent => {
     if (modularWorkstations[agent.id]) return;
     const origin = (window.TevaAssets && TevaAssets.resolveWorkstationOrigin)
       ? TevaAssets.resolveWorkstationOrigin(agent)
       : { x: 0, z: 0, rotation: 0, accent: agent.color, style: 'standard' };
+    const seatKey = origin.x.toFixed(2) + ',' + origin.z.toFixed(2);
+    if (occupiedSeats.has(seatKey)) return;
+    occupiedSeats.add(seatKey);
     const ws = TevaEnv.buildWorkstation({
       x: origin.x,
       z: origin.z,
@@ -1512,11 +1544,13 @@ function startModularAvatars() {
     });
     hideLegacyWorkstations();
     buildModularWorkstations(AGENTS);
+    hideMeetingChairsWhenModular();
     const expansionCount = buildExpansionStations();
     loadOptionalRoomModules();
-    modularBridge.reconcile(AGENTS);
     modularBridge.start();
     document.body.setAttribute('data-modular-avatars', 'on');
+    // Do not reconcile the inline demo roster here — DataBridge.loadAgents and
+    // applyLiveAgents() will sync the real /api/agents roster and avatars.
     const n = Object.keys(modularWorkstations).length;
     showToast(n ? `Modular office: ${n + expansionCount} workstation(s) · ${expansionCount} expansion stations` : 'Modular avatars enabled');
     const focus = new URLSearchParams(location.search).get('focus');
@@ -2552,6 +2586,7 @@ function createChair(x, z, rotation, color) {
     group.add(caster);
   }
 
+  group.userData.tevaMeetingChair = true;
   rAdd(group);
   return group;
 }
@@ -3999,10 +4034,10 @@ function partColor(obj, kind, out) {
   return out;
 }
 function partVisible(obj, p, now) {
-  // Modular mode mounts the real GLB avatar alongside the legacy instanced
-  // renderer. Hide every legacy avatar part, otherwise head/hair/limbs/rings
-  // remain visible as duplicate "ghost" characters around the GLB model.
-  if (modularBridge || document.body.getAttribute('data-modular-avatars') === 'on') return false;
+  // Keep legacy instanced avatars visible until the modular GLB/fallback for
+  // that seat is actually attached; otherwise leadership seats look empty while
+  // models load or if a load fails.
+  if (modularAvatarsEnabled() && modularAvatarReady(obj.agent.id)) return false;
   if (p.kind === 'ring') return obj.base !== 'OFFLINE';
   if (p.kind === 'flag') return !!(FLAGGED[obj.agent.id] && now - FLAGGED[obj.agent.id] < FLAG_MS);
   if (p.kind === 'helper') return obj.base === 'DELEGATING' && p.n < VOE.helperCount(obj.agent);
