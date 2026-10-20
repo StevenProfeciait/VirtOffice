@@ -58,7 +58,8 @@ deskIds.forEach((id, i) => {
   deskIds.slice(i + 1).forEach(other => {
     const a = layout.seats[id], b = layout.seats[other];
     const gapX = Math.max(0, Math.abs(a.x - b.x) - DESK_W);
-    const gapZ = Math.max(0, Math.abs(a.z - b.z) - DESK_D);
+    // The desk offset is the same for every seat, so it cancels out here.
+    const gapZ = Math.max(0, Math.abs((a.z - DESK_Z_OFFSET) - (b.z - DESK_Z_OFFSET)) - DESK_D);
     const gap = Math.hypot(gapX, gapZ);
     if (gap < MIN_CLEARANCE) {
       console.error(`workstation clearance ${gap.toFixed(2)} between ${id} and ${other}`);
@@ -66,6 +67,44 @@ deskIds.forEach((id, i) => {
     }
   });
 });
+// Zone rectangles are drawn as coloured floor outlines, so two overlapping
+// rectangles read as lines crossing through a team's area. Keep them apart and
+// keep each team's desks inside its own rectangle.
+const MIN_ZONE_GAP = 0.8;
+const zones = layout.zones || [];
+zones.forEach((a, i) => {
+  zones.slice(i + 1).forEach(b => {
+    const gapX = Math.max(0, Math.abs(a.x - b.x) - (a.w + b.w) / 2);
+    const gapZ = Math.max(0, Math.abs(a.z - b.z) - (a.d + b.d) / 2);
+    const gap = Math.hypot(gapX, gapZ);
+    if (gap < MIN_ZONE_GAP - 1e-9) {
+      console.error(`zone outlines too close (${gap.toFixed(2)}): ${a.name} / ${b.name}`);
+      fail++;
+    }
+  });
+});
+const teamSeats = {
+  Engineering: ['le', 'le2', 'sa', 'debugger'],
+  Research: ['research-mgr', 'ai-research', 'erp-research'],
+  Business: ['product', 'competitor', 'ui-docs'],
+  Ingest: ['grok'],
+  'Needs Steve': ['needs-steve']
+};
+Object.keys(teamSeats).forEach(name => {
+  const zone = zones.find(z => z.name === name);
+  if (!zone) { console.error('missing zone for team:', name); fail++; return; }
+  teamSeats[name].forEach(id => {
+    const seat = layout.seats[id];
+    const halfW = DESK_W / 2, halfD = DESK_D / 2, z0 = seat.z - DESK_Z_OFFSET;
+    const inside = seat.x - halfW >= zone.x - zone.w / 2 && seat.x + halfW <= zone.x + zone.w / 2
+      && z0 - halfD >= zone.z - zone.d / 2 && z0 + halfD <= zone.z + zone.d / 2;
+    if (!inside) {
+      console.error(`desk ${id} sticks out of zone ${name}`);
+      fail++;
+    }
+  });
+});
+
 // public/assets/teva-scene-contract.json mirrors seats/zones for the Babylon
 // pilot, so it has to move with the layout instead of drifting out of sync.
 const contract = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'public', 'assets', 'teva-scene-contract.json'), 'utf8'));

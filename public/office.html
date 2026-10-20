@@ -1409,9 +1409,12 @@ function buildModularWorkstations(allAgents) {
   if (!window.TevaEnv || !TevaEnv.buildWorkstation) return;
   const params = new URLSearchParams(location.search);
   const prototypeOnly = params.get('prototype') === '1' && params.get('workstations') !== 'all';
+  // Every seat with a desk needs a workstation here, including needs-steve: the
+  // legacy desks are not built in modular mode, so skipping it leaves Steve sitting
+  // on an empty floor while the beacon still marks a desk at his seat.
   const list = prototypeOnly
     ? [(allAgents || AGENTS).find(a => a.id !== 'needs-steve') || (allAgents || AGENTS)[0]].filter(Boolean)
-    : (allAgents || AGENTS).filter(a => a && a.id !== 'needs-steve');
+    : (allAgents || AGENTS).filter(Boolean);
   list.forEach(agent => {
     if (modularWorkstations[agent.id]) return;
     const origin = (window.TevaAssets && TevaAssets.resolveWorkstationOrigin)
@@ -2554,11 +2557,19 @@ function createChair(x, z, rotation, color) {
 }
 
 function createWorkstations() {
-  // One desk per TEVA bot, just behind where it stands; Leadership uses the meeting table
-  Object.entries(TEVA_SEATS).forEach(([id, p]) => {
-    if (['supervisor', 'pm', 'ba'].includes(id)) return;
-    createDesk(p.x, p.z - 0.9, Math.PI, id);
-  });
+  // The modular office (public/js/teva_environment.js) builds its own desks, chairs and
+  // monitors. Drawing the legacy desks as well leaves a pale desk sitting exactly where
+  // the modular chair is, and they are merged by batchStatic() before
+  // hideLegacyWorkstations() runs, so hiding afterwards cannot remove them.
+  const modularOffice = modularAvatarsEnabled() && window.TevaEnv && TevaEnv.buildWorkstation &&
+    window.TevaDataBridge && window.TevaAvatarManager;
+  if (!modularOffice) {
+    // One desk per TEVA bot, just behind where it stands; Leadership uses the meeting table
+    Object.entries(TEVA_SEATS).forEach(([id, p]) => {
+      if (['supervisor', 'pm', 'ba'].includes(id)) return;
+      createDesk(p.x, p.z - 0.9, Math.PI, id);
+    });
+  }
   createRoomSigns();
 }
 

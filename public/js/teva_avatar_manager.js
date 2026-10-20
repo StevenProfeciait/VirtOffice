@@ -8,11 +8,13 @@
   // Procedural animation offsets for agents without model clips.
   function proceduralPose(mesh, state, t) {
     if (!mesh || !mesh.userData.fallback) return;
-    mesh.rotation.y = (mesh.userData.phase || 0) + t * 0.2;
     var parts = mesh.userData.parts || {};
     var base = mesh.userData.baseScale || 1;
     var walking = state === 'WALKING';
     var standing = walking || state === 'STANDING' || state === 'STANDING_UP';
+    // Only idle standers drift; a seated agent keeps the chair rotation that
+    // applyToScene applied, otherwise it slowly turns away from its desk.
+    if (standing) mesh.rotation.y = (mesh.userData.phase || 0) + t * 0.2;
     if (parts.leftThigh && parts.rightThigh && parts.leftShin && parts.rightShin) {
       if (walking) {
         parts.leftThigh.position.set(-0.13, 0.63, 0);

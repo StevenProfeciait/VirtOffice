@@ -32,6 +32,19 @@ mgr.dispose();
 check(Object.keys(mgr.entries).length === 0, 'disposed');
 
 check(typeof M.proceduralPose === 'function', 'proceduralPose');
+// Seated fallback avatars must keep the seat rotation applied by applyToScene;
+// only idle standers drift, otherwise agents slowly turn away from their desks.
+function poseStub(rotY) {
+  return { userData: { fallback: true, parts: {}, baseScale: 1 }, rotation: { y: rotY }, scale: { set: function () {} } };
+}
+const seatedPose = poseStub(2.5);
+M.proceduralPose(seatedPose, 'IDLE', 10);
+check(seatedPose.rotation.y === 2.5, 'seated fallback keeps seat rotation');
+M.proceduralPose(seatedPose, 'WORKING', 10);
+check(seatedPose.rotation.y === 2.5, 'working fallback keeps seat rotation');
+const standingPose = poseStub(0);
+M.proceduralPose(standingPose, 'STANDING', 10);
+check(standingPose.rotation.y > 0, 'standing fallback still idles in place');
 check(A.stateFromActivity({}) === 'IDLE', 'idle');
 check(A.normalizeAvatar({ id: 'scale', avatar: { scale: 1.5, offset: { x: 1 } } }).scale === 1.5, 'scale');
 check(A.normalizeAvatar({ id: 'offset', avatar: { offset: { x: 1 } } }).offset.x === 1, 'offset');

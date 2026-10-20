@@ -155,6 +155,10 @@
     base.position.y = 0.04;
     chair.add(base);
     chair.position.z = -0.9;
+    // The chair model is authored with its backrest on +z, but the desk sits on
+    // the +z side of the seat, so an unrotated chair puts the backrest between the
+    // sitter and the monitors. Face the chair into the desk instead.
+    chair.rotation.y = Math.PI;
     if (cyberpunk) {
       var chairTrim = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.025, 0.026), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.82 }));
       chairTrim.position.set(0, 1.34, 0.215);
