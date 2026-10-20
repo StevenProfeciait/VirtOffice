@@ -41,10 +41,15 @@
       briefing: { id: 'briefing', x: -18, z: 21, radius: 2, chairs: 4, label: 'BRIEFING', labelColor: '#A78BFA', agentIds: [] },
       innovation: { id: 'innovation', x: 26, z: 11, radius: 2, chairs: 4, label: 'INNOVATION', labelColor: '#22D3EE', agentIds: [] },
       simulation: { id: 'simulation', x: -26, z: 11, radius: 2, chairs: 4, label: 'SIMULATION', labelColor: '#A78BFA', agentIds: [] },
+      boardroom: {
+        id: 'boardroom', x: 0, z: -0.5, radius: 4.5, chairs: 12, label: 'BOARDROOM',
+        labelColor: '#6366F1', agentIds: [], type: 'boardroom', tableW: 7.2, tableD: 2.0
+      },
       fun: { id: 'fun', x: 6, z: 12, radius: 0, chairs: 0, label: 'FUN ZONE', labelColor: '#F472B6', agentIds: [], type: 'fun' }
     },
     zones: [
       { name: 'Leadership', color: '#8B5CF6', x: 26, z: -6, w: 12, d: 9 },
+      { name: 'Boardroom', color: '#6366F1', x: 0, z: -0.5, w: 13, d: 4.2 },
       { name: 'Engineering', color: '#EF4444', x: 12.2, z: -1.8, w: 13.2, d: 6.5 },
       { name: 'Research', color: '#3B82F6', x: -15, z: -2.6, w: 14.8, d: 5 },
       { name: 'Business', color: '#10B981', x: -1, z: 5.5, w: 14.4, d: 3.8, signZ: 4.4 },
@@ -60,7 +65,7 @@
     dividers: [
       { x: -8, z: -4.2, w: 0.12, d: 10, rot: 0, type: 'glass', h: 1.4 },
       { x: 5.5, z: -0.5, w: 0.12, d: 12, rot: 0, type: 'glass', h: 1.35 },
-      { x: -2, z: 1.5, w: 8, d: 0.35, rot: 0, type: 'shelf', h: 1.1 }
+      { x: -15, z: -5.2, w: 14, d: 0.35, rot: 0, type: 'shelf', h: 1.1 }
     ],
     anchors: {
       meeting: { x: 0, z: meetZ },
@@ -92,7 +97,8 @@
       researchCollab: { x: -33, z: 0.5 },
       businessCollab: { x: 30, z: 2.5 },
       engStandup: { x: 11, z: meetZ },
-      leadershipStandup: { x: 26, z: -4.8 }
+      leadershipStandup: { x: 26, z: -4.8 },
+      boardroom: { x: 0, z: -0.5 }
     },
     wing: {
       centerX: 0,
@@ -113,8 +119,8 @@
     demoHomes: {
       meeting: { x: 0, z: meetZ },
       left: { x: -14, z: -2.5 },
-      center: { x: -5, z: 0.5 },
-      right: { x: 6, z: -1 },
+      center: { x: 0, z: 0 },
+      right: { x: 6.5, z: meetZ },
       right2: { x: 11, z: 2.5 }
     },
     workstations: {
@@ -153,7 +159,8 @@
       innovation: { x: 26, z: 11 },
       simulation: { x: -26, z: 11 },
       briefing: { x: -18, z: 21 },
-      command: { x: 0, z: 20 }
+      command: { x: 0, z: 20 },
+      boardroom: { x: 0, z: -0.5 }
     },
     expansionStations: [
       { x: 24, z: 7, rotation: 0, color: '#22D3EE', style: 'gaming' },
@@ -175,6 +182,7 @@
       'Simulation Bay': { target: [-26, 0, 11], zoom: 1.25 },
       'Research Collab': { target: [-33, 0, 0.5], zoom: 1.28 },
       'Business Collab': { target: [30, 0, 2.5], zoom: 1.28 },
+      Boardroom: { target: [0, 0, -0.5], zoom: 1.26 }
     },
     collabPresets: {
       main: { target: [0, 0, meetZ], zoom: 1.22 },
@@ -185,7 +193,8 @@
       fun: { target: [6, 0, 12], zoom: 1.28 },
       briefing: { target: [-18, 0, 21], zoom: 1.22 },
       innovation: { target: [26, 0, 11], zoom: 1.22 },
-      simulation: { target: [-26, 0, 11], zoom: 1.22 }
+      simulation: { target: [-26, 0, 11], zoom: 1.22 },
+      boardroom: { target: [0, 0, -0.5], zoom: 1.24 }
     }
   };
 

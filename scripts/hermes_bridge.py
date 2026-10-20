@@ -60,15 +60,6 @@ BASE_AGENTS = {
         "home": "desk1",
         "platform": "discord",
     },
-    "writer": {
-        "id": "writer",
-        "name": "Writer",
-        "role": "Content",
-        "emoji": "✍️",
-        "color": "#10B981",
-        "home": "desk2",
-        "platform": "discord",
-    },
     "marketer": {
         "id": "marketer",
         "name": "Marketer",

@@ -302,22 +302,6 @@ DEMO_AGENTS = [
         "avatar": { "model": None, "fallback": { "color": "#3B82F6", "shape": "capsule", "emoji": "📊" }, "workstation": "ai-research", "zone": "Research", "animations": {} }
     },
     {
-        "id": "writer",
-        "name": "Writer",
-        "role": "Content",
-        "emoji": "✍️",
-        "color": "#EC4899",
-        "home": "center",
-        "status": "working",
-        "task": "Drafting launch blog post",
-        "tasks": ["Drafting article", "Editing copy", "SEO optimization"],
-        "output": ["Blog post v2", "Thread draft"],
-        "stats": {"tasksDone": 21, "active": 2, "hours": 5.1},
-        "mood": 0.8,
-        "typing": True,
-        "avatar": { "model": None, "fallback": { "color": "#EC4899", "shape": "capsule", "emoji": "✍️" }, "workstation": "product", "zone": "Business", "animations": {} }
-    },
-    {
         "id": "marketer",
         "name": "Marketer",
         "role": "Growth",

@@ -23,7 +23,6 @@ STATUSES = ["idle", "walking", "working", "meeting"]
 TASKS = {
     "orchestrator": ["Reviewing pipeline", "Coordinating agents", "Approving handoffs", "Standup moderation"],
     "analyst": ["Market research", "Data synthesis", "Trend analysis", "Competitor scrape"],
-    "writer": ["Drafting article", "Editing copy", "SEO optimization", "Thread hook"],
     "marketer": ["Campaign planning", "Audience targeting", "Post scheduling", "Launch brief"],
     "coder": ["Feature build", "Code review", "Deploy checks", "API wiring"],
 }
