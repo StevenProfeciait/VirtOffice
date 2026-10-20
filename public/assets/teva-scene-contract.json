@@ -62,7 +62,7 @@
     { "name": "Fun Zone", "color": "#F472B6", "x": 6, "z": 12, "width": 11, "depth": 6 },
     { "name": "Innovation Lab", "color": "#22D3EE", "x": 26, "z": 11, "width": 11.5, "depth": 11.5 },
     { "name": "Simulation Bay", "color": "#A78BFA", "x": -26, "z": 11, "width": 16, "depth": 11.5 },
-    { "name": "Cyber Lounge", "color": "#F472B6", "x": 20, "z": 23, "width": 18, "depth": 9 },
+    { "name": "Cyber Lounge", "color": "#C026D3", "x": 20, "z": 23, "width": 18, "depth": 9 },
     { "name": "Research Collab", "color": "#60A5FA", "x": -33, "z": 0.5, "width": 5.5, "depth": 3.8 },
     { "name": "Business Collab", "color": "#34D399", "x": 30, "z": 2.5, "width": 5.5, "depth": 3.8 }
   ],

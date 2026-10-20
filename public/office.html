@@ -1606,7 +1606,6 @@ function init() {
     createRoom();
     createZoneDecals();
     createDividers();
-    createCeilingPanels();
     createFurniture();
     roomParent = null;
     buildWing();
@@ -2022,18 +2021,6 @@ function createZoneDecals() {
     });
   });
 }
-function createCeilingPanels() {
-  const mat = new THREE.MeshStandardMaterial({ color: 0xf4f7fb, emissive: 0xf4f7fb, emissiveIntensity: 0.35, roughness: 0.4, metalness: 0.05 });
-  const stepX = 7, stepZ = 6;
-  for (let x = -ROOM_WIDTH / 2 + 3; x < ROOM_WIDTH / 2 - 2; x += stepX) {
-    for (let z = -ROOM_DEPTH / 2 + 3; z < ROOM_DEPTH / 2 - 2; z += stepZ) {
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.04, 0.18), mat);
-      panel.position.set(x, WALL_HEIGHT - 0.08, z);
-      panel.castShadow = false;
-      rAdd(panel);
-    }
-  }
-}
 function createDividers() {
   (LAYOUT.dividers || []).forEach(d => {
     const h = d.h || 1.2;
@@ -2411,7 +2398,7 @@ function createFuturisticSpaces() {
   const a = LAYOUT.anchors;
   modularRoomModules['innovation-lab-procedural'] = createCyberPod(a.innovationLab, 12, 8, 0x22d3ee, 'INNOVATION LAB');
   modularRoomModules['simulation-bay-procedural'] = createCyberPod(a.simulationBay, 14, 9, 0xa78bfa, 'SIMULATION BAY');
-  modularRoomModules['briefing-room-procedural'] = createCyberPod(a.briefingRoom, 12, 7, 0xf472b6, 'BRIEFING ROOM');
+  modularRoomModules['briefing-room-procedural'] = createCyberPod(a.briefingRoom, 12, 7, 0xa78bfa, 'BRIEFING ROOM');
 
   if (a.commandDeck) {
     const deck = new THREE.Group();
@@ -2435,7 +2422,7 @@ function createFuturisticSpaces() {
     const lounge = new THREE.Mesh(new THREE.BoxGeometry(16, 0.05, 7), new THREE.MeshStandardMaterial({ color: 0x141c30, metalness: 0.42, roughness: 0.48 }));
     lounge.position.set(a.cyberLounge.x, 0.025, a.cyberLounge.z);
     rAdd(lounge);
-    const loungeRing = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.025, 8, 48), new THREE.MeshBasicMaterial({ color: 0xf472b6, transparent: true, opacity: 0.7 }));
+    const loungeRing = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.025, 8, 48), new THREE.MeshBasicMaterial({ color: 0xc026d3, transparent: true, opacity: 0.7 }));
     loungeRing.rotation.x = Math.PI / 2;
     loungeRing.position.set(a.cyberLounge.x, 0.08, a.cyberLounge.z);
     rAdd(loungeRing);
@@ -2562,7 +2549,7 @@ function createCollabTable(space) {
   }
 
   if (space.label && typeof createLabel === 'function') {
-    const sign = createLabel(space.label, '#8B5CF6');
+    const sign = createLabel(space.label, space.labelColor || '#8B5CF6');
     sign.position.set(tx, isMain ? 2.1 : 1.65, tz - (isMain ? 0 : 0.2));
     rAdd(sign);
   }
