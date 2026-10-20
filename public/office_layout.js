@@ -17,37 +17,48 @@
     room: { width: W, depth: D, wallHeight: H },
     fog: { color: 0x0a0d14, near: 40, far: 120 },
     exterior: { groundSize: 280, plazaWidth: 14, skylineCount: 16 },
-    /** Seat id -> standing position (home in agents.json matches id) */
+    /**
+     * Seat id -> standing position (home in agents.json matches id).
+     * Desks are ~2.85 wide, so seats inside a team sit at least 4.2 apart on x and
+     * teams keep ~2.4 of clear floor between their outermost desks (see
+     * tests/test_office_layout.js, which guards the minimum clearance).
+     */
     seats: {
-      supervisor: { x: -3.2, z: -6.2 },
+      supervisor: { x: -3.6, z: -6.2 },
       pm: { x: 0, z: -5.6 },
-      ba: { x: 3.2, z: -6.2 },
-      le: { x: 8.5, z: -3 },
+      ba: { x: 3.6, z: -6.2 },
+      le: { x: 7.8, z: -3 },
       le2: { x: 12, z: -3 },
-      sa: { x: 15.5, z: -3 },
-      debugger: { x: 12, z: 2.8 },
-      'research-mgr': { x: -16.5, z: -2.2 },
-      'ai-research': { x: -12.5, z: -2.2 },
-      'erp-research': { x: -8.5, z: -2.2 },
-      product: { x: -5.5, z: 5 },
-      competitor: { x: -1.5, z: 5 },
-      'ui-docs': { x: 2.5, z: 5 },
-      grok: { x: 16, z: 4.5 },
-      'needs-steve': { x: -7.5, z: 11.5 }
+      sa: { x: 16.2, z: -3 },
+      debugger: { x: 12, z: 2.4 },
+      'research-mgr': { x: -19.6, z: -2.2 },
+      'ai-research': { x: -15, z: -2.2 },
+      'erp-research': { x: -10.4, z: -2.2 },
+      product: { x: -5.6, z: 6.6 },
+      competitor: { x: -1, z: 6.6 },
+      'ui-docs': { x: 3.6, z: 6.6 },
+      grok: { x: 15.5, z: 8 },
+      'needs-steve': { x: -7.5, z: 12.4 }
     },
+    /**
+     * Team floor areas. Each rectangle is drawn as a coloured outline, so they must
+     * never cross: every pair keeps >= ~0.9 of empty floor between edges while still
+     * enclosing that team's desks and chairs (guarded in tests/test_office_layout.js).
+     * `signZ` optionally floats a team label off-centre so it does not land on desks.
+     */
     zones: [
       { name: 'Leadership', color: '#8B5CF6', x: 0, z: -halfD + 3.2, w: 14, d: 8 },
-      { name: 'Engineering', color: '#EF4444', x: 12, z: -5.5, w: 16, d: 12 },
-      { name: 'Research', color: '#3B82F6', x: -12.5, z: -5, w: 16, d: 11 },
-      { name: 'Business', color: '#10B981', x: -1.5, z: 2.5, w: 14, d: 9 },
-      { name: 'Ingest', color: '#F59E0B', x: 16, z: 6, w: 8, d: 7 },
-      { name: 'Needs Steve', color: '#FF3B30', x: -7.5, z: 13, w: 12, d: 6 },
-      { name: 'Innovation Lab', color: '#22D3EE', x: 24, z: 10, w: 14, d: 12 },
-      { name: 'Simulation Bay', color: '#A78BFA', x: -24, z: 10, w: 16, d: 12 },
-      { name: 'Cyber Lounge', color: '#F472B6', x: 20, z: 21, w: 18, d: 9 }
+      { name: 'Engineering', color: '#EF4444', x: 12.2, z: -1.9, w: 13.2, d: 9.2 },
+      { name: 'Research', color: '#3B82F6', x: -15, z: -4.6, w: 14.8, d: 5 },
+      { name: 'Business', color: '#10B981', x: -1, z: 5.5, w: 14.4, d: 3.8, signZ: 4.4 },
+      { name: 'Ingest', color: '#F59E0B', x: 15.5, z: 6.4, w: 4.6, d: 4 },
+      { name: 'Needs Steve', color: '#FF3B30', x: -7.5, z: 10.95, w: 5.8, d: 4.5 },
+      { name: 'Innovation Lab', color: '#22D3EE', x: 25.5, z: 9.5, w: 11.5, d: 13 },
+      { name: 'Simulation Bay', color: '#A78BFA', x: -24, z: 9.5, w: 16, d: 13 },
+      { name: 'Cyber Lounge', color: '#F472B6', x: 20, z: 21.5, w: 18, d: 9 }
     ],
     dividers: [
-      { x: -6.5, z: -3.5, w: 0.12, d: 10, rot: 0, type: 'glass', h: 1.4 },
+      { x: -8, z: -3.5, w: 0.12, d: 10, rot: 0, type: 'glass', h: 1.4 },
       { x: 5.5, z: 0, w: 0.12, d: 12, rot: 0, type: 'glass', h: 1.35 },
       { x: -2, z: 1.5, w: 8, d: 0.35, rot: 0, type: 'shelf', h: 1.1 }
     ],
@@ -143,10 +154,10 @@
     departments: {
       Leadership: { target: [0, 0, -8], zoom: 1.35 },
       Engineering: { target: [12, 0, -3], zoom: 1.28 },
-      Research: { target: [-12.5, 0, -2], zoom: 1.28 },
-      Business: { target: [-1.5, 0, 5], zoom: 1.3 },
-      Ingest: { target: [16, 0, 5], zoom: 1.32 },
-      'Needs Steve': { target: [-7.5, 0, 11.5], zoom: 1.25 }
+      Research: { target: [-15, 0, -2], zoom: 1.28 },
+      Business: { target: [-1, 0, 6.6], zoom: 1.3 },
+      Ingest: { target: [15.5, 0, 8], zoom: 1.32 },
+      'Needs Steve': { target: [-7.5, 0, 12.4], zoom: 1.25 }
     }
   };
 

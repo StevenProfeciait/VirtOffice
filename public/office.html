@@ -2933,7 +2933,8 @@ function createAgents() {
 function createRoomSigns() {
   TEVA_ROOMS.forEach(r => {
     const sign = createLabel(r.name, r.color);
-    sign.position.set(r.x, 3.1, r.z);
+    // signX/signZ let a team label sit clear of its desks instead of dead centre.
+    sign.position.set(r.signX != null ? r.signX : r.x, 3.1, r.signZ != null ? r.signZ : r.z);
     sign.scale.set(3.2, 0.8, 1);
     rAdd(sign);
   });
