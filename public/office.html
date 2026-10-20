@@ -71,7 +71,15 @@ body {
   border: 1px solid rgba(255,255,255,0.1);
   pointer-events: auto;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-10px) scale(.98);
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
 }
+.header:hover .user-bar, .header:focus-within .user-bar, .header.roster-open .user-bar { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0) scale(1); }
+.roster-toggle, .ops-toggle { border: 1px solid rgba(56,189,248,.28); background: rgba(8,18,38,.8); color: #bae6fd; border-radius: 999px; padding: 7px 12px; font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+.roster-toggle:hover, .ops-toggle:hover { background: rgba(14,116,144,.35); border-color: rgba(103,232,249,.7); }
 .user-avatar {
   display: flex;
   flex-direction: column;
@@ -181,6 +189,11 @@ body {
   transition: all 150ms ease;
 }
 .standup-btn:hover { background: rgba(255,255,255,0.14); }
+.top-actions { position: fixed; top: 22px; right: 22px; z-index: 110; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: auto; }
+.top-actions-menu { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-8px); transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease; }
+.top-actions:hover .top-actions-menu, .top-actions:focus-within .top-actions-menu, .top-actions.ops-open .top-actions-menu { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+.top-actions .notification { position: static; min-width: 280px; }
+.top-actions .standup-btn, .top-actions #nextAttn { position: static; }
 
 /* Sidebars */
 .left-sidebar {
@@ -637,7 +650,9 @@ body.paused #pauseOverlay { display: block; }
 .anim-cause { margin-top: 6px; font-size: 10.5px; color: #c4b5fd; }
 select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; }
 @media (max-width: 760px) {
-  .header { top: env(safe-area-inset-top, 0px); width: calc(100% - 118px); overflow: hidden; }
+  .header { top: env(safe-area-inset-top, 0px); width: calc(100% - 118px); overflow: visible; }
+  .user-bar { max-width: calc(100vw - 20px); overflow-x: auto; }
+  .top-actions { top: 10px; right: 10px; }
   .telemetry-dock { left: 10px; top: auto; bottom: 76px; width: 172px; padding: 10px; }
   .telemetry-grid { gap: 5px; margin-top: 8px; }
   .telemetry-cell { padding: 5px 6px; }
@@ -676,6 +691,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
   <div class="header">
     <div class="title">TEVA Headquarters</div>
     <div class="mode-badge demo" id="modeBadge">DEMO</div>
+    <button class="roster-toggle" id="rosterToggle" aria-expanded="false">Team roster · hover</button>
     <div class="user-bar" id="userBar"></div>
   </div>
 
@@ -692,12 +708,17 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
   </section>
   <div class="scene-readout" id="sceneReadout">MAIN FLOOR · 72 × 54 · THREE REFERENCE CLIENT</div>
 
-  <div class="notification" id="needsSteveCard" style="cursor:pointer" onclick="selectAgent('needs-steve')">
-    <div class="notif-title"><span class="notif-pulse"></span> <span id="needsSteveTitle">Needs Steve</span></div>
-    <div class="notif-sub" id="meetingSub">Loading the board…</div>
+  <div class="top-actions" id="topActions">
+    <button class="ops-toggle" id="opsToggle" aria-expanded="false">Operations · hover</button>
+    <div class="top-actions-menu">
+      <div class="notification" id="needsSteveCard" style="cursor:pointer" onclick="selectAgent('needs-steve')">
+        <div class="notif-title"><span class="notif-pulse"></span> <span id="needsSteveTitle">Needs Steve</span></div>
+        <div class="notif-sub" id="meetingSub">Loading the board…</div>
+      </div>
+      <button class="standup-btn" id="standupBtn" title="Open the team board">Standup Board</button>
+      <button id="nextAttn" title="N: jump to the next seat that needs you (Needs Steve, then blocked, then your-turn)">N · Next</button>
+    </div>
   </div>
-  <button class="standup-btn" id="standupBtn" title="Open the team board">Standup Board</button>
-  <button id="nextAttn" title="N: jump to the next seat that needs you (Needs Steve, then blocked, then your-turn)">N · Next</button>
   <div id="edgeArrows"></div>
   <div id="feedTicker" style="display:none" aria-hidden="true"></div>
   <div id="perfHud" style="display:none"></div>
@@ -1579,6 +1600,16 @@ function init() {
     document.getElementById('userBar').addEventListener('click', (e) => {
       const avatar = e.target.closest('.user-avatar');
       if (avatar) selectAgent(avatar.dataset.agent);
+    });
+    document.getElementById('rosterToggle').addEventListener('click', () => {
+      const header = document.querySelector('.header');
+      const open = header.classList.toggle('roster-open');
+      document.getElementById('rosterToggle').setAttribute('aria-expanded', String(open));
+    });
+    document.getElementById('opsToggle').addEventListener('click', () => {
+      const actions = document.getElementById('topActions');
+      const open = actions.classList.toggle('ops-open');
+      document.getElementById('opsToggle').setAttribute('aria-expanded', String(open));
     });
     document.getElementById('canvas-container').addEventListener('dblclick', onCanvasDblClick);
     document.getElementById('nextAttn').addEventListener('click', nextAttention);
