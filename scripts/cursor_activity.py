@@ -32,7 +32,12 @@ Phase 3a adds structured fields per chat (read-only, same tail):
 
 CLI: python3 scripts/cursor_activity.py [--json]   (prints the summary or full snapshot)
 """
-import json, os, re, sqlite3, sys, time
+import json
+import os
+import re
+import sqlite3
+import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -202,9 +207,11 @@ def doc_seats(paths, docs_dir):
                 continue
             if pats[0].startswith("@eng:"):
                 if "_eng_" in pp.name and pp.exists() and ts.eng_owner(pp, {}) == pats[0][5:]:
-                    out.add(sid); hits.append((sid, pp.name))
+                    out.add(sid)
+                    hits.append((sid, pp.name))
             elif ts.match(pp.name, pats):
-                out.add(sid); hits.append((sid, pp.name))
+                out.add(sid)
+                hits.append((sid, pp.name))
     return out, hits
 
 

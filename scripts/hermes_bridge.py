@@ -219,7 +219,6 @@ def derive_agent_status(agent_id, gateway_snapshot, gateway_activity, sessions, 
         ended = latest.get("ended_at")
         started = latest.get("started_at") or 0
         title = latest.get("title") or "Unknown task"
-        msg_count = latest.get("message_count", 0) or 0
 
         if ended is None or ended == "active":
             # Active session right now

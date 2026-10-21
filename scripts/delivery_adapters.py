@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import urllib.parse
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 try:
     import teva_sync as ts

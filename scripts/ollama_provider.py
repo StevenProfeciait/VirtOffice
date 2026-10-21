@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 from urllib.parse import urlparse
 
 HOME_HQ = Path(os.environ.get("TEVA_HQ_DIR") or (Path.home() / ".teva_hq"))

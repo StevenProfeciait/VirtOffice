@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 MAX_READ_BYTES = int(os.environ.get("TEVA_LOCAL_READ_MAX", str(64 * 1024)))
 MAX_SEARCH_HITS = 40
