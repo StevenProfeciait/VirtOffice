@@ -58,6 +58,8 @@ def _seed_entry(row, now=None):
         "emoji": emoji,
         "color": color,
         "runtime": _runtime_for(aid),
+        "fallback_runtime": "ollama" if aid == "le2" else None,
+        "ollama_model": None,
         "workspace": WORKSPACE_DEFAULT,
         "seatId": aid,
         "capabilities": list(pats) if pats else [],
@@ -253,6 +255,8 @@ def attach_registry(agents, data=None):
             reg = data["agents"][aid]
             a["registry"] = {
                 "runtime": reg.get("runtime"),
+                "fallback_runtime": reg.get("fallback_runtime"),
+                "ollama_model": reg.get("ollama_model"),
                 "workspace": reg.get("workspace"),
                 "capabilities": reg.get("capabilities") or [],
                 "sessionIds": reg.get("sessionIds") or [],

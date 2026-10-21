@@ -80,12 +80,18 @@ Every motion is caused by a field in `/api/agents` or by a click/key from Steve.
 - **Composer** — Queue instruction + lifecycle stepper; Save to inbox / Open in Cursor / Copy for Grok unchanged. Executed is never a message status.
 - Full detail: [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md).
 
+## Local Ollama fallback MVP (2026-10-21)
+- **Provider** (`scripts/ollama_provider.py`) — discovery/health/chat against localhost Ollama; config in `~/.teva_hq/ollama_config.json`.
+- **Local jobs** (`scripts/local_job_store.py` + worker + allowlisted tools) — pilot seat `le2` only; ReAct loop proposes edits; Steve **Approve patch** writes files.
+- **Composer** — **Run on Ollama** when healthy; job lifecycle chips; does not claim Cursor session resume or usage-limit detection.
+- See [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md) § Local Ollama fallback.
+
 ## Open items
 - **Seats read the inbox only after PM/Supervisor agree.** No seat (Cursor or Grok Bot) is wired to
   read `inbox/<seat>.jsonl` or write `inbox/<seat>.read` yet. Until PM/Supervisor adopt a convention
   ("read your inbox at the start of a turn, then record the line count"), inbox notes remain a parking
   place for Steve. Instructions use `/api/messages` with a truthful Cursor handoff (not programmatic send).
-- Phase 3 (gated on Steve + SA + a spike): task engine / approvals; Cursor CLI resume if ever proven safe. Not built.
+- Phase 3: generalize local jobs → full task engine / Needs Steve approval; more seats; optional policy router. Cursor CLI resume only if proven safe.
 - `agents.json` is still tracked in git from before; run `git rm --cached agents.json` at the next commit.
 - Most of Steve's template_1 Cursor chats are ad-hoc (no seat in title/prompt), so they show as
   unassigned. To tag one, add it to `seat_map.json` or start the chat from the office composer

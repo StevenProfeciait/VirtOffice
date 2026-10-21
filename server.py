@@ -98,10 +98,15 @@ MAX_BODY = {
     "/api/inbox": 16 * 1024,
     "/api/registry/map": 4 * 1024,
     "/api/messages": 16 * 1024,
+    "/api/ollama/config": 8 * 1024,
+    "/api/local-jobs": 16 * 1024,
 }
 MSG_ID_RE = re.compile(r"^msg_[a-f0-9]{12,32}$")
 MSG_ACTION_RE = re.compile(
     r"^/api/messages/(msg_[a-f0-9]{12,32})/(handoff-opened|acknowledge|respond|retry|cancel)$"
+)
+JOB_ACTION_RE = re.compile(
+    r"^/api/local-jobs/(job_[a-f0-9]{12,32})/(cancel|approve|reject)$"
 )
 CURSOR_SCAN_SECONDS = int(os.environ.get("CURSOR_SCAN_SECONDS", "10"))  # Phase 3a: 30 -> 10 s (tail reads only new bytes)
 # Phase 3a reactions: stored in the same token-locked inbox as notes, never sent to any chat
@@ -115,6 +120,10 @@ state_aggregator = None
 event_store = None
 message_store = None
 delivery_adapters = None
+ollama_provider = None
+local_job_store = None
+local_job_worker = None
+local_agent_tools = None
 cursor_activity = None
 SEAT_IDS = set()
 try:
@@ -132,11 +141,17 @@ try:
     import event_store
     import message_store
     import delivery_adapters
+    import ollama_provider
+    import local_job_store
+    import local_job_worker
+    import local_agent_tools
 except Exception as _e:
     logging.getLogger("hermes-office").error("command-centre modules unavailable: %s", _e)
 SEAT_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
 inbox_lock = threading.Lock()
 cursor_snapshot = None
+_ollama_health_cache = {"at": 0, "snap": None}
+OLLAMA_HEALTH_TTL = float(os.environ.get("TEVA_OLLAMA_HEALTH_TTL", "15"))
 
 
 def load_or_create_token(path=None):
@@ -468,6 +483,23 @@ def refresh_agents():
             normalized = state_aggregator.enrich_agents(normalized)
         except Exception as e:
             logger.warning("state aggregator failed: %s", e)
+    if ollama_provider:
+        try:
+            now = time.time()
+            if (now - _ollama_health_cache["at"]) > OLLAMA_HEALTH_TTL or not _ollama_health_cache["snap"]:
+                _ollama_health_cache["snap"] = ollama_provider.health(fill_defaults=True)
+                _ollama_health_cache["at"] = now
+            h = _ollama_health_cache["snap"]
+            out = []
+            for a in normalized:
+                a = dict(a)
+                aid = a.get("id")
+                if aid and aid != "needs-steve":
+                    a["ollama"] = ollama_provider.seat_ollama_view(aid, h)
+                out.append(a)
+            normalized = out
+        except Exception as e:
+            logger.warning("ollama attach failed: %s", e)
     payload = json.dumps({"agents": normalized})
 
     with state_lock:
@@ -538,6 +570,30 @@ def _broadcast_message_update(msg):
         return
     try:
         _broadcast_sse(json.dumps({"type": "message", "message": msg}))
+    except Exception:
+        pass
+
+
+def _broadcast_local_job(job):
+    if not job:
+        return
+    try:
+        _broadcast_sse(json.dumps({"type": "local_job", "job": job}))
+    except Exception:
+        pass
+
+
+def _emit_job_event(agent_id, event_type, summary, job_id, extra=None):
+    if not event_store or not agent_id:
+        return
+    try:
+        event_store.append_event(
+            agent_id, event_type, summary,
+            source="server" if event_type.startswith("local_job_") and "applied" not in event_type and "rejected" not in event_type and "cancelled" not in event_type and "queued" not in event_type else "user",
+            provenance="user" if any(x in event_type for x in ("applied", "rejected", "cancelled", "queued")) else "server",
+            metadata=dict({"job_id": job_id}, **(extra or {})),
+            correlation_id=job_id,
+        )
     except Exception:
         pass
 
@@ -742,6 +798,103 @@ def messages_action(message_id, action, body=None):
     return HTTPStatus.NOT_FOUND, {"ok": False, "error": "unknown action"}
 
 
+def local_jobs_create(prompt, agent_id, message_id=None, context_paths=None):
+    """Queue a local Ollama job (pilot le2). Returns (HTTPStatus, payload)."""
+    if not local_job_store or not ollama_provider:
+        return HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "local jobs unavailable"}
+    cfg = ollama_provider.load_config()
+    if not cfg.get("enabled") or not (cfg.get("fallback") or {}).get("enabled", True):
+        return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "ollama fallback disabled"}
+    if not ollama_provider.is_pilot_seat(agent_id, cfg):
+        return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "local jobs MVP limited to pilot seats"}
+    h = ollama_provider.health(fill_defaults=True)
+    if not h.get("ok"):
+        return HTTPStatus.SERVICE_UNAVAILABLE, {
+            "ok": False,
+            "error": h.get("error_message") or "Ollama unreachable",
+            "error_code": h.get("error_code") or "ollama_unreachable",
+        }
+    model = ollama_provider.model_for_seat(agent_id, cfg)
+    if not model:
+        return HTTPStatus.BAD_REQUEST, {"ok": False, "error": "no model configured for seat"}
+    # ensure workspace roots
+    if not cfg.get("workspace_roots"):
+        roots = []
+        if TEVA_REPO:
+            roots.append(TEVA_REPO)
+        roots.append(str(ROOT))
+        cfg["workspace_roots"] = roots
+        try:
+            ollama_provider.save_config(cfg)
+        except Exception:
+            pass
+    ok, job = local_job_store.create_job(
+        agent_id, prompt, model=model, message_id=message_id,
+        context_paths=context_paths, seat_ids=SEAT_IDS, pilot_only=True,
+    )
+    if not ok:
+        return HTTPStatus.BAD_REQUEST, job
+    _emit_job_event(agent_id, "local_job_queued", _msg_summary(prompt), job["job_id"])
+    _broadcast_local_job(job)
+    return HTTPStatus.OK, {"ok": True, "job": job, "ollama": {"model": model, "healthy": True}}
+
+
+def local_jobs_action(job_id, action, body=None):
+    if not local_job_store:
+        return HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "local jobs unavailable"}
+    body = body or {}
+    job = local_job_store.get_job(job_id)
+    if not job:
+        return HTTPStatus.NOT_FOUND, {"ok": False, "error": "unknown job"}
+    aid = job["agent_id"]
+
+    if action == "cancel":
+        if job.get("status") in ("APPLIED", "REJECTED", "FAILED", "CANCELLED"):
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": f"cannot cancel from {job.get('status')}"}
+        ok, updated = local_job_store.transition(job_id, "CANCELLED")
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, updated
+        _emit_job_event(aid, "local_job_cancelled", "cancelled by Steve", job_id)
+        _broadcast_local_job(updated)
+        return HTTPStatus.OK, {"ok": True, "job": updated}
+
+    if action == "reject":
+        if job.get("status") != "AWAITING_APPROVAL":
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": f"cannot reject from {job.get('status')}"}
+        ok, updated = local_job_store.transition(job_id, "REJECTED")
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, updated
+        _emit_job_event(aid, "local_job_rejected", "rejected by Steve", job_id)
+        _broadcast_local_job(updated)
+        return HTTPStatus.OK, {"ok": True, "job": updated}
+
+    if action == "approve":
+        if job.get("status") != "AWAITING_APPROVAL":
+            return HTTPStatus.BAD_REQUEST, {"ok": False, "error": f"cannot approve from {job.get('status')}"}
+        if not local_agent_tools or not ollama_provider:
+            return HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "apply unavailable"}
+        roots = (ollama_provider.load_config().get("workspace_roots") or [])
+        ok_apply, result = local_agent_tools.apply_proposed_patch(job.get("proposed_patch") or [], roots)
+        if not ok_apply:
+            return HTTPStatus.BAD_REQUEST, result
+        ok, updated = local_job_store.transition(
+            job_id, "APPLIED",
+            {"applied_paths": result.get("applied") or []},
+        )
+        if not ok:
+            return HTTPStatus.BAD_REQUEST, updated
+        _emit_job_event(
+            aid, "local_job_applied",
+            _msg_summary(", ".join(result.get("applied") or [])),
+            job_id,
+            {"paths": result.get("applied")},
+        )
+        _broadcast_local_job(updated)
+        return HTTPStatus.OK, {"ok": True, "job": updated}
+
+    return HTTPStatus.NOT_FOUND, {"ok": False, "error": "unknown action"}
+
+
 def _polling_loop():
     while True:
         refresh_agents()
@@ -904,7 +1057,61 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json({"message": msg})
             return
 
+        if path == "/api/ollama/health":
+            if not ollama_provider:
+                self._send_json({"ok": False, "error": "ollama unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            self._send_json(ollama_provider.health(fill_defaults=True))
+            return
+
+        if path == "/api/ollama/config":
+            if not ollama_provider:
+                self._send_json({"ok": False, "error": "ollama unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            self._send_json(ollama_provider.public_config())
+            return
+
+        if path == "/api/local-jobs":
+            if not local_job_store:
+                self._send_json({"ok": False, "error": "local jobs unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            q = parse_qs(parsed.query)
+            agent = (q.get("agent") or q.get("seat") or [None])[0]
+            status = (q.get("status") or [None])[0]
+            try:
+                limit = int((q.get("limit") or ["50"])[0])
+            except ValueError:
+                limit = 50
+            self._send_json({"jobs": local_job_store.list_jobs(agent_id=agent, status=status, limit=limit)})
+            return
+
+        j_one = re.match(r"^/api/local-jobs/(job_[a-f0-9]{12,32})$", path)
+        if j_one:
+            if not local_job_store:
+                self._send_json({"ok": False, "error": "local jobs unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            job = local_job_store.get_job(j_one.group(1))
+            if not job:
+                self._send_json({"ok": False, "error": "unknown job"}, HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"job": job})
+            return
+
         if path == "/api/config":
+            ollama_summary = None
+            if ollama_provider:
+                try:
+                    h = ollama_provider.health(fill_defaults=False)
+                    ollama_summary = {
+                        "enabled": h.get("enabled"),
+                        "reachable": h.get("reachable"),
+                        "model_count": h.get("model_count"),
+                        "defaults": h.get("defaults"),
+                        "pilot_seats": h.get("pilot_seats"),
+                        "local_fallback": True,
+                    }
+                except Exception:
+                    ollama_summary = {"enabled": False, "reachable": False, "local_fallback": True}
             self._send_json({
                 "mode": "hermes_api" if HERMES_AGENT_API else ("json_file" if Path(AGENTS_JSON_PATH).exists() else "demo"),
                 "poll_interval_seconds": POLL_INTERVAL,
@@ -925,6 +1132,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 "reaction_emoji": list(REACTION_EMOJI),
                 "cursor_source": CURSOR_SNAPSHOT and "snapshot" or "live transcripts",
                 "command_centre_phase": 2,
+                "local_fallback": True,
+                "ollama": ollama_summary,
                 "allow_non_loopback": ALLOW_NON_LOOPBACK,
                 "env_file": str(LOADED_ENV_FILE) if LOADED_ENV_FILE else None,
                 "avatar_formats": ["glb", "gltf"],
@@ -957,8 +1166,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         action_m = MSG_ACTION_RE.match(path)
+        job_m = JOB_ACTION_RE.match(path)
         limit = MAX_BODY.get(path)
-        if limit is None and action_m:
+        if limit is None and (action_m or job_m):
             limit = 16 * 1024
         if limit is None:
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -974,6 +1184,52 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
         except ValueError:
             self._send_json({"ok": False, "error": "bad Content-Length"}, HTTPStatus.BAD_REQUEST)
+            return
+        if path == "/api/ollama/config":
+            try:
+                body = self._read_json_body(limit)
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)}, HTTPStatus.BAD_REQUEST)
+                return
+            if not ollama_provider:
+                self._send_json({"ok": False, "error": "ollama unavailable"}, HTTPStatus.SERVICE_UNAVAILABLE)
+                return
+            ok, payload = ollama_provider.update_config_patch(body if isinstance(body, dict) else {})
+            self._send_json(payload if ok else payload, HTTPStatus.OK if ok else HTTPStatus.BAD_REQUEST)
+            return
+        if path == "/api/local-jobs":
+            try:
+                body = self._read_json_body(limit)
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)}, HTTPStatus.BAD_REQUEST)
+                return
+            if not isinstance(body, dict):
+                self._send_json({"ok": False, "error": "JSON object expected"}, HTTPStatus.BAD_REQUEST)
+                return
+            aid = body.get("agent_id") or body.get("agentId") or body.get("seat")
+            status, payload = local_jobs_create(
+                body.get("prompt") or body.get("content") or body.get("text"),
+                aid,
+                body.get("message_id"),
+                body.get("context_paths"),
+            )
+            self._send_json(payload, status)
+            return
+        if job_m:
+            jid, action = job_m.group(1), job_m.group(2)
+            try:
+                cl = int(self.headers.get("Content-Length", "0") or 0)
+                body = self._read_json_body(limit) if cl else {}
+            except ValueError as e:
+                self._send_json({"ok": False, "error": str(e)}, HTTPStatus.BAD_REQUEST)
+                return
+            if body is None:
+                body = {}
+            if not isinstance(body, dict):
+                self._send_json({"ok": False, "error": "JSON object expected"}, HTTPStatus.BAD_REQUEST)
+                return
+            status, payload = local_jobs_action(jid, action, body)
+            self._send_json(payload, status)
             return
         if path == "/api/messages":
             try:
@@ -1125,6 +1381,18 @@ def make_server(host=None, port=None):
     threading.Thread(target=_cursor_loop, daemon=True).start()
     refresh_agents()
     threading.Thread(target=_polling_loop, daemon=True).start()
+    if local_job_worker:
+        def _emit(aid, etype, summary, jid, extra=None):
+            _emit_job_event(aid, etype, summary, jid, extra)
+            if local_job_store:
+                j = local_job_store.get_job(jid)
+                if j:
+                    _broadcast_local_job(j)
+        threading.Thread(
+            target=local_job_worker.worker_loop,
+            kwargs={"emit_event": _emit},
+            daemon=True,
+        ).start()
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True
     return socketserver.ThreadingTCPServer((host or HOST, port or PORT), Handler)

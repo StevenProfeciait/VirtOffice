@@ -65,6 +65,16 @@ if (!layout.funWing || !layout.camera.fun) {
 if (!layout.funWing.idleSpots || layout.funWing.idleSpots.length < 4) {
   console.error('funWing.idleSpots needs at least 4 spots');
   fail++;
+} else {
+  const fw = layout.funWing;
+  const halfW = fw.width / 2;
+  const halfD = fw.depth / 2;
+  fw.idleSpots.forEach(spot => {
+    if (Math.abs(spot.x) > halfW || Math.abs(spot.z) > halfD) {
+      console.error('idleSpot local coords outside funWing:', spot.id, spot);
+      fail++;
+    }
+  });
 }
 const funZone = (layout.zones || []).find(z => z.name === 'Fun Station');
 if (!funZone) {

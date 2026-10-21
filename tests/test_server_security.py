@@ -36,13 +36,38 @@ class ServerSecurityTest(unittest.TestCase):
             "TEVA_HQ_DIR": str(cls.tmp / "hq"),
             "TEVA_MESSAGES_DIR": str(cls.tmp / "hq" / "messages"),
             "TEVA_MESSAGES_INDEX": str(cls.tmp / "hq" / "messages" / "messages_index.jsonl"),
+            "TEVA_OLLAMA_CONFIG": str(cls.tmp / "hq" / "ollama_config.json"),
+            "TEVA_LOCAL_JOBS_DIR": str(cls.tmp / "hq" / "local_jobs"),
+            "TEVA_LOCAL_JOBS_INDEX": str(cls.tmp / "hq" / "local_jobs" / "jobs_index.jsonl"),
+            "TEVA_REPO": str(cls.tmp / "workspace"),
+            "TEVA_OLLAMA_HEALTH_TTL": "3600",
         })
+        (cls.tmp / "workspace").mkdir(parents=True, exist_ok=True)
         sys.path.insert(0, str(ROOT))
         sys.path.insert(0, str(ROOT / "scripts"))
         for m in ("server", "cursor_activity", "agent_registry", "state_aggregator", "event_store",
-                  "message_store", "delivery_adapters"):
+                  "message_store", "delivery_adapters", "ollama_provider", "local_job_store",
+                  "local_job_worker", "local_agent_tools"):
             sys.modules.pop(m, None)
         cls.srv = importlib.import_module("server")
+        # Stub Ollama so local-job tests do not need a live daemon
+        if cls.srv.ollama_provider:
+            def _fake_health(fill_defaults=True):
+                return {
+                    "ok": True, "reachable": True, "base_url": "http://127.0.0.1:11434",
+                    "model_count": 1, "models": [{"name": "mock-model"}],
+                    "latency_ms": 1, "enabled": True,
+                    "defaults": {"chat": "mock-model", "code": "mock-model"},
+                    "seat_models": {"le2": {"model": "mock-model", "role": "code"}},
+                    "pilot_seats": ["le2"], "error_code": None, "error_message": None,
+                }
+            cls.srv.ollama_provider.health = _fake_health
+            cls.srv.ollama_provider.model_for_seat = lambda aid, cfg=None: "mock-model"
+            cfg = cls.srv.ollama_provider.default_config(workspace=str(cls.tmp / "workspace"))
+            cfg["defaults"] = {"chat": "mock-model", "code": "mock-model"}
+            cfg["seat_models"] = {"le2": {"model": "mock-model", "role": "code"}}
+            cfg["workspace_roots"] = [str(cls.tmp / "workspace")]
+            cls.srv.ollama_provider.save_config(cfg)
         cls.httpd = cls.srv.make_server("127.0.0.1", cls.port)
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
         cls.token = (cls.tmp / "hq" / "token").read_text().strip()
@@ -281,6 +306,48 @@ class ServerSecurityTest(unittest.TestCase):
         s, out, _ = self.req("POST", f"/api/messages/{mid}/cancel", {})
         self.assertEqual(s, 200, out)
         self.assertEqual(json.loads(out)["message"]["status"], "CANCELLED")
+
+    # ---- Local Ollama fallback
+    def test_ollama_config_requires_token(self):
+        body = {"seat_models": {"le2": {"model": "mock-model"}}}
+        self.assertEqual(self.req("POST", "/api/ollama/config", body, token=False)[0], 401)
+        self.assertEqual(self.req("POST", "/api/ollama/config", body, origin=False)[0], 403)
+        s, out, _ = self.req("POST", "/api/ollama/config", body)
+        self.assertEqual(s, 200, out)
+        s, out, _ = self.req("GET", "/api/ollama/health", token=False, origin=False)
+        self.assertEqual(s, 200)
+        self.assertTrue(json.loads(out).get("ok"))
+
+    def test_local_jobs_lock_and_pilot(self):
+        body = {"agent_id": "le2", "prompt": "propose a tiny change"}
+        self.assertEqual(self.req("POST", "/api/local-jobs", body, token=False)[0], 401)
+        self.assertEqual(self.req("POST", "/api/local-jobs", body, origin=False)[0], 403)
+        s, out, _ = self.req("POST", "/api/local-jobs", {"agent_id": "sa", "prompt": "nope"})
+        self.assertEqual(s, 400, out)
+        s, out, _ = self.req("POST", "/api/local-jobs", body)
+        self.assertEqual(s, 200, out)
+        job = json.loads(out)["job"]
+        self.assertEqual(job["status"], "QUEUED")
+        jid = job["job_id"]
+        # Force awaiting approval for approve/reject coverage without waiting on worker
+        ok, updated = self.srv.local_job_store.transition(
+            jid, "RUNNING"
+        )
+        self.assertTrue(ok)
+        ws = str(self.tmp / "workspace" / "f.txt")
+        ok, updated = self.srv.local_job_store.transition(
+            jid, "AWAITING_APPROVAL",
+            {"proposed_patch": [{"path": ws, "content": "hello\n"}], "result_summary": "demo"},
+        )
+        self.assertTrue(ok)
+        s, out, _ = self.req("POST", f"/api/local-jobs/{jid}/approve", {})
+        self.assertEqual(s, 200, out)
+        self.assertEqual(json.loads(out)["job"]["status"], "APPLIED")
+        self.assertEqual(Path(ws).read_text(), "hello\n")
+        s, out, _ = self.req("GET", "/api/agents/le2/timeline", token=False, origin=False)
+        types = {e.get("event_type") for e in json.loads(out)["events"]}
+        self.assertIn("local_job_queued", types)
+        self.assertIn("local_job_applied", types)
 
 
 if __name__ == "__main__":

@@ -4,10 +4,11 @@ Layers stay separate:
 
 | Layer | Question | Status |
 |-------|----------|--------|
-| Visualisation | What does the office show? | `office.html` — rings, labels, timeline, instruction lifecycle |
-| Orchestration | What should each agent do next? | Not yet (tasks = Phase 3) |
+| Visualisation | What does the office show? | `office.html` — rings, labels, timeline, instruction + local-job lifecycle |
+| Orchestration | What should each agent do next? | Thin local-job queue (Ollama MVP); full tasks = later Phase 3 |
 | Messaging | Was an instruction saved / handed off / acked? | Phase 2 — lifecycle + Cursor manual handoff |
-| Execution | Who performs the work? | Cursor observation only; **executed is never a message status** |
+| Local jobs | Did Ollama run a controlled loop? | Ollama fallback MVP — propose patch → Steve approves |
+| Execution | Who performs the work? | Cursor observation + optional local Ollama; **executed is never a message status** |
 
 ## Agent registry (Phase 1)
 
@@ -98,22 +99,69 @@ SSE: `{type:"message", message}` on status change.
 ### Office composer
 
 - **Save to inbox** — notes/reactions (saved only)
-- **Queue instruction** — lifecycle message
+- **Queue instruction** — lifecycle message (Cursor path for `le2`)
+- **Run on Ollama** — local job (pilot `le2` when healthy); not a message DELIVERED claim
 - **Open in Cursor / Copy for Grok** — standalone handoff without a message record
 - Cursor: **Open handoff** → handoff-opened; **Mark acknowledged** / **Record response** when allowed
 - Unsupported: show adapter error; no fake success
+
+## Local Ollama fallback (MVP)
+
+Cursor remains the primary coding path. Ollama is a **manual** local fallback for pilot seat `le2`. No Cursor session inheritance; no auto-detection of Cursor usage limits.
+
+### Provider
+
+- Module: `scripts/ollama_provider.py`
+- Config: `~/.teva_hq/ollama_config.json` (`TEVA_OLLAMA_CONFIG`)
+- URL: `TEVA_OLLAMA_URL` default `http://127.0.0.1:11434` (loopback only unless `TEVA_OLLAMA_ALLOW_REMOTE=1`)
+- Discovery via `/api/tags` — never invents model names
+- APIs: `GET /api/ollama/health`, `GET/POST /api/ollama/config`
+
+### Local jobs
+
+- Modules: `scripts/local_job_store.py`, `scripts/local_job_worker.py`, `scripts/local_agent_tools.py`
+- Store: `~/.teva_hq/local_jobs/`
+- Lifecycle: `QUEUED → RUNNING → AWAITING_APPROVAL → APPLIED | REJECTED` (or `FAILED` / `CANCELLED`)
+- Tools (allowlisted roots only): `list_dir`, `read_file`, `search_code`, `propose_edit` (no disk write), `run_tests` (disabled unless `TEVA_LOCAL_ALLOW_TESTS=1`)
+- Worker never auto-writes files; **Approve patch** applies under roots
+
+| Method | Path | Behaviour |
+|--------|------|-----------|
+| POST | `/api/local-jobs` | Create QUEUED (le2 + Ollama healthy) |
+| GET | `/api/local-jobs?agent=` | List |
+| GET | `/api/local-jobs/<id>` | Detail |
+| POST | `/api/local-jobs/<id>/cancel` | Cancel |
+| POST | `/api/local-jobs/<id>/approve` | Apply proposed patch |
+| POST | `/api/local-jobs/<id>/reject` | Reject without write |
+
+SSE: `{type:"local_job", job}`. Timeline: `local_job_*` events.
+
+### How to add a seat/model
+
+1. Install model (`ollama pull …`); confirm on `GET /api/ollama/health`.
+2. `POST /api/ollama/config` with `seat_models.<seat>.model` and add seat to `pilot_seats` (code still gates MVP to `le2` until generalized).
+3. Ensure `workspace_roots` cover the repo the agent may touch.
+
+### Follow-ons (not this MVP)
+
+- Full task engine + Needs Steve approval centre
+- Multi-seat local coding + policy router
+- Richer office dual-pose “LE2 Local” from real events only
 
 ## What this does **not** claim
 
 - Inbox save ≠ delivered or acknowledged
 - Handoff DELIVERED ≠ agent executed the work
+- Local job APPLIED ≠ Cursor executed the same task
 - Idle runtime ≠ task completed
 - Animations ≠ productivity
 - No programmatic Cursor send API
+- No automatic Cursor usage-limit detection
+- No resuming Cursor agent sessions inside Ollama
 
 ## Next phases
 
-3. Tasks + Needs Steve approval centre  
+3. Tasks + Needs Steve approval centre (generalize local jobs)  
 4. Multi-agent workflows  
 5. Analytics / health from real task+event records  
 
@@ -125,6 +173,8 @@ SSE: `{type:"message", message}` on status change.
 | Queue Cursor instruction | `message_id` + DELIVERING + handoff URL |
 | Unsupported runtime | FAILED + clear error |
 | Open handoff | DELIVERED only after handoff-opened |
-| Retry / cancel | Tracked; timeline events |
-| Ack / respond | Timeline + status chips |
-| Restart server | Last confirmed status preserved on disk |
+| Ollama health | Office chip up/down; models from discovery |
+| Run on Ollama (le2) | Job QUEUED→…→AWAITING_APPROVAL; no files written yet |
+| Approve / Reject | Files change only on Approve |
+| Ollama stopped | Health down; Run on Ollama fails clearly |
+| Restart server | Last job/message status preserved on disk |
