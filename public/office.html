@@ -119,6 +119,8 @@ body {
 .user-provenance { font-size: 7px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.32); }
 .mode-badge { display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 8px; padding: 4px 8px; border-radius: 999px; font-size: 8px; font-weight: 800; letter-spacing: 0.12em; color: #a7f3d0; background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.25); }
 .mode-badge.demo { color: #fcd34d; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.28); }
+/* Ambient mode (2026-10-21): shown only while decorative ambient motion is running */
+.mode-badge.ambient-badge { color: #f5d0fe; background: rgba(192,38,211,0.14); border-color: rgba(192,38,211,0.32); cursor: pointer; pointer-events: auto; margin-left: 6px; }
 .telemetry-dock {
   position: fixed; left: 22px; top: 22px; width: 228px; padding: 14px 15px;
   background: linear-gradient(145deg, rgba(7,14,28,.92), rgba(12,18,35,.72));
@@ -698,6 +700,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
   <div class="header">
     <div class="title">TEVA Headquarters</div>
     <div class="mode-badge demo" id="modeBadge">DEMO</div>
+    <div class="mode-badge ambient-badge" id="ambientBadge" style="display:none" role="status" title="Ambient life is on: idle seats stretch, sip coffee and stroll now and then. Decorative only: not from data, never in the Activity feed, never changes status or counts. Real events always win. Press A or open ⚙️ Settings to turn it off.">✨ Ambient · decorative</div>
     <button class="roster-toggle" id="rosterToggle" aria-expanded="false">Team roster · hover</button>
     <div class="user-bar" id="userBar"></div>
   </div>
@@ -863,6 +866,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="js/teva_camera.js"></script>
 <script src="js/teva_avatar_manager.js"></script>
 <script src="js/teva_data_bridge.js"></script>
+<script src="js/teva_ambient.js"></script>
 <script>
 const AGENTS = (window.__HERMES_AGENTS__ && window.__HERMES_AGENTS__.length)
   ? window.__HERMES_AGENTS__
@@ -1334,7 +1338,7 @@ async function loadTimeline(agentId) {
 
 // ---- R-VO-001 Phase 1: settings, links, provenance helpers ----
 const SETTINGS_KEY = 'teva-hq.settings.v1';
-const SETTINGS = Object.assign({ chatter: false, wander: false, motion: 'auto', sound: false, announce: false, ticker: true, perfHud: false }, (() => {
+const SETTINGS = Object.assign({ chatter: false, wander: false, motion: 'auto', sound: false, announce: false, ticker: true, perfHud: false, ambient: true }, (() => {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch (e) { return {}; }
 })());
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); } catch (e) {} }
@@ -1812,7 +1816,7 @@ function init() {
       const b = e.target.closest('[data-react]');
       if (b && selectedAgent) react(selectedAgent.id, b.dataset.react, 'panel button');
     });
-    if (reduceQuery && reduceQuery.addEventListener) reduceQuery.addEventListener('change', () => { refreshBases(); showToast('Motion: ' + motionMode()); });
+    if (reduceQuery && reduceQuery.addEventListener) reduceQuery.addEventListener('change', () => { refreshBases(); ambientTick(); showToast('Motion: ' + motionMode()); });
     
     // Sidebar: each icon opens a real panel or action (R-VO-001 Phase 1)
     document.querySelectorAll('.sidebar-icon').forEach(icon => {
@@ -1849,6 +1853,7 @@ function init() {
       else if (e.key === 'n' || e.key === 'N') nextAttention();
       else if (e.key === 'f' || e.key === 'F') toggleFollow();
       else if (e.key === 'p' || e.key === 'P') togglePerfHud();
+      else if (e.key === 'a' || e.key === 'A') toggleAmbient();
       else if (e.key === '[') goToMainFloor();
       else if (e.key === ']') goToWing();
       else if (e.key === '\\') goToFunStation();
@@ -1861,7 +1866,9 @@ function init() {
     setInterval(() => { if (!paused && !document.hidden) refreshBases(); }, 1000);
     setInterval(wanderTick, 3500);
     setInterval(spawnRandomChat, 2500);
+    setInterval(ambientTick, 1000); // ambient mode: decorative, opt-out (Settings / A), see ambientTick()
     updateBehavior();
+    ambientTick();
     renderTicker();
     renderPerfHud(true);
     updateAttention();
@@ -4483,7 +4490,7 @@ function updateBehavior() {
     state.task = agent.task || (agent.tasks || [])[0] || 'Idle';
     const t = seatTarget(agent, obj);
     state.targetX = t.x; state.targetZ = t.z;
-    state.status = obj && obj.walking ? 'walking' : (agent.status || 'idle');
+    state.status = obj && obj.walking && !ambientMotion(obj) ? 'walking' : (agent.status || 'idle'); // ambient walks never count
   });
   updateStatusBar();
 }
@@ -4592,15 +4599,21 @@ function animateAgents(delta) {
     let dist = Math.sqrt(dx * dx + dz * dz);
     if (dist > 0.03 && mm !== 'full') { a.group.position.x = state.targetX; a.group.position.z = state.targetZ; dist = 0; } // reduced/off: teleport, never walk
     const walking = dist > 0.03;
-    if (walking !== a.walking) { a.walking = walking; state.status = walking ? 'walking' : (a.agent.status || 'idle'); }
+    const ambMove = ambientMotion(a);
+    if (walking !== a.walking) { a.walking = walking; state.status = walking && !ambMove ? 'walking' : (a.agent.status || 'idle'); }
+    if (!walking) {
+      if (a.ambHoming) a.ambHoming = false;
+      if (AMB_ON && AMB && AMB.moving(a.agent.id)) { AMB.arrived(a.agent.id, now); const tg = seatTarget(a.agent, a); state.targetX = tg.x; state.targetZ = tg.z; }
+    }
     stepOverlay(a, delta, !walking);
     const ov = a.overlay, ok = ov ? Math.min(1, ov.t / ov.dur) : 0, on = ov ? ov.name : '';
     // desired pose
     const P = { bodyRx: 0, headRx: 0, headRy: 0, lArmRx: 0, lArmRz: 0, rArmRx: 0, rArmRz: 0, lLow: 0, rLow: 0, lLeg: 0, rLeg: 0, lKnee: 0, rKnee: 0, y: 0, breath: 0 };
     let face = 0;
     if (walking) {
-      a.walkCycle += delta * 8;
-      const step = Math.min(dist, 2.0 * delta);
+      a.walkCycle += delta * (ambMove ? 6 : 8);
+      if (a.ambFx) a.ambFx = null;
+      const step = Math.min(dist, (ambMove ? 1.3 : 2.0) * delta); // ambient strolls are slower than real walks
       a.group.position.x += (dx / dist) * step;
       a.group.position.z += (dz / dist) * step;
       face = Math.atan2(dx, dz);
@@ -4642,6 +4655,7 @@ function animateAgents(delta) {
         const cz = meetSpace ? meetSpace.z : LAYOUT.anchors.meeting.z;
         face = Math.atan2(cx - a.group.position.x, cz - a.group.position.z);
       }
+      if (AMB_ON && !ov) { const f = ambientPose(a, P, delta); if (f !== null) face = f; }
     }
     // one-shot overlays on top of the base pose
     if (ov && !walking && base !== 'OFFLINE') {
@@ -4855,6 +4869,7 @@ function renderView(view) {
     body.innerHTML = `
       ${sw('chatter', 'Decorative chatter', 'Random speech bubbles ("LGTM", "Coffee?") between nearby bots. Not from data, so off by default. Bubbles for real task changes always show.')}
       ${sw('wander', 'Random idle wandering', 'Idle bots stroll around their desk. Off by default so movement only reflects status.')}
+      ${sw('ambient', 'Ambient life (A)', 'Idle and waiting seats stretch, lean back, look around and sip from a mug, and now and then (one every 20–40 s, at most two at once) stroll to the coffee corner, lounge, Cyber Lounge or Fun Wing, or over to another idle seat for a short chat, then walk back. Decorative only: not from data, never in the Activity feed, never changes status or counts, and the ✨ Ambient badge shows while it runs. Any real event stops it for that seat at once. Offline, working, meeting and Needs Steve seats never take part. Needs Motion = full, so reduce-motion turns it off. On by default. Status now: <b>' + (AMB_ON ? 'running' : (SETTINGS.ambient ? 'paused (' + (motionMode() !== 'full' ? 'motion ' + motionMode() : 'modular avatars or ?ambient=0') + ')' : 'off')) + '</b>.')}
       <div class="set-row"><div>Motion<div class="set-desc">Auto follows your system's reduce-motion setting (now: ${esc(reduceQuery && reduceQuery.matches ? 'reduce' : 'no preference')}). Reduced: no walking (seats teleport), no hops or confetti, static badges, camera cuts. Off: static scene, badges only. In use: <b>${esc(motionMode())}</b>.</div></div>
         <select class="set-select" data-setting-select="motion">${['auto', 'full', 'reduced', 'off'].map(v => `<option value="${v}" ${(SETTINGS.motion || 'auto') === v ? 'selected' : ''}>${v[0].toUpperCase() + v.slice(1)}</option>`).join('')}</select></div>
       ${sw('sound', 'Chime on turn end / new Needs Steve item', 'Two-note chime, at most once per 10 s, never while the tab is hidden or paused. Off by default.')}
@@ -4862,7 +4877,7 @@ function renderView(view) {
       ${sw('announce', 'Announce activity to screen readers', 'Writes each feed line to an aria-live region. Off by default to avoid noise.')}
       ${sw('perfHud', 'Performance HUD (P)', 'Draw calls, fps, GPU geometries and textures, top left.')}
       <div class="set-row"><div>Camera<div class="set-desc">Drag to orbit · Shift-drag or right-drag to pan · scroll / pinch to zoom · +/− buttons · Esc resets view. Touch: one finger orbit, two-finger pinch zoom + drag pan.</div></div></div>
-      <div class="set-row"><div>Keys<div class="set-desc">1 wave · 2 👍 · 3 🎉 · 4 👀 (clears "your turn") · 5 poke · 6 ✋ (with a seat selected) · N next seat that needs you · F follow the selected seat · [ main floor · ] collab terrace · Esc stop / reset camera · P performance HUD. 👍 🎉 👀 ✋ are saved to the seat's inbox; nothing is ever sent to a chat.</div></div></div>
+      <div class="set-row"><div>Keys<div class="set-desc">1 wave · 2 👍 · 3 🎉 · 4 👀 (clears "your turn") · 5 poke · 6 ✋ (with a seat selected) · N next seat that needs you · F follow the selected seat · [ main floor · ] collab terrace · Esc stop / reset camera · P performance HUD · A ambient life on/off. 👍 🎉 👀 ✋ are saved to the seat's inbox; nothing is ever sent to a chat.</div></div></div>
       <div class="set-row"><div>3D office<div class="set-desc">Floor plan in <code>public/office_layout.js</code> (${esc(ROOM_WIDTH)}×${esc(ROOM_DEPTH)} main + collab wing). Bright glass/concrete HQ look: light concrete floor, white walls, black metal, ACES tone mapping.</div></div></div>
       <div class="set-row"><div>Board sync<div class="set-desc">scripts/teva_sync.py rewrites agents.json every ${esc(b.syncIntervalSeconds || liveConfig.teva_sync_interval_seconds || 180)} s; the server re-reads it every ${esc(liveConfig.poll_interval_seconds || 5)} s and pushes over SSE. Last sync ${esc(fmtTime(b.syncedAt))}.</div></div></div>
       <div class="set-row"><div>Webhook overrides<div class="set-desc">POST /webhook/agents pushes are merged over agents.json for ${esc(liveConfig.webhook_ttl_seconds || 900)} s instead of being reverted by the next poll.</div></div></div>
@@ -4880,13 +4895,14 @@ function renderView(view) {
       if (key === 'wander') { if (!inp.checked) agents.forEach(o => { o.wanderTarget = null; }); updateBehavior(); }
       if (key === 'ticker') renderTicker();
       if (key === 'perfHud') renderPerfHud(true);
-      const names = { chatter: 'Chatter', wander: 'Wandering', sound: 'Chime', ticker: 'Activity ticker', announce: 'Screen-reader announcements', perfHud: 'Performance HUD' };
+      if (key === 'ambient') ambientTick();
+      const names = { chatter: 'Chatter', wander: 'Wandering', sound: 'Chime', ticker: 'Activity ticker', announce: 'Screen-reader announcements', perfHud: 'Performance HUD', ambient: 'Ambient life' };
       showToast(`${names[key] || key} ${inp.checked ? 'on' : 'off'}`);
     }));
     body.querySelectorAll('[data-setting-select]').forEach(sel => sel.addEventListener('change', () => {
       SETTINGS[sel.dataset.settingSelect] = sel.value; saveSettings();
       if (sel.dataset.settingSelect === 'motion' && modularBridge && modularBridge.setQuality) modularBridge.setQuality(motionMode());
-      refreshBases(); renderView('settings'); showToast('Motion: ' + motionMode());
+      refreshBases(); ambientTick(); renderView('settings'); showToast('Motion: ' + motionMode());
     }));
     document.getElementById('testCursor').onclick = () => openUrl(cursorFileUrl(b.backlogPath, b.updatedLine));
   }
@@ -4951,7 +4967,7 @@ function renderTicker() {
   const el = document.getElementById('feedTicker');
   if (!el) return;
   el.style.display = SETTINGS.ticker && FEED.length ? '' : 'none';
-  el.innerHTML = `<div class="feed-head">Activity <span class="cur-ev">(every animation names its source · 📊 for the full feed)</span></div>` + FEED.slice(0, 4).map(feedRow).join('');
+  el.innerHTML = `<div class="feed-head">Activity <span class="cur-ev">(every animation names its source · 📊 for the full feed${AMB_ON ? ' · ✨ ambient motion is decorative and never listed' : ''})</span></div>` + FEED.slice(0, 4).map(feedRow).join('');
 }
 function renderFeedList() {
   const el = document.getElementById('feedList');
@@ -4964,6 +4980,11 @@ function handleEvents(evs, now) {
   (evs || []).forEach(e => {
     VO.events.push(e); if (VO.events.length > 500) VO.events.shift();
     const o = VOE.overlayFor(e);
+    if (AMB) { // any real event for a seat cancels its ambient action immediately (before throttling)
+      let c = false;
+      [e.seat, o.seat, o.to].forEach(id => { const ob = id && seatObj(id); if (ob && ambientCancel(ob)) c = true; });
+      if (c) updateBehavior();
+    }
     const anims = [];
     if (o.beacon) { beaconBurst(now); anims.push('Needs Steve beacon'); }
     if (o.overlay && o.seat) {
@@ -4988,6 +5009,7 @@ function handleEvents(evs, now) {
 const OVERLAY_DUR = { celebrate: 1.2, party: 1.2, confetti: 1.2, headScratch: 1.5, docPop: 1.0, raiseHand: 3.0, stretch: 0.8, leanBack: 0.8,
   envelope: 1.2, bubble: 1.0, wave: 1.2, nod: 1.0, glance: 0.8, startle: 0.6, handoff: 40 };
 function startOverlay(obj, name, data, source, now) {
+  ambientCancel(obj); // real events always win over ambient motion
   const mm = motionMode();
   data = data || {};
   obj.overlay = { name, t: 0, dur: OVERLAY_DUR[name] || 1, data, phase: 'go', source };
@@ -5035,7 +5057,7 @@ function refreshBases() {
   const now = Date.now();
   agents.forEach(obj => {
     const b = VOE.baseState(obj.agent, now, SEEN[obj.agent.id]);
-    if (b !== obj.base) { obj.prevBase = obj.base; obj.base = b; obj.colorDirty = true; if (b !== 'BLOCKED') obj.scratchUntil = 0; }
+    if (b !== obj.base) { obj.prevBase = obj.base; obj.base = b; obj.colorDirty = true; if (b !== 'BLOCKED') obj.scratchUntil = 0; if (AMB && !TevaAmbient.eligible(obj.agent.id, b)) ambientCancel(obj); }
     const conf = (obj.agent.activity && obj.agent.activity.confidence) || '';
     if (conf !== obj.lastConf) { obj.lastConf = conf; obj.colorDirty = true; }
     // head-scratch repeats every 20 s, max 3, only after a real blocked/failed event (never on load)
@@ -5096,7 +5118,7 @@ function syncModularIdleDestinations() {
     mgr.moveAgent(agent.id, { x: Number(dest.x), z: Number(dest.z) }, { duration: 2.5 });
   });
 }
-function seatTarget(agent, obj) {
+function seatTarget(agent, obj, noAmbient) {
   const home = getHomePosition(agent.home);
   const ov = obj && obj.overlay;
   if (ov && ov.name === 'handoff' && motionMode() === 'full' && (ov.phase === 'go' || ov.phase === 'give')) {
@@ -5105,6 +5127,7 @@ function seatTarget(agent, obj) {
   }
   if (obj && obj.base === 'MEETING') return meetingSlot(agent.id);
   if (obj && (obj.base === 'IDLE' || obj.base === 'WAITING') && agent.id !== 'needs-steve') {
+    if (!noAmbient && AMB_ON && AMB) { const at = AMB.target(agent.id); if (at) return at; }
     if (SETTINGS.wander && obj.wanderTarget) return obj.wanderTarget;
     const spot = idleSpotForAgent(agent);
     if (spot) return spot;
@@ -5131,6 +5154,105 @@ function wanderTick() {
   });
   updateBehavior();
 }
+// ---------------------------------------------------------------- Ambient mode (2026-10-21)
+// Explicit, opt-out exception to the Phase 3a honesty rule (Steve: "Yes, add ambient mode with a toggle").
+// Decorative idle life for IDLE / WAITING seats only, scheduled by public/js/teva_ambient.js:
+//  - never writes to the Activity feed, never changes status, stats or counters (ambientMotion());
+//  - any real event / overlay / base-state change for a seat cancels its ambient action at once;
+//  - Needs Steve, offline, working, meeting and blocked seats never take part;
+//  - only runs with Motion = full (so prefers-reduced-motion turns it off) and the legacy renderer;
+//  - the ✨ Ambient badge is visible while it runs. Settings key: SETTINGS.ambient (key A), ?ambient=0|1 overrides.
+var AMB = null, AMB_ON = false;
+const AMB_URL = (() => { try { return new URLSearchParams(location.search).get('ambient'); } catch (e) { return null; } })();
+const AMB_STATS = { walks: 0, chats: 0, fidgets: 0, cancels: 0 }; // diagnostics only (window.__vo.ambient), never shown as work
+function ambientWanted() { return AMB_URL === '1' ? true : AMB_URL === '0' ? false : !!SETTINGS.ambient; }
+function ambientOn() { return ambientWanted() && motionMode() === 'full' && !modularAvatarsEnabled() && !!window.TevaAmbient; }
+function ambientMotion(obj) { return !!obj && (!!obj.ambHoming || !!(AMB && AMB.active(obj.agent.id))); }
+function ambientCancel(obj) {
+  if (!obj) return false;
+  const id = obj.agent.id, had = !!obj.ambFx || !!(AMB && AMB.active(id));
+  obj.ambFx = null;
+  if (AMB && AMB.active(id)) { AMB.cancel(id, Date.now()); obj.ambHoming = TevaAmbient.eligible(id, obj.base); }
+  if (had) AMB_STATS.cancels++;
+  return had;
+}
+function ambientStopAll() {
+  agents.forEach(o => { if (AMB && AMB.active(o.agent.id)) o.ambHoming = true; o.ambFx = null; });
+  if (AMB) AMB.reset();
+  updateBehavior();
+}
+function renderAmbientBadge() {
+  const el = document.getElementById('ambientBadge');
+  if (el) el.style.display = AMB_ON ? '' : 'none';
+}
+function toggleAmbient() {
+  SETTINGS.ambient = !SETTINGS.ambient; saveSettings();
+  ambientTick();
+  if (currentView === 'settings') renderView('settings');
+  const why = SETTINGS.ambient && !AMB_ON ? (AMB_URL === '0' ? ' (but ?ambient=0 in the URL keeps it off)' : motionMode() !== 'full' ? ` (paused: motion is ${motionMode()})` : '') : '';
+  showToast(`Ambient life ${SETTINGS.ambient ? 'on' : 'off'}${why}`);
+}
+const AMB_LIST = [];
+function ambientTick() {
+  const on = ambientOn();
+  if (on !== AMB_ON) { AMB_ON = on; if (!on) ambientStopAll(); renderAmbientBadge(); renderTicker(); }
+  if (!on || paused || document.hidden || !agents.length) return;
+  if (!AMB) AMB = new TevaAmbient.Scheduler({ layout: LAYOUT });
+  const now = Date.now();
+  while (AMB_LIST.length < agents.length) AMB_LIST.push({});
+  AMB_LIST.length = agents.length;
+  agents.forEach((obj, i) => {
+    const id = obj.agent.id, rest = seatTarget(obj.agent, obj, true), it = AMB_LIST[i];
+    it.id = id; it.base = obj.base;
+    it.busy = !!obj.overlay || (obj.walking && !ambientMotion(obj)); // a real overlay or a real walk owns the seat
+    it.x = obj.group.position.x; it.z = obj.group.position.z; it.restX = rest.x; it.restZ = rest.z;
+  });
+  const out = AMB.tick(now, AMB_LIST);
+  out.fidgets.forEach(f => { const o = seatObj(f.id); if (o && !o.overlay && !o.walking) { o.ambFx = { name: f.name, t: -Math.random() * 0.8, dur: f.dur }; AMB_STATS.fidgets++; } });
+  out.started.forEach(w => { const o = seatObj(w.id); if (o) o.ambFx = null; AMB_STATS[w.kind === 'visit' ? 'chats' : 'walks']++; });
+  out.cancelled.forEach(id => { const o = seatObj(id); if (o) { o.ambFx = null; o.ambHoming = true; } });
+  if (out.changed) updateBehavior();
+}
+function ambMix(P, k, v, e) { P[k] += (v - P[k]) * e; }
+function ambSeat(id) { for (let i = 0; i < agents.length; i++) if (agents[i].agent.id === id) return agents[i]; return null; }
+// Pose layer for a seat with ambient life. Mutates P (no allocations); returns a facing angle or null.
+function ambientPose(a, P, delta) {
+  const id = a.agent.id;
+  let face = null;
+  const fx = a.ambFx;
+  if (fx) {
+    fx.t += delta;
+    if (fx.t >= fx.dur) a.ambFx = null;
+    else if (fx.t > 0) {
+      const u = fx.t / fx.dur, e = Math.min(1, Math.sin(Math.PI * u) * 1.6);
+      switch (fx.name) {
+        case 'stretch':
+          ambMix(P, 'lArmRx', -2.9, e); ambMix(P, 'rArmRx', -2.9, e); ambMix(P, 'lArmRz', -0.3, e); ambMix(P, 'rArmRz', 0.3, e);
+          ambMix(P, 'lLow', 0.1, e); ambMix(P, 'rLow', 0.1, e); ambMix(P, 'bodyRx', -0.1, e); ambMix(P, 'headRx', -0.22, e); break;
+        case 'leanBack':
+          ambMix(P, 'bodyRx', -0.2, e); ambMix(P, 'headRx', -0.2, e); ambMix(P, 'lArmRx', -2.4, e); ambMix(P, 'rArmRx', -2.4, e);
+          ambMix(P, 'lLow', 2.2, e); ambMix(P, 'rLow', 2.2, e); break;
+        case 'lookAround':
+          ambMix(P, 'headRy', Math.sin(u * Math.PI * 3) * 0.6, e); ambMix(P, 'headRx', -0.05, e); break;
+        case 'sip':
+          ambMix(P, 'rArmRx', -1.15, e); ambMix(P, 'rArmRz', 0.15, e); ambMix(P, 'rLow', 2.0, e); ambMix(P, 'headRx', -0.12, e); break;
+      }
+    }
+  }
+  if (!AMB) return null;
+  const f = AMB.facing(id);
+  if (f) {
+    if (f.seat) { const o = ambSeat(f.seat); if (o) face = Math.atan2(o.group.position.x - a.group.position.x, o.group.position.z - a.group.position.z); }
+    else face = Math.atan2(f.x - a.group.position.x, f.z - a.group.position.z);
+  }
+  if (!a.ambFx && AMB.talking(id)) {
+    const t = a.time + a.index;
+    P.rArmRx = -0.35 + Math.sin(t * 1.7) * 0.22; P.rLow = 0.4 + Math.sin(t * 1.7 + 0.5) * 0.18; P.headRx = Math.sin(t * 0.9) * 0.07;
+  }
+  return face;
+}
+VO.ambient = () => ({ on: AMB_ON, wanted: ambientWanted(), walkers: AMB ? AMB.walkers() : 0, stats: Object.assign({}, AMB_STATS),
+  seats: AMB ? Object.keys(AMB.seats).filter(k => AMB.seats[k].act).map(k => ({ id: k, kind: AMB.seats[k].act.kind, phase: AMB.seats[k].act.phase, label: AMB.seats[k].act.label || '' })) : [] });
 function snapToTargets() {
   agents.forEach(obj => {
     const st = agentStates[obj.agent.id]; if (!st) return;
@@ -5221,6 +5343,7 @@ function initShared() {
     box(0.05, 0.22, 0.05, 0.12, 0.42, 0)
   ]);
   SHARED.folder = box(0.24, 0.04, 0.18);
+  SHARED.mug = new THREE.CylinderGeometry(0.05, 0.043, 0.11, 10);
   SHARED.unitBox = new THREE.BoxGeometry(1, 1, 1);
   SHARED.agentHit = new THREE.BoxGeometry(0.65, 2.15, 0.65);
   SHARED.invisible = new THREE.MeshBasicMaterial({ visible: false });
@@ -5242,6 +5365,7 @@ const POOL_DEFS = [
   ['ring', 'ring', () => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.62, depthWrite: false }), 2, false],
   ['helper', 'helper', () => new THREE.MeshStandardMaterial({ roughness: 0.65, transparent: true, opacity: 0.5, depthWrite: false }), 3, false],
   ['folder', 'folder', () => new THREE.MeshStandardMaterial({ roughness: 0.65, metalness: 0.05 }), 1, false],
+  ['mug', 'mug', () => new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05 }), 1, false], // ambient sip (1 draw call)
 ];
 function initPools() {
   if (POOLS.torso) return;
@@ -5289,6 +5413,7 @@ function partColor(obj, kind, out) {
     }
     case 'flag': out.set(0xff3b30); break;
     case 'folder': out.set(0xe8b84a); break;
+    case 'mug': out.set(0xf8fafc); break;
     default: out.setRGB(1, 1, 1);
   }
   if (obj.base === 'OFFLINE' && kind !== 'flag') desat(out, 0.4);
@@ -5304,6 +5429,7 @@ function partVisible(obj, p, now) {
   if (p.kind === 'flag') return !!(FLAGGED[obj.agent.id] && now - FLAGGED[obj.agent.id] < FLAG_MS);
   if (p.kind === 'helper') return obj.base === 'DELEGATING' && p.n < VOE.helperCount(obj.agent);
   if (p.kind === 'folder') return !!(obj.overlay && obj.overlay.name === 'handoff' && obj.overlay.phase !== 'back');
+  if (p.kind === 'mug') return !!(obj.ambFx && obj.ambFx.name === 'sip' && obj.ambFx.t > 0);
   return true;
 }
 function addPart(obj, poolName, o3d, kind, extra) {
@@ -5341,6 +5467,7 @@ function buildRig(agent, i) {
   const ring = O(); ring.position.y = 0.02; group.add(ring);
   const flag = O(); flag.position.y = 0.03; flag.scale.setScalar(1.3); group.add(flag);
   const folder = O(); folder.position.set(0, -0.06, -0.12); R.hand.add(folder);
+  const mug = O(); mug.position.set(0, -0.05, 0.03); R.hand.add(mug);
   const helperRoot = O(); scene.add(helperRoot);
   const helpers = [0, 1, 2].map(k => { const h = O(); h.position.set(-1.0 - k * 0.45, 0, 0.35); h.scale.setScalar(0.85); helperRoot.add(h); return h; });
   addPart(obj, 'torso', body, 'agent');
@@ -5351,6 +5478,7 @@ function buildRig(agent, i) {
   addPart(obj, 'ring', ring, 'ring'); addPart(obj, 'ring', flag, 'flag');
   helpers.forEach((h, k) => addPart(obj, 'helper', h, 'helper', { n: k }));
   addPart(obj, 'folder', folder, 'folder');
+  addPart(obj, 'mug', mug, 'mug');
   Object.assign(obj, {
     body, head, hair, neck, shoulders, smile: O(), leftArm: L.arm, rightArm: R.arm, leftLeg: LL.leg, rightLeg: RL.leg,
     leftUpperArm: L.upper, leftLowerArm: L.lower, rightUpperArm: R.upper, rightLowerArm: R.lower,
@@ -5362,6 +5490,7 @@ function buildRig(agent, i) {
 }
 function syncInstances(now) {
   const mm = motionMode();
+  let mugVis = 0;
   agents.forEach(obj => {
     obj.group.updateMatrixWorld(true);
     obj.helperRoot.updateMatrixWorld(true);
@@ -5371,7 +5500,9 @@ function syncInstances(now) {
     const ringPulse = activeWork ? Math.min(1.15, pulse + 0.15) : pulse;
     obj.parts.forEach(p => {
       const m = p.pool.mesh;
-      m.setMatrixAt(p.idx, partVisible(obj, p, now) ? p.obj.matrixWorld : ZERO_M);
+      const vis = partVisible(obj, p, now);
+      if (vis && p.kind === 'mug') mugVis++;
+      m.setMatrixAt(p.idx, vis ? p.obj.matrixWorld : ZERO_M);
       if (p.kind === 'ring') { partColor(obj, 'ring', _c).multiplyScalar(ringPulse); m.setColorAt(p.idx, _c); }
       else if (p.kind === 'agent' && p.pool === POOLS.torso && (obj.colorDirty || activeWork)) {
         partColor(obj, 'agent', _c).multiplyScalar(torsoPulse); m.setColorAt(p.idx, _c);
@@ -5385,6 +5516,7 @@ function syncInstances(now) {
     p.mesh.instanceMatrix.needsUpdate = true;
     if (p.mesh.instanceColor) p.mesh.instanceColor.needsUpdate = true;
   });
+  if (POOLS.mug) POOLS.mug.mesh.visible = mugVis > 0; // ambient mug costs a draw call only while someone sips
 }
 
 // ---------------------------------------------------------------- labels + badges (cached textures)

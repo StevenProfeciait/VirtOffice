@@ -106,3 +106,38 @@ Phase 3a:
 - `node tests/test_vo_events.js` (event/state-machine logic).
 - `node tests/test_office_layout.js` (layout seats vs teva_sync roster).
 - `python3 tests/e2e_phase3a.py OUT_DIR [--quick] [--soak-min 10]` (Playwright acceptance test; starts its own server on a free port with a temp token and inbox).
+
+## Ambient mode (2026-10-21)
+
+Steve asked for this ("Yes, add ambient mode with a toggle"). It is an explicit, opt-out exception to
+the Phase 3a honesty rule, so the office looks alive when no bot is working.
+
+- **Toggle:** ⚙️ Settings → "Ambient life (A)", or press **A**. Stored as `SETTINGS.ambient` in
+  `localStorage['teva-hq.settings.v1']`; **on by default**. URL override: `?ambient=0` / `?ambient=1`
+  (`tests/e2e_phase3a.py` loads `?ambient=0` so its "nothing moves for 60 s" checks still hold).
+- **Who:** only seats whose base state is `IDLE` or `WAITING`. Offline (greyed), working, meeting,
+  blocked, your-turn and the Needs Steve seat never take part.
+- **What:** seated fidgets with per-seat jitter (stretch, lean back, look around, sip from a mug);
+  about one stroll every 20–40 s, at most two seats away at once, to the coffee corner, lounge,
+  Cyber Lounge or Fun Wing (snacks, arcade, chill pit), or over to another idle seat for a short chat
+  (both face each other, the host stays put); a 5–11 s pause, then a walk back to the seat's own spot.
+  Routes go through the Fun Wing glass corridor and the south doorway, not through walls. Ambient
+  strolls are slower (1.3 m/s) than real walks (2.0 m/s).
+- **Honesty:** ambient motion never writes to the Activity feed, never sets `walking` status and never
+  changes status, stats or footer counters. A "✨ Ambient · decorative" badge sits next to the
+  LIVE/DEMO badge while it runs, and the Activity ticker header says ambient motion is not listed.
+  Any real event for a seat (data event, overlay, reaction, base-state change) cancels its ambient
+  action at once; the seat goes back to its spot or wherever the event sends it. Real events always win.
+- **Off automatically:** when Motion is not "full" (so `prefers-reduced-motion` turns it off via
+  Motion = Auto), while paused or the tab is hidden, and with the opt-in modular avatar renderer.
+- **Code:** scheduler `public/js/teva_ambient.js` (pure, no THREE/DOM); wiring in `public/office.html`
+  (`ambientTick`, `ambientPose`, `ambientCancel`, `ambientMotion`, mug instanced pool). Tests:
+  `tests/test_teva_ambient.js` via `tests/test_teva_ambient_node.py`. Debug: `VO.ambient()` in the console.
+- **Cost:** draw calls unchanged when nothing sips; +1 (mug pool) while a seat sips, a few more when
+  walkers come into view. Measured on the box (SwiftShader, 1600×900): main floor 155 before, 155 with
+  ambient off, 155–158 with ambient on; Fun Station view 106 / 106 / 106–107. No geometry/texture growth
+  over 2.5 min. The main-floor baseline was already above 150 before this change (the scene grew
+  with the Oct 20 Boardroom / Cyber Lounge / Fun Wing work; Phase 3a's 67/91 predates that).
+- **Rollback:** restore `public/office.html`, `docs/TEVA_HQ_NOTES.md` and `tests/e2e_phase3a.py` from their
+  `.bak-ambient-2026-10-21` copies, delete `public/js/teva_ambient.js`, `tests/test_teva_ambient.js` and
+  `tests/test_teva_ambient_node.py`, then restart the office. Or just press A to turn it off.

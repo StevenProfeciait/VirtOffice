@@ -77,7 +77,7 @@ def open_page(b, **ctx):
     pg = c.new_page()
     pg.on("pageerror", lambda e: errs.append(str(e)))
     pg.on("console", lambda m: errs.append("console:" + m.text) if m.type == "error" else None)
-    pg.goto(BASE + "/office.html")
+    pg.goto(BASE + "/office.html?ambient=0")  # Phase 3a honesty checks run with decorative ambient mode off
     pg.wait_for_function("window.__vo && __vo.firstSyncAt > 0", timeout=30000)
     pg.wait_for_timeout(2500)
     return c, pg
