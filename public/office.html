@@ -121,6 +121,10 @@ body {
 .mode-badge.demo { color: #fcd34d; background: rgba(245,158,11,0.14); border-color: rgba(245,158,11,0.28); }
 /* Ambient mode (2026-10-21): shown only while decorative ambient motion is running */
 .mode-badge.ambient-badge { color: #f5d0fe; background: rgba(192,38,211,0.14); border-color: rgba(192,38,211,0.32); cursor: pointer; pointer-events: auto; margin-left: 6px; }
+/* UI style toggle (2026-10-22): Classic <-> Cyberpunk office look (U key / Settings); switching reloads */
+.mode-badge.style-toggle { font-family: inherit; cursor: pointer; pointer-events: auto; margin-left: 6px; color: #e2e8f0; background: rgba(148,163,184,0.16); border-color: rgba(148,163,184,0.34); }
+.mode-badge.style-toggle.cyberpunk { color: #67e8f9; background: rgba(8,145,178,0.18); border-color: rgba(34,211,238,0.5); box-shadow: 0 0 10px rgba(34,211,238,0.35); }
+.mode-badge.style-toggle:hover { filter: brightness(1.25); }
 .telemetry-dock {
   position: fixed; left: 22px; top: 22px; width: 228px; padding: 14px 15px;
   background: linear-gradient(145deg, rgba(7,14,28,.92), rgba(12,18,35,.72));
@@ -701,6 +705,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
     <div class="title">TEVA Headquarters</div>
     <div class="mode-badge demo" id="modeBadge">DEMO</div>
     <div class="mode-badge ambient-badge" id="ambientBadge" style="display:none" role="status" title="Ambient life is on: idle seats stretch, sip coffee and stroll now and then. Decorative only: not from data, never in the Activity feed, never changes status or counts. Real events always win. Press A or open ⚙️ Settings to turn it off.">✨ Ambient · decorative</div>
+    <button class="mode-badge style-toggle" id="uiStyleToggle" type="button" title="Office look. Click (or press U) to switch between Classic and Cyberpunk; the page reloads and your choice is remembered.">⬜ Classic</button>
     <button class="roster-toggle" id="rosterToggle" aria-expanded="false">Team roster · hover</button>
     <div class="user-bar" id="userBar"></div>
   </div>
@@ -864,9 +869,14 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="js/teva_ui.js"></script>
 <script src="js/teva_ui_helpers.js"></script>
 <script src="js/teva_camera.js"></script>
+<script src="js/teva_motion.js"></script>
 <script src="js/teva_avatar_manager.js"></script>
 <script src="js/teva_data_bridge.js"></script>
+<script src="js/teva_spots.js"></script>
+<script src="js/teva_nav.js"></script>
 <script src="js/teva_ambient.js"></script>
+<script src="js/teva_ui_style.js"></script>
+<script src="js/teva_zones.js"></script>
 <script>
 const AGENTS = (window.__HERMES_AGENTS__ && window.__HERMES_AGENTS__.length)
   ? window.__HERMES_AGENTS__
@@ -1542,16 +1552,53 @@ function startLiveUpdates() {
   if (!document.hidden) liveStart();
 }
 
-// The modular avatar layer is opt-in while the legacy instanced renderer remains
-// the production default. Enable with ?modular=1 or localStorage.teva_modular=1.
+// The modular avatar layer ("Cyberpunk") is the default since 2026-10-22 (Steve: "Make Cyberpunk the
+// default"). Classic (legacy instanced renderer) with ?modular=0 or localStorage.teva_modular='0'.
+// UI style toggle (2026-10-22): precedence lives in public/js/teva_ui_style.js (?modular=1|0 wins for
+// that load, then localStorage.teva_modular '1'/'0', then Cyberpunk). Resolved once per load; switching reloads.
 let modularBridge = null;
 let modularPrototype = null;
 const modularWorkstations = {};
 const modularRoomModules = {};
 const modularRoomAssets = {};
-function modularAvatarsEnabled() {
-  try { return new URLSearchParams(location.search).get('modular') === '1' || localStorage.getItem('teva_modular') === '1'; }
-  catch (e) { return false; }
+let UI_STYLE = null;
+function uiStyle() {
+  if (UI_STYLE) return UI_STYLE;
+  let stored = null;
+  try { stored = localStorage.getItem('teva_modular'); } catch (e) {}
+  try {
+    UI_STYLE = window.TevaUiStyle ? TevaUiStyle.resolve(location.search, stored)
+      : (() => { const m = new URLSearchParams(location.search).get('modular'); const on = m === '1' || (m !== '0' && stored !== '0'); return { modular: on, style: on ? 'cyberpunk' : 'classic', source: m === '1' || m === '0' ? 'url' : (stored === '0' || stored === '1' ? 'storage' : 'default') }; })();
+  } catch (e) { UI_STYLE = { modular: true, style: 'cyberpunk', source: 'default' }; }
+  return UI_STYLE;
+}
+function modularAvatarsEnabled() { return !!uiStyle().modular; }
+function uiStyleLabel(modular) { return window.TevaUiStyle ? TevaUiStyle.label(modular) : (modular ? '🌆 Cyberpunk' : '⬜ Classic'); }
+function renderUiStyleToggle() {
+  const el = document.getElementById('uiStyleToggle');
+  if (!el) return;
+  const st = uiStyle();
+  el.textContent = uiStyleLabel(st.modular);
+  el.classList.toggle('cyberpunk', st.modular);
+  el.setAttribute('aria-label', 'Office look: ' + (st.modular ? 'Cyberpunk' : 'Classic') + '. Click to switch to ' + (st.modular ? 'Classic' : 'Cyberpunk') + ' (reloads).');
+  el.title = 'Office look: ' + (st.modular ? 'Cyberpunk' : 'Classic') + (st.source === 'url' ? ' (forced by ?modular= in the URL for this load)' : '') + '. Click or press U to switch to ' + (st.modular ? 'Classic' : 'Cyberpunk') + '; the page reloads and your choice is remembered.';
+}
+// Switch Classic <-> Cyberpunk: write localStorage.teva_modular ('1' / '0', never cleared, so Classic sticks
+// against the Cyberpunk default), strip ?modular= (keep other params), reload.
+function toggleUiStyle() {
+  const cur = uiStyle().modular;
+  const P = window.TevaUiStyle ? TevaUiStyle.plan(cur, location.pathname, location.search, location.hash)
+    : { modular: !cur, storage: !cur ? '1' : '0', url: location.pathname + location.hash, label: uiStyleLabel(!cur) };
+  try { localStorage.setItem('teva_modular', P.storage === null ? '0' : P.storage); } catch (e) {}
+  try { showToast('Switching to ' + P.label + '…'); } catch (e) {}
+  setTimeout(() => { location.replace(P.url); }, 150);
+}
+// Three looks (2026-10-22): Classic / Cyberpunk switch this page; Babylon opens the Babylon.js pilot page.
+function chooseLook(id) {
+  if (!window.TevaUiStyle || !TevaUiStyle.choose) return;
+  const c = TevaUiStyle.choose(id, uiStyle().modular, location.pathname, location.search, location.hash);
+  if (c.action === 'open') { try { showToast('Opening the Babylon pilot…'); } catch (e) {} setTimeout(() => { location.assign(c.url); }, 150); }
+  else if (c.action === 'switch') toggleUiStyle();
 }
 function modularAgentPosition(agent) {
   if (window.TevaAssets && TevaAssets.resolveAgentPosition) return TevaAssets.resolveAgentPosition(agent);
@@ -1561,6 +1608,7 @@ function modularAgentPosition(agent) {
 function syncModularWorkstationStatus(agent) {
   const ws = modularWorkstations[agent.id];
   if (!ws || !ws.userData || !ws.userData.setStatus) return;
+  if (ws.userData.completedUntil && Date.now() < ws.userData.completedUntil) return; // completion glow still showing
   const activity = agent.activity || {};
   const st = (activity.presentationState || activity.state || agent.status || 'IDLE').toUpperCase();
   ws.userData.setStatus(st);
@@ -1800,6 +1848,8 @@ function init() {
       const avatar = e.target.closest('.user-avatar');
       if (avatar) selectAgent(avatar.dataset.agent);
     });
+    renderUiStyleToggle();
+    document.getElementById('uiStyleToggle').addEventListener('click', toggleUiStyle);
     document.getElementById('rosterToggle').addEventListener('click', () => {
       const header = document.querySelector('.header');
       const open = header.classList.toggle('roster-open');
@@ -1854,6 +1904,7 @@ function init() {
       else if (e.key === 'f' || e.key === 'F') toggleFollow();
       else if (e.key === 'p' || e.key === 'P') togglePerfHud();
       else if (e.key === 'a' || e.key === 'A') toggleAmbient();
+      else if (e.key === 'u' || e.key === 'U') toggleUiStyle(); // UI style toggle: Classic <-> Cyberpunk (reloads)
       else if (e.key === '[') goToMainFloor();
       else if (e.key === ']') goToWing();
       else if (e.key === '\\') goToFunStation();
@@ -4483,16 +4534,19 @@ function updateBehavior() {
   // Phase 3a: deterministic. Targets come from the base state (home, or the meeting table when the
   // backlog has an explicit MEETING: line) or a running overlay (hand-off). The 3.5 s jitter is gone.
   if (paused) return;
+  spotsSync(); // seat fix: free places seats no longer use before anyone picks a new one
   AGENTS.forEach(agent => {
     const state = agentStates[agent.id];
     if (!state) return;
     const obj = seatObj(agent.id);
     state.task = agent.task || (agent.tasks || [])[0] || 'Idle';
     const t = seatTarget(agent, obj);
-    state.targetX = t.x; state.targetZ = t.z;
+    state.targetX = t.x; state.targetZ = t.z; state.targetFace = Number.isFinite(t.face) ? t.face : null; state.targetKind = t.kind || 'desk';
+    state.targetActivity = t.activity || null; state.targetSit = !!t.sit; state.targetTalking = !!t.talking;
     state.status = obj && obj.walking && !ambientMotion(obj) ? 'walking' : (agent.status || 'idle'); // ambient walks never count
   });
   updateStatusBar();
+  syncModularDestinations();
 }
 
 function spawnRandomChat() {
@@ -4598,9 +4652,22 @@ function animateAgents(delta) {
     let dx = state.targetX - a.group.position.x, dz = state.targetZ - a.group.position.z;
     let dist = Math.sqrt(dx * dx + dz * dz);
     if (dist > 0.03 && mm !== 'full') { a.group.position.x = state.targetX; a.group.position.z = state.targetZ; dist = 0; } // reduced/off: teleport, never walk
+    // part 2: walk the furniture-aware route (TevaNav) instead of a straight line through desks and tables
+    let seg = dist;
+    if (dist > 0.03) {
+      const key = state.targetX.toFixed(2) + ',' + state.targetZ.toFixed(2);
+      if (!a.route || a.route.key !== key) a.route = { key, pts: dist > 0.6 ? navRoute({ x: a.group.position.x, z: a.group.position.z }, { x: state.targetX, z: state.targetZ }) : [{ x: state.targetX, z: state.targetZ }], i: 0 };
+      const R = a.route;
+      while (R.i < R.pts.length - 1 && Math.hypot(R.pts[R.i].x - a.group.position.x, R.pts[R.i].z - a.group.position.z) < 0.15) R.i++;
+      const wp = R.pts[R.i];
+      dx = wp.x - a.group.position.x; dz = wp.z - a.group.position.z; seg = Math.max(1e-6, Math.sqrt(dx * dx + dz * dz));
+      let rem = seg; for (let q = R.i; q < R.pts.length - 1; q++) rem += Math.hypot(R.pts[q + 1].x - R.pts[q].x, R.pts[q + 1].z - R.pts[q].z);
+      dist = rem;
+    } else a.route = null;
     const walking = dist > 0.03;
     const ambMove = ambientMotion(a);
-    if (walking !== a.walking) { a.walking = walking; state.status = walking && !ambMove ? 'walking' : (a.agent.status || 'idle'); }
+    if (walking !== a.walking) { if (!walking && a.walking) a.settle = 0.45; a.walking = walking; state.status = walking && !ambMove ? 'walking' : (a.agent.status || 'idle'); }
+    if (!walking) { a.walkSpeed = 0; if (ZONES && state.targetKind === 'zone') ZONES.arrived(a.agent.id, now); }
     if (!walking) {
       if (a.ambHoming) a.ambHoming = false;
       if (AMB_ON && AMB && AMB.moving(a.agent.id)) { AMB.arrived(a.agent.id, now); const tg = seatTarget(a.agent, a); state.targetX = tg.x; state.targetZ = tg.z; }
@@ -4611,15 +4678,28 @@ function animateAgents(delta) {
     const P = { bodyRx: 0, headRx: 0, headRy: 0, lArmRx: 0, lArmRz: 0, rArmRx: 0, rArmRz: 0, lLow: 0, rLow: 0, lLeg: 0, rLeg: 0, lKnee: 0, rKnee: 0, y: 0, breath: 0 };
     let face = 0;
     if (walking) {
-      a.walkCycle += delta * (ambMove ? 6 : 8);
       if (a.ambFx) a.ambFx = null;
-      const step = Math.min(dist, (ambMove ? 1.3 : 2.0) * delta); // ambient strolls are slower than real walks
-      a.group.position.x += (dx / dist) * step;
-      a.group.position.z += (dz / dist) * step;
+      a._activity = null;
       face = Math.atan2(dx, dz);
-      const sw = Math.sin(a.walkCycle) * 0.6, sw2 = Math.sin(a.walkCycle + Math.PI) * 0.6;
+      const TM = window.TevaMotion;
+      let step, amp = 1;
+      if (TM) {
+        // Natural pace (2026-10-22): accelerate, cruise at WALK_SPEED (ambient: STROLL_SPEED), brake to a stop;
+        // turn in place first when the heading is far off; legs advance with the ground covered (no sliding).
+        const turning = (a.walkSpeed || 0) < 0.05 && TM.turnFirst(a.group.rotation.y, face);
+        a.walkSpeed = turning ? 0 : TM.nextSpeed(a.walkSpeed || 0, ambMove ? TM.STROLL_SPEED : TM.WALK_SPEED, dist, delta);
+        step = Math.min(seg, a.walkSpeed * delta);
+        a.walkCycle += TM.cycleAdvance(step);
+        amp = Math.max(0.15, Math.min(1, a.walkSpeed / 1.1));
+      } else {
+        a.walkCycle += delta * (ambMove ? 6 : 8);
+        step = Math.min(seg, (ambMove ? 1.3 : 2.0) * delta); // ambient strolls are slower than real walks
+      }
+      a.group.position.x += (dx / seg) * step;
+      a.group.position.z += (dz / seg) * step;
+      const sw = Math.sin(a.walkCycle) * 0.6 * amp, sw2 = Math.sin(a.walkCycle + Math.PI) * 0.6 * amp;
       Object.assign(P, { lLeg: sw, rLeg: sw2, lKnee: Math.max(0, -sw * 0.8), rKnee: Math.max(0, -sw2 * 0.8), lArmRx: sw2 * 0.5, rArmRx: sw * 0.5,
-        lLow: Math.max(0, -sw2 * 0.3), rLow: Math.max(0, -sw * 0.3), y: Math.abs(Math.sin(a.walkCycle * 2)) * 0.08, bodyRx: 0.08 });
+        lLow: Math.max(0, -sw2 * 0.3), rLow: Math.max(0, -sw * 0.3), y: Math.abs(Math.sin(a.walkCycle)) * 0.06 * amp, bodyRx: 0.05 + 0.03 * amp });
       if (on === 'handoff') { P.rArmRx = -0.9; P.rLow = 0.7; }
     } else if (base !== 'OFFLINE') {
       if (mm !== 'off') P.breath = Math.sin(t * 1.5) * 0.02;
@@ -4655,14 +4735,24 @@ function animateAgents(delta) {
         const cz = meetSpace ? meetSpace.z : LAYOUT.anchors.meeting.z;
         face = Math.atan2(cx - a.group.position.x, cz - a.group.position.z);
       }
+      // zone placement (boardroom / research lab): face the table or the lab centre once there
+      if (!ov && base !== 'MEETING' && base !== 'YOUR_TURN' && Number.isFinite(state.targetFace)) face = state.targetFace;
+      // part 2: what the seat does at its reserved place (sofa, arcade, coffee, boardroom chair, lab ...)
+      a._activity = !ov && state.targetActivity ? state.targetActivity : null;
+      if (a._activity) legacyActivityPose(a, P, a._activity, state.targetSit, state.targetTalking, t);
+      // arrival settle: a small weight shift as the walk ends
+      if (a.settle > 0 && mm === 'full') { a.settle -= delta; const e = Math.sin(Math.max(0, a.settle) / 0.45 * Math.PI); P.y -= 0.035 * e; P.bodyRx += 0.06 * e; }
       if (AMB_ON && !ov) { const f = ambientPose(a, P, delta); if (f !== null) face = f; }
     }
     // one-shot overlays on top of the base pose
     if (ov && !walking && base !== 'OFFLINE') {
       const hop = mm === 'full' ? Math.abs(Math.sin(ok * Math.PI * 2)) * 0.3 : 0;
       switch (on) {
-        case 'celebrate': case 'party': case 'confetti':
-          Object.assign(P, { lArmRx: -2.8, lArmRz: -0.35, rArmRx: -2.8, rArmRz: 0.35, lLow: 0.2, rLow: 0.2, bodyRx: 0, headRx: -0.15, y: hop }); break;
+        case 'celebrate': case 'party': case 'confetti': {
+          // two jumps with both fists up and waving, then a happy settle
+          const jump = mm === 'full' ? Math.max(0, Math.sin(Math.min(1, ok * 1.25) * Math.PI * 2)) * 0.32 : 0, wv = Math.sin(t * 14) * 0.3;
+          Object.assign(P, { lArmRx: -2.9, lArmRz: -0.35 - wv, rArmRx: -2.9, rArmRz: 0.35 + wv, lLow: 0.25, rLow: 0.25, bodyRx: -0.05, headRx: -0.2, y: on === 'celebrate' ? jump : hop, lKnee: jump * 1.2, rKnee: jump * 1.2 });
+          break; }
         case 'headScratch': Object.assign(P, { rArmRx: -2.5, rArmRz: -0.25, rLow: 1.6 + Math.sin(t * 22) * 0.25, headRx: 0.15, headRy: -0.2 }); break;
         case 'raiseHand': Object.assign(P, { rArmRx: -3.0, rArmRz: 0.05, rLow: 0.05 }); break;
         case 'stretch': Object.assign(P, { lArmRx: -1.45, rArmRx: -1.45, lLow: 0, rLow: 0, lArmRz: Math.sin(t * 14) * 0.08, rArmRz: -Math.sin(t * 14) * 0.08 }); break;
@@ -4699,6 +4789,26 @@ function animateAgents(delta) {
   });
   syncInstances(now);
 }
+// Classic poses for a seat's activity at its reserved spot (signs: arm rx < 0 raises forward, low > 0 bends the
+// elbow, leg < 0 swings the thigh forward, knee > 0 folds the shin back).
+function legacyActivityPose(a, P, act, sit, talking, t) {
+  const ph = a.index * 1.3;
+  if (sit) Object.assign(P, { lLeg: -1.45, rLeg: -1.45, lKnee: 1.45, rKnee: 1.45, y: -0.14 });
+  switch (act) {
+    case 'lounge': Object.assign(P, { bodyRx: -0.16, headRx: -0.05, lArmRx: -0.25, rArmRx: -0.25, lLow: 0.5, rLow: 0.5, lArmRz: 0.2, rArmRz: -0.2 }); break;
+    case 'watch': Object.assign(P, { headRy: Math.sin(t * 0.8 + ph) * 0.35, lArmRx: -0.3, rArmRx: -0.3, lLow: 0.6, rLow: 0.6 }); break;
+    case 'meet':
+      if (talking) Object.assign(P, { rArmRx: -0.9 + Math.sin(t * 2.4) * 0.35, rLow: 0.8, rArmRz: -0.15 + Math.sin(t * 1.7) * 0.2, lArmRx: -0.6 + Math.sin(t * 2.1 + 1) * 0.2, lLow: 0.6, headRy: Math.sin(t * 0.7) * 0.25 });
+      else Object.assign(P, { lArmRx: -0.6, rArmRx: -0.6, lLow: 0.55, rLow: 0.55, headRx: 0.04 + Math.sin(t * 0.6 + ph) * 0.05, bodyRx: 0.06 });
+      break;
+    case 'read': Object.assign(P, { lArmRx: -0.85, rArmRx: -0.85, lLow: 0.95, rLow: 0.95, lArmRz: 0.22, rArmRz: -0.22, headRx: 0.36, bodyRx: 0.12 }); break;
+    case 'play': Object.assign(P, { lArmRx: -1.0, rArmRx: -1.0, lLow: 0.55 + Math.sin(t * 16 + ph) * 0.15, rLow: 0.55 + Math.sin(t * 11 + ph) * 0.18, headRx: 0.06, headRy: Math.sin(t * 2) * 0.05 }); break;
+    case 'foosball': Object.assign(P, { lArmRx: -1.1, rArmRx: -1.1, lLow: 0.35, rLow: 0.35, lArmRz: Math.sin(t * 9) * 0.2, rArmRz: Math.sin(t * 9 + 2) * 0.2, bodyRx: 0.22, headRx: 0.3 }); break;
+    case 'pingpong': Object.assign(P, { rArmRx: -0.6 - Math.sin(t * 3 + ph) * 0.6, rArmRz: -0.4 - Math.sin(t * 3 + ph) * 0.3, rLow: 0.8, lArmRx: -0.3, headRy: Math.sin(t * 3 + ph) * 0.3, y: Math.abs(Math.sin(t * 6)) * 0.02 }); break;
+    case 'coffee': { const sp = Math.max(0, Math.sin(t * 0.9 + ph)); Object.assign(P, { rArmRx: -0.5 - sp * 1.2, rLow: 0.9 + sp * 0.9, rArmRz: 0.1, headRx: -0.12 * sp }); break; }
+    case 'talk': Object.assign(P, { rArmRx: -0.5 + Math.sin(t * 2 + ph) * 0.3, rLow: 0.7, lArmRx: -0.2, headRy: Math.sin(t * 0.6 + ph) * 0.2 }); break;
+  }
+}
 function cameraFacing(a) { return Math.atan2(camera.position.x - a.group.position.x, camera.position.z - a.group.position.z); }
 
 function onWindowResize() {
@@ -4728,6 +4838,7 @@ function animate(ts) {
   updateCamera();
 
   animateAgents(delta);
+  if (modularBridge) ambientModularPose(delta); // ambient in Cyberpunk: bone deltas on top of the mixer pose
   if (modularBridge) {
     Object.values(modularWorkstations).forEach(ws => { if (ws.userData && ws.userData.tick) ws.userData.tick(delta); });
   }
@@ -4869,7 +4980,11 @@ function renderView(view) {
     body.innerHTML = `
       ${sw('chatter', 'Decorative chatter', 'Random speech bubbles ("LGTM", "Coffee?") between nearby bots. Not from data, so off by default. Bubbles for real task changes always show.')}
       ${sw('wander', 'Random idle wandering', 'Idle bots stroll around their desk. Off by default so movement only reflects status.')}
-      ${sw('ambient', 'Ambient life (A)', 'Idle and waiting seats stretch, lean back, look around and sip from a mug, and now and then (one every 20–40 s, at most two at once) stroll to the coffee corner, lounge, Cyber Lounge or Fun Wing, or over to another idle seat for a short chat, then walk back. Decorative only: not from data, never in the Activity feed, never changes status or counts, and the ✨ Ambient badge shows while it runs. Any real event stops it for that seat at once. Offline, working, meeting and Needs Steve seats never take part. Needs Motion = full, so reduce-motion turns it off. On by default. Status now: <b>' + (AMB_ON ? 'running' : (SETTINGS.ambient ? 'paused (' + (motionMode() !== 'full' ? 'motion ' + motionMode() : 'modular avatars or ?ambient=0') + ')' : 'off')) + '</b>.')}
+      ${sw('ambient', 'Ambient life (A)', 'Idle and waiting seats stretch, lean back, look around and sip from a mug, and now and then (one every 20–40 s, at most two at once) stroll to the coffee corner, lounge, Cyber Lounge or Fun Wing, or over to another idle seat for a short chat, then walk back. Decorative only: not from data, never in the Activity feed, never changes status or counts, and the ✨ Ambient badge shows while it runs. Any real event stops it for that seat at once. Offline, working, meeting and Needs Steve seats never take part. Needs Motion = full, so reduce-motion turns it off. On by default. Status now: <b>' + (AMB_ON ? 'running' : (SETTINGS.ambient ? 'paused (' + (motionMode() !== 'full' ? 'motion ' + motionMode() : '?ambient=0') + ')' : 'off')) + '</b>.')}
+      <div class="set-row"><div>Office look: Cyberpunk (U)<div class="set-desc">On: Cyberpunk (dark floor, cyan lighting, neon workstations, modular avatars). Off: Classic (bright glass/concrete office). Cyberpunk is the default. Switching reloads the page and is remembered in this browser (per address: localhost and 127.0.0.1 remember separately). <code>?modular=1</code> / <code>?modular=0</code> in the URL still forces a look for that load. Ambient life runs in both looks. Now: <b>${esc(modularAvatarsEnabled() ? 'Cyberpunk' : 'Classic')}${uiStyle().source === 'url' ? ' (from the URL)' : ''}</b>.</div></div>
+        <label class="switch"><input type="checkbox" id="uiStyleSwitch" ${modularAvatarsEnabled() ? 'checked' : ''}><span></span></label></div>
+      <div class="set-row"><div>Office look<div class="set-desc">Classic and Cyberpunk are this page. 🧪 Babylon is the experimental Babylon.js renderer pilot (<code>/babylon-pilot.html</code>: renders the same scene contract, live roster and zones; loads Babylon.js from its CDN, so it needs internet); it opens as its own page with a link back here and does not change the look this page remembers.</div></div>
+        <div style="display:flex;gap:6px" id="uiLookPicker">${(window.TevaUiStyle ? TevaUiStyle.LOOKS : []).map(l => `<button class="mini-btn" data-ui-look="${l.id}" ${l.kind === 'office' && !!l.modular === modularAvatarsEnabled() ? 'aria-pressed="true" style="outline:1px solid #67e8f9"' : ''}>${esc(l.label)}${l.kind === 'page' ? ' ↗' : ''}</button>`).join('')}</div></div>
       <div class="set-row"><div>Motion<div class="set-desc">Auto follows your system's reduce-motion setting (now: ${esc(reduceQuery && reduceQuery.matches ? 'reduce' : 'no preference')}). Reduced: no walking (seats teleport), no hops or confetti, static badges, camera cuts. Off: static scene, badges only. In use: <b>${esc(motionMode())}</b>.</div></div>
         <select class="set-select" data-setting-select="motion">${['auto', 'full', 'reduced', 'off'].map(v => `<option value="${v}" ${(SETTINGS.motion || 'auto') === v ? 'selected' : ''}>${v[0].toUpperCase() + v.slice(1)}</option>`).join('')}</select></div>
       ${sw('sound', 'Chime on turn end / new Needs Steve item', 'Two-note chime, at most once per 10 s, never while the tab is hidden or paused. Off by default.')}
@@ -4877,7 +4992,7 @@ function renderView(view) {
       ${sw('announce', 'Announce activity to screen readers', 'Writes each feed line to an aria-live region. Off by default to avoid noise.')}
       ${sw('perfHud', 'Performance HUD (P)', 'Draw calls, fps, GPU geometries and textures, top left.')}
       <div class="set-row"><div>Camera<div class="set-desc">Drag to orbit · Shift-drag or right-drag to pan · scroll / pinch to zoom · +/− buttons · Esc resets view. Touch: one finger orbit, two-finger pinch zoom + drag pan.</div></div></div>
-      <div class="set-row"><div>Keys<div class="set-desc">1 wave · 2 👍 · 3 🎉 · 4 👀 (clears "your turn") · 5 poke · 6 ✋ (with a seat selected) · N next seat that needs you · F follow the selected seat · [ main floor · ] collab terrace · Esc stop / reset camera · P performance HUD · A ambient life on/off. 👍 🎉 👀 ✋ are saved to the seat's inbox; nothing is ever sent to a chat.</div></div></div>
+      <div class="set-row"><div>Keys<div class="set-desc">1 wave · 2 👍 · 3 🎉 · 4 👀 (clears "your turn") · 5 poke · 6 ✋ (with a seat selected) · N next seat that needs you · F follow the selected seat · [ main floor · ] collab terrace · Esc stop / reset camera · P performance HUD · A ambient life on/off · U Classic / Cyberpunk look (reloads; 🧪 Babylon pilot is in Settings → Office look). 👍 🎉 👀 ✋ are saved to the seat's inbox; nothing is ever sent to a chat.</div></div></div>
       <div class="set-row"><div>3D office<div class="set-desc">Floor plan in <code>public/office_layout.js</code> (${esc(ROOM_WIDTH)}×${esc(ROOM_DEPTH)} main + collab wing). Bright glass/concrete HQ look: light concrete floor, white walls, black metal, ACES tone mapping.</div></div></div>
       <div class="set-row"><div>Board sync<div class="set-desc">scripts/teva_sync.py rewrites agents.json every ${esc(b.syncIntervalSeconds || liveConfig.teva_sync_interval_seconds || 180)} s; the server re-reads it every ${esc(liveConfig.poll_interval_seconds || 5)} s and pushes over SSE. Last sync ${esc(fmtTime(b.syncedAt))}.</div></div></div>
       <div class="set-row"><div>Webhook overrides<div class="set-desc">POST /webhook/agents pushes are merged over agents.json for ${esc(liveConfig.webhook_ttl_seconds || 900)} s instead of being reverted by the next poll.</div></div></div>
@@ -4889,6 +5004,9 @@ function renderView(view) {
       <div class="set-row"><div>Office folder<div class="set-desc"><code>${esc(liveConfig.office_root || '')}</code> · server on ${esc(liveConfig.host || '127.0.0.1')}</div></div></div>
       <div class="set-row"><div>Test Cursor link<div class="set-desc">Opens TEVA_COMPANY_BACKLOG.md in Cursor. If Chrome asks "Open Cursor?", tick "Always allow" so doc links work in one click.</div></div>
         <div style="display:flex;gap:6px"><button class="act-btn" id="testCursor">Test</button><button class="mini-btn" data-copy-path="${esc(b.backlogPath)}">Copy path</button></div></div>`;
+    const uiSw = document.getElementById('uiStyleSwitch');
+    if (uiSw) uiSw.addEventListener('change', toggleUiStyle);
+    body.querySelectorAll('[data-ui-look]').forEach(btn => btn.addEventListener('click', () => chooseLook(btn.dataset.uiLook)));
     body.querySelectorAll('[data-setting]').forEach(inp => inp.addEventListener('change', () => {
       const key = inp.dataset.setting;
       SETTINGS[key] = inp.checked; saveSettings();
@@ -5000,13 +5118,25 @@ function handleEvents(evs, now) {
       const rm = seatObj('research-mgr');
       if (rm && THROTTLE.allow('research-mgr', now)) { startOverlay(rm, 'nod', {}, e.source, now); anims.push('Research Manager nods'); }
     }
+    zonesOnEvent(e, now, anims);
+    if (e.type === 'turnEnded' && e.detail.ok === true) completionMoment(e.seat, now);
     if (e.type === 'blocked') { const obj = seatObj(e.seat); if (obj) { obj.scratchUntil = now + 60000; obj.scratchCount = 1; obj.lastScratch = now; } }
     if (e.type === 'turnEnded' && e.detail.ok === false) { const obj = seatObj(e.seat); if (obj) { obj.scratchUntil = now + 60000; obj.scratchCount = 1; obj.lastScratch = now; } }
     if (e.type === 'turnEnded' || e.type === 'needsSteveAdded') chime();
     addFeed({ at: now, seat: e.seat, type: e.type, text: (EVENT_TEXT[e.type] || (() => e.type))(e), source: e.source, anim: anims.join(', ') });
   });
 }
-const OVERLAY_DUR = { celebrate: 1.2, party: 1.2, confetti: 1.2, headScratch: 1.5, docPop: 1.0, raiseHand: 3.0, stretch: 0.8, leanBack: 0.8,
+// Task-completed moment (2026-10-22): a successful turn end already plays 'celebrate' + the "✓ Turn done" chip;
+// in Cyberpunk the modular avatar now mirrors that pose (ambientModularPose) and its workstation glows green
+// for COMPLETE_MS before returning to its real status colour.
+const COMPLETE_MS = 4000;
+function completionMoment(id, now) {
+  const ws = modularWorkstations[id];
+  if (!ws || !ws.userData || !ws.userData.setStatus) return;
+  ws.userData.setStatus('COMPLETED'); ws.userData.completedUntil = now + COMPLETE_MS;
+  setTimeout(() => { const a = AGENTS.find(x => x.id === id); if (a && Date.now() >= (ws.userData.completedUntil || 0)) syncModularWorkstationStatus(a); }, COMPLETE_MS + 50);
+}
+const OVERLAY_DUR = { celebrate: 2.4, party: 1.2, confetti: 1.2, headScratch: 1.5, docPop: 1.0, raiseHand: 3.0, stretch: 0.8, leanBack: 0.8,
   envelope: 1.2, bubble: 1.0, wave: 1.2, nod: 1.0, glance: 0.8, startle: 0.6, handoff: 40 };
 function startOverlay(obj, name, data, source, now) {
   ambientCancel(obj); // real events always win over ambient motion
@@ -5016,7 +5146,7 @@ function startOverlay(obj, name, data, source, now) {
   VO.overlays.push({ seat: obj.agent.id, overlay: name, at: now || Date.now(), source });
   if (VO.overlays.length > 500) VO.overlays.shift();
   const head = _v.copy(obj.group.position); head.y += 2.0;
-  if (name === 'celebrate') spawnChip(obj, 'chip:done', '✓ Turn done', '#065f46', '#6ee7b7', 2.0);
+  if (name === 'celebrate') { spawnChip(obj, 'chip:done', '✓ Turn done', '#065f46', '#6ee7b7', 3.0); if (mm === 'full') confettiBurst(obj, 14); } // part 2: clearer moment
   if (name === 'confetti' || name === 'party') { if (mm === 'full') confettiBurst(obj); spawnChip(obj, 'chip:research', name === 'party' ? '🎉' : '🎉 Done', '#1e3a8a', '#bfdbfe', 2.0); }
   if (name === 'headScratch') spawnChip(obj, 'chip:fail', data.ok === false ? '✗ Turn failed' : '⚠ Blocked', '#78350f', '#fde68a', 2.0);
   if (name === 'docPop') spawnDocPaper(obj, data);
@@ -5068,9 +5198,9 @@ function refreshBases() {
     updateMonitor(obj, now);
     updateBadges(obj, now);
   });
+  zonesTick(now);
   updateBehavior();
   updateAttention(now);
-  syncModularIdleDestinations();
 }
 function meetingSlot(id) {
   const agent = AGENTS.find(a => a.id === id) || { id };
@@ -5084,15 +5214,90 @@ function meetingSlot(id) {
   const ang = (k % 6) / 6 * Math.PI * 2 + (k >= 6 ? Math.PI / 6 : 0), r = 3.0 + (k >= 6 ? 0.9 : 0);
   return { x: Math.cos(ang) * r, z: tz + Math.sin(ang) * r };
 }
+// Seat fix (2026-10-22, Steve: "some avatars sit in the same seat on top of each other while other spaces are
+// free"). Root cause: this used to return fw.idleSpots[hash(id) % 6], so 13 idle seats shared 6 Fun Wing pads
+// (le + pm + product on one, le2 + debugger + erp-research on another). Now every move reserves its place in one
+// TevaSpots registry (public/js/teva_spots.js): idle 'home', ambient 'away', zone chairs, hand-off / meeting
+// 'point'. A taken place -> the nearest free one; the hash pad is only a preference; leaving releases it.
+var SPOTS = null;
+function spotsInit() {
+  if (SPOTS || !window.TevaSpots || !LAYOUT) return SPOTS;
+  const blocked = [];
+  Object.values(TEVA_SEATS || {}).forEach(p => { if (p && Number.isFinite(p.x) && Number.isFinite(p.z)) blocked.push({ x: p.x, z: p.z }); });
+  if (window.TevaAssets && TevaAssets.resolveAgentPosition) AGENTS.forEach(a => { try { const p = TevaAssets.resolveAgentPosition(a); if (p && Number.isFinite(p.x)) blocked.push({ x: p.x, z: p.z }); } catch (e) {} });
+  const Z = window.TevaZones;
+  const spots = TevaSpots.catalog(LAYOUT, { boardroom: Z ? Z.boardroomSlots(LAYOUT) : [], research: Z ? Z.researchSlots(LAYOUT) : [], blocked });
+  SPOTS = new TevaSpots.Registry(spots, { blocked });
+  return SPOTS;
+}
+VO.spots = () => (SPOTS ? SPOTS.snapshot() : null);
 function idleSpotForAgent(agent) {
   const fw = LAYOUT.funWing;
-  if (!fw || !fw.idleSpots || !fw.idleSpots.length || !agent || agent.id === 'needs-steve') return null;
+  if (!agent || agent.id === 'needs-steve') return null;
+  if (spotsInit()) {
+    // keep the place it already has (no reshuffling when someone else leaves); new: its pad, else nearest free
+    const pref = SPOTS.of(agent.id, 'home') ? null : TevaSpots.preferredPad(SPOTS, agent.id);
+    const sp = SPOTS.claim(agent.id, 'home', { groups: ['idle'], prefer: pref ? pref.id : null, near: pref || null });
+    return sp ? { x: sp.x, z: sp.z, face: sp.face, sit: sp.sit, activity: sp.activity, spot: sp.id, label: sp.label } : null;
+  }
+  if (!fw || !fw.idleSpots || !fw.idleSpots.length) return null;
   let h = 0;
   const id = String(agent.id || '');
   for (let i = 0; i < id.length; i++) h = ((h << 5) - h + id.charCodeAt(i)) | 0;
   const spot = fw.idleSpots[Math.abs(h) % fw.idleSpots.length];
   return { x: fw.centerX + spot.x, z: fw.centerZ + spot.z };
 }
+// Ad-hoc standing points (hand-off at a desk, backlog meeting slot) go through the same registry ('point' slot),
+// nudged to the nearest clear spot if someone already stands there.
+function spotPoint(id, p) {
+  if (!spotsInit() || !p) return p;
+  const q = SPOTS.claimPoint(id, 'point', p);
+  return q ? { x: q.x, z: q.z } : p;
+}
+// Release what a seat no longer uses (called before targets are worked out): a seat that is working, blocked,
+// offline, in a meeting or waiting on Steve holds no idle / ambient place; a seat that left for a zone, a
+// hand-off or a meeting frees its idle place; 'point' is only kept while a hand-off or meeting is running.
+function spotsSync() {
+  if (!spotsInit()) return;
+  const live = {};
+  agents.forEach(obj => { live[obj.agent.id] = 1; });
+  Object.keys(SPOTS.held).forEach(h => { if (!live[h]) SPOTS.release(h); }); // seats that left the roster (demo seats)
+  agents.forEach(obj => {
+    const id = obj.agent.id, b = obj.base || 'IDLE', ov = obj.overlay;
+    const idle = (b === 'IDLE' || b === 'WAITING') && id !== 'needs-steve';
+    const zone = ZONES ? ZONES.target(id) : null;
+    const handoff = !!(ov && ov.name === 'handoff' && motionMode() === 'full' && (ov.phase === 'go' || ov.phase === 'give'));
+    if (!idle || zone || handoff) SPOTS.release(id, 'home');
+    if (!(handoff || b === 'MEETING')) SPOTS.release(id, 'point');
+    if (!idle || !(AMB_ON && AMB && AMB.active(id))) { if (SPOTS.of(id, 'away')) { if (AMB && AMB.active(id)) AMB.cancel(id, Date.now()); SPOTS.release(id, 'away'); } }
+  });
+}
+// ---- Walking routes around furniture (2026-10-22 part 2, Steve: "nobody walks straight through objects") ----
+// public/js/teva_nav.js: occupancy grid of the real floor plan + the desks this look draws, A* + string pulling,
+// solid walls except the real openings. Used by Classic walkers (animateAgents) and Cyberpunk moves alike.
+var WALKNAV = null, WALKNAV_LOOK = null; // (NAV is the camera pointer state)
+function navInit() {
+  if (!window.TevaNav || !LAYOUT) return null;
+  const look = modularAvatarsEnabled() ? 'cyber' : 'classic';
+  if (WALKNAV && WALKNAV_LOOK === look) return WALKNAV;
+  const desks = [];
+  if (look === 'cyber' && window.TevaAssets && TevaAssets.resolveWorkstationOrigin) {
+    AGENTS.forEach(a => { try { const ws = TevaAssets.resolveWorkstationOrigin(a), c = ws.config || {}, cmd = ws.style === 'command';
+      desks.push({ x: ws.x, z: ws.z, w: Number(c.deskW) || (ws.style === 'collab' ? 3.4 : cmd ? 4.4 : 2.85), d: Number(c.deskD) || (cmd ? 1.7 : 1.28), rot: ws.rotation, tag: 'desk ' + a.id }); } catch (e) {} });
+  } else {
+    Object.entries(TEVA_SEATS || {}).forEach(([id, p]) => { if (!['supervisor', 'pm', 'ba'].includes(id)) desks.push({ x: p.x, z: p.z - 0.9, w: 2.5, d: 1.15, rot: 0, tag: 'desk ' + id }); });
+  }
+  try { WALKNAV = new TevaNav.Nav(LAYOUT, { desks }); WALKNAV_LOOK = look; } catch (e) { WALKNAV = null; }
+  return WALKNAV;
+}
+// Waypoints from -> to (excluding from, ending at to); falls back to the door-only route.
+function navRoute(from, to) {
+  const n = navInit(), r = n ? n.path(from, to) : null;
+  if (r && r.length) return r;
+  return window.TevaAmbient && TevaAmbient.route ? TevaAmbient.route(LAYOUT, from, to) : [{ x: to.x, z: to.z }];
+}
+function navChain(from, pts) { const out = []; let p = from; (pts || []).forEach(q => { navRoute(p, q).forEach(w => out.push(w)); p = q; }); return out; }
+VO.nav = (a, b) => navRoute(a, b);
 function isFunStationIdle(agent, obj) {
   if (!agent || agent.id === 'needs-steve') return false;
   const base = (obj && obj.base) || (window.VOE && VOE.baseState
@@ -5100,41 +5305,86 @@ function isFunStationIdle(agent, obj) {
     : null);
   return base === 'IDLE' || base === 'WAITING';
 }
-function syncModularIdleDestinations() {
+// Cyberpunk: the modular avatars go where the legacy seat target says (2026-10-22). Before, they only ever
+// went desk <-> Fun Wing idle spot, so meetings, hand-offs and the boardroom never showed in Cyberpunk.
+// Desk targets use the modular chair (resolveAgentPosition, sits down); everything else is a standing spot.
+// Routes go through the real openings (TevaAmbient.route) and are timed by TevaMotion (natural pace).
+function syncModularDestinations() {
   if (!modularAvatarsEnabled() || !modularBridge || !modularBridge.manager || !modularBridge.manager.moveAgent) return;
   const mgr = modularBridge.manager;
   AGENTS.forEach(agent => {
     if (!agent || !agent.id || !mgr.entries[agent.id]) return;
     const obj = seatObj(agent.id);
-    let dest = null;
-    if (isFunStationIdle(agent, obj)) {
-      dest = idleSpotForAgent(agent);
-    } else {
-      dest = (window.TevaAssets && TevaAssets.resolveAgentPosition)
-        ? TevaAssets.resolveAgentPosition(agent)
-        : modularAgentPosition(agent);
+    if (obj && obj.ambModKey && AMB_ON) return; // an ambient leg owns this seat (ambientModularSync sends it home)
+    const t = obj ? seatTarget(agent, obj, true) : { kind: 'desk' };
+    let dest, opts = {};
+    if (t.kind === 'desk' || (t.kind === 'idle' && !t.spot)) dest = modularRestDest(agent, obj);
+    else {
+      // a reserved place: sit on sofas / stools / boardroom and lab chairs, stand at play stations and coffee
+      dest = { x: t.x, z: t.z }; opts.pose = t.sit ? 'sit' : 'stand';
+      if (Number.isFinite(t.face)) opts.faceYaw = t.face;
+      opts.activity = t.activity || null;
     }
     if (!dest || !Number.isFinite(Number(dest.x)) || !Number.isFinite(Number(dest.z))) return;
-    mgr.moveAgent(agent.id, { x: Number(dest.x), z: Number(dest.z) }, { duration: 2.5 });
+    dest = { x: Number(dest.x), z: Number(dest.z) };
+    const e = mgr.entries[agent.id];
+    if (e && e.position) {
+      const r = navRoute({ x: Number(e.position.x) || 0, z: Number(e.position.z) || 0 }, dest);
+      if (r.length > 1) opts.path = r.slice(0, -1);
+    }
+    opts.duration = 2.5; // ignored by the natural-pace path (TevaMotion); kept for the no-TevaMotion fallback
+    mgr.moveAgent(agent.id, dest, opts);
+    if (mgr.setInteraction) {
+      mgr.setInteraction(agent.id, { talking: !!t.talking });
+      if (e && !e.movement) mgr.setInteraction(agent.id, { activity: opts.activity || null, sit: opts.pose === 'sit' });
+    }
   });
 }
+function syncModularIdleDestinations() { syncModularDestinations(); } // old name, kept for callers
+// Where a seat should be. Returns {x, z, kind, face?}: kind 'desk' (home desk), 'handoff', 'zone' (boardroom
+// session / research lab, see public/js/teva_zones.js), 'meeting' (backlog MEETING: line), 'ambient', 'idle'.
 function seatTarget(agent, obj, noAmbient) {
   const home = getHomePosition(agent.home);
   const ov = obj && obj.overlay;
+  const zt = ZONES ? ZONES.target(agent.id) : null; // real-event zone use wins (a hand-off then happens there)
+  if (zt) return { x: zt.x, z: zt.z, face: zt.face, kind: 'zone', zone: zt.zone, label: zt.label, sit: zt.sit, activity: zt.activity, talking: zt.talking };
   if (ov && ov.name === 'handoff' && motionMode() === 'full' && (ov.phase === 'go' || ov.phase === 'give')) {
     const to = AGENTS.find(a => a.id === ov.data.to);
-    if (to) { const p = getHomePosition(to.home); return { x: p.x + 0.85, z: p.z + 0.25 }; }
+    if (to) { const p = getHomePosition(to.home), q = spotPoint(agent.id, { x: p.x + 0.85, z: p.z + 0.25 }); return { x: q.x, z: q.z, kind: 'handoff' }; }
   }
-  if (obj && obj.base === 'MEETING') return meetingSlot(agent.id);
+  if (obj && obj.base === 'MEETING') { const m = spotPoint(agent.id, meetingSlot(agent.id)); return { x: m.x, z: m.z, kind: 'meeting' }; }
   if (obj && (obj.base === 'IDLE' || obj.base === 'WAITING') && agent.id !== 'needs-steve') {
-    if (!noAmbient && AMB_ON && AMB) { const at = AMB.target(agent.id); if (at) return at; }
-    if (SETTINGS.wander && obj.wanderTarget) return obj.wanderTarget;
+    if (!noAmbient && AMB_ON && AMB) { const at = AMB.target(agent.id); if (at) { const ac = AMB.seats[agent.id] && AMB.seats[agent.id].act, there = !!(ac && ac.phase === 'pause'); return { x: at.x, z: at.z, kind: 'ambient', activity: there ? (ac.activity || (ac.kind === 'visit' ? 'talk' : null)) : null, sit: there && !!ac.sit }; } }
+    if (SETTINGS.wander && obj.wanderTarget) return { x: obj.wanderTarget.x, z: obj.wanderTarget.z, kind: 'idle' };
     const spot = idleSpotForAgent(agent);
-    if (spot) return spot;
+    if (spot) return { x: spot.x, z: spot.z, kind: 'idle', face: spot.face, sit: spot.sit, activity: spot.activity, spot: spot.spot };
   }
-  if (SETTINGS.wander && obj && obj.base === 'IDLE' && obj.wanderTarget) return obj.wanderTarget;
-  return home;
+  if (SETTINGS.wander && obj && obj.base === 'IDLE' && obj.wanderTarget) return { x: obj.wanderTarget.x, z: obj.wanderTarget.z, kind: 'idle' };
+  return { x: home.x, z: home.z, kind: 'desk' };
 }
+// ---------------------------------------------------------------- Zones (2026-10-22)
+// Real-event zone use (public/js/teva_zones.js, research in docs/TEVA_HQ_ZONES_RESEARCH.md): boardroom for
+// hand-off reviews, BA board rounds and SA reviews; the Research Lab for research seats while READING; desks
+// for active work; the Fun Wing stays idle / ambient only. Every move is annotated on the real event's feed line.
+var ZONES = null;
+function zonesInit() { if (!ZONES && window.TevaZones && LAYOUT) ZONES = new TevaZones.Zones({ layout: LAYOUT, spots: spotsInit() || undefined }); return ZONES; }
+function zoneBases() { const b = {}; agents.forEach(o => { b[o.agent.id] = o.base || 'IDLE'; }); return b; }
+function zonesOnEvent(e, now, anims) {
+  if (!zonesInit() || motionMode() === 'off') return;
+  const sess = TevaZones.sessionForEvent(e);
+  if (!sess) return;
+  const s = ZONES.open(sess, now, zoneBases());
+  if (!s) return;
+  s.seats.forEach(id => { const ob = seatObj(id); if (ob) ambientCancel(ob); });
+  anims.push('→ boardroom (' + s.label + ': ' + s.seats.map(agentName).join(' + ') + ')');
+  updateBehavior();
+}
+function zonesTick(now) {
+  if (!zonesInit()) return;
+  const changed = ZONES.tick(now, zoneBases());
+  if (changed.length) updateBehavior();
+}
+VO.zones = () => (ZONES ? ZONES.snapshot() : null);
 function wanderTick() {
   // Opt-in only (Settings, off by default, with its warning). Never on for OFFLINE/working seats.
   if (!SETTINGS.wander || paused || document.hidden) return;
@@ -5160,13 +5410,15 @@ function wanderTick() {
 //  - never writes to the Activity feed, never changes status, stats or counters (ambientMotion());
 //  - any real event / overlay / base-state change for a seat cancels its ambient action at once;
 //  - Needs Steve, offline, working, meeting and blocked seats never take part;
-//  - only runs with Motion = full (so prefers-reduced-motion turns it off) and the legacy renderer;
+//  - only runs with Motion = full (so prefers-reduced-motion turns it off); since 2026-10-22 it also runs in
+//    Cyberpunk: the scheduler still drives the (hidden) legacy seat objects and ambientModularSync() /
+//    ambientModularPose() mirror it onto the modular avatars (walks via moveAgent, fidgets as bone deltas);
 //  - the ✨ Ambient badge is visible while it runs. Settings key: SETTINGS.ambient (key A), ?ambient=0|1 overrides.
 var AMB = null, AMB_ON = false;
 const AMB_URL = (() => { try { return new URLSearchParams(location.search).get('ambient'); } catch (e) { return null; } })();
 const AMB_STATS = { walks: 0, chats: 0, fidgets: 0, cancels: 0 }; // diagnostics only (window.__vo.ambient), never shown as work
 function ambientWanted() { return AMB_URL === '1' ? true : AMB_URL === '0' ? false : !!SETTINGS.ambient; }
-function ambientOn() { return ambientWanted() && motionMode() === 'full' && !modularAvatarsEnabled() && !!window.TevaAmbient; }
+function ambientOn() { return ambientWanted() && motionMode() === 'full' && !!window.TevaAmbient; } // both looks (2026-10-22)
 function ambientMotion(obj) { return !!obj && (!!obj.ambHoming || !!(AMB && AMB.active(obj.agent.id))); }
 function ambientCancel(obj) {
   if (!obj) return false;
@@ -5174,12 +5426,14 @@ function ambientCancel(obj) {
   obj.ambFx = null;
   if (AMB && AMB.active(id)) { AMB.cancel(id, Date.now()); obj.ambHoming = TevaAmbient.eligible(id, obj.base); }
   if (had) AMB_STATS.cancels++;
+  if (had && obj.ambModKey) ambientModularSync(); // Cyberpunk: send the modular avatar back at once too
   return had;
 }
 function ambientStopAll() {
   agents.forEach(o => { if (AMB && AMB.active(o.agent.id)) o.ambHoming = true; o.ambFx = null; });
   if (AMB) AMB.reset();
   updateBehavior();
+  ambientModularSync();
 }
 function renderAmbientBadge() {
   const el = document.getElementById('ambientBadge');
@@ -5197,7 +5451,7 @@ function ambientTick() {
   const on = ambientOn();
   if (on !== AMB_ON) { AMB_ON = on; if (!on) ambientStopAll(); renderAmbientBadge(); renderTicker(); }
   if (!on || paused || document.hidden || !agents.length) return;
-  if (!AMB) AMB = new TevaAmbient.Scheduler({ layout: LAYOUT });
+  if (!AMB) AMB = new TevaAmbient.Scheduler({ layout: LAYOUT, spots: spotsInit() || undefined });
   const now = Date.now();
   while (AMB_LIST.length < agents.length) AMB_LIST.push({});
   AMB_LIST.length = agents.length;
@@ -5212,6 +5466,142 @@ function ambientTick() {
   out.started.forEach(w => { const o = seatObj(w.id); if (o) o.ambFx = null; AMB_STATS[w.kind === 'visit' ? 'chats' : 'walks']++; });
   out.cancelled.forEach(id => { const o = seatObj(id); if (o) { o.ambFx = null; o.ambHoming = true; } });
   if (out.changed) updateBehavior();
+  ambientModularSync();
+}
+// ---- Ambient in Cyberpunk (2026-10-22, Steve: "Make Cyberpunk the default and add ambient to it") ----
+// Why it used to be Classic-only: ambient moved and posed the legacy instanced avatars, which are hidden in
+// Cyberpunk, and the modular (GLB) avatars only ever got desk/idle-spot moves from syncModularIdleDestinations().
+// Now the same scheduler, honesty rules and cancels apply; this layer just mirrors them onto the modular avatars:
+//  - walks: one TevaAvatarManager.moveAgent per leg along the scheduler's own route (TevaAmbient.modularRoute);
+//    while a leg is running syncModularIdleDestinations() leaves that seat alone;
+//  - fidgets / chats: small additive bone deltas (TevaAmbient.modularPose) applied after the mixer each frame
+//    and fully removed when they end; ambient walkers face where they walk.
+// Nothing here touches the feed, statuses, counters or the agent data (diagnostics only: VO.ambient().modular).
+const AMB_MOD_SPEED = 1.3; // m/s, same pace as a legacy ambient stroll
+const AMB_MOD_STATS = { legs: 0, homes: 0, poses: 0 };
+function ambientModularOn() { return modularAvatarsEnabled() && !!modularBridge && !!modularBridge.manager && !!modularBridge.manager.moveAgent; }
+function modularRestDest(agent, obj) {
+  if (isFunStationIdle(agent, obj)) return idleSpotForAgent(agent);
+  return (window.TevaAssets && TevaAssets.resolveAgentPosition) ? TevaAssets.resolveAgentPosition(agent) : modularAgentPosition(agent);
+}
+function ambientModularSync() {
+  if (!ambientModularOn()) return;
+  const mgr = modularBridge.manager;
+  agents.forEach(obj => {
+    const id = obj.agent.id, entry = mgr.entries[id];
+    if (!entry) return;
+    const r = AMB_ON && AMB && TevaAmbient.modularRoute ? TevaAmbient.modularRoute(AMB, id) : null;
+    if (r) {
+      if (obj.ambModKey === r.key) return;
+      obj.ambModKey = r.key;
+      let d = 0, px = Number(entry.position.x) || 0, pz = Number(entry.position.z) || 0;
+      r.path.concat([r.dest]).forEach(p => { d += Math.hypot(p.x - px, p.z - pz); px = p.x; pz = p.z; });
+      const act = AMB.seats[id] && AMB.seats[id].act, out = /^out:/.test(r.key), home = SPOTS ? SPOTS.of(id, 'home') : null;
+      const full = navChain({ x: Number(entry.position.x) || 0, z: Number(entry.position.z) || 0 }, r.path.concat([r.dest]));
+      const o = { path: full.slice(0, -1), duration: Math.max(1.5, d / AMB_MOD_SPEED), speed: window.TevaMotion ? TevaMotion.STROLL_SPEED : undefined };
+      if (out) { o.pose = act && act.sit ? 'sit' : 'stand'; o.activity = act ? (act.activity || (act.kind === 'visit' ? 'talk' : null)) : null; if (act && act.look) o.faceYaw = Math.atan2(act.look.x - r.dest.x, act.look.z - r.dest.z); }
+      else if (home) { o.pose = home.sit ? 'sit' : 'stand'; o.activity = home.activity || null; if (Number.isFinite(home.face)) o.faceYaw = home.face; }
+      mgr.moveAgent(id, r.dest, o);
+      AMB_MOD_STATS.legs++;
+    } else if (obj.ambModKey) {
+      obj.ambModKey = null;
+      const agent = AGENTS.find(a => a.id === id) || obj.agent, dest = modularRestDest(agent, obj);
+      if (dest && Number.isFinite(Number(dest.x)) && Number.isFinite(Number(dest.z))) {
+        const d = Math.hypot(Number(dest.x) - (Number(entry.position.x) || 0), Number(dest.z) - (Number(entry.position.z) || 0));
+        mgr.moveAgent(id, { x: Number(dest.x), z: Number(dest.z) }, { duration: Math.max(2.5, d / AMB_MOD_SPEED), speed: window.TevaMotion ? TevaMotion.STROLL_SPEED : undefined });
+        AMB_MOD_STATS.homes++;
+      }
+    }
+  });
+}
+// Additive offsets that survive other code rewriting the transform: if the mixer / applyToScene wrote a fresh
+// value since our last frame we take that as the new base, otherwise we strip our own previous offset first.
+let _ambQ = null, _ambE = null;
+function ambBoneAdd(bone, st, key, x, y) {
+  const q = bone.quaternion;
+  let s = st[key];
+  if (!s) s = st[key] = { base: q.clone(), abs: q.clone(), on: false };
+  else if (!(s.on && q.equals(s.abs))) s.base.copy(q);
+  if (!x && !y) { if (s.on) { q.copy(s.base); s.on = false; } s.abs.copy(q); return; }
+  if (!_ambQ) { _ambQ = new THREE.Quaternion(); _ambE = new THREE.Euler(); }
+  _ambE.set(x, y, 0); _ambQ.setFromEuler(_ambE);
+  q.copy(s.base).multiply(_ambQ); s.abs.copy(q); s.on = true;
+}
+function ambBoneAddZ(bone, st, key, z) { // same as ambBoneAdd, rotation about the bone's local z
+  const q = bone.quaternion;
+  let s = st[key];
+  if (!s) s = st[key] = { base: q.clone(), abs: q.clone(), on: false };
+  else if (!(s.on && q.equals(s.abs))) s.base.copy(q);
+  if (!z) { if (s.on) { q.copy(s.base); s.on = false; } s.abs.copy(q); return; }
+  if (!_ambQ) { _ambQ = new THREE.Quaternion(); _ambE = new THREE.Euler(); }
+  _ambE.set(0, 0, z); _ambQ.setFromEuler(_ambE);
+  q.copy(s.base).multiply(_ambQ); s.abs.copy(q); s.on = true;
+}
+function ambScalarAdd(vec, axis, st, key, add) {
+  const cur = vec[axis];
+  let s = st[key];
+  if (!s) s = st[key] = { base: cur, abs: cur, on: false };
+  else if (!(s.on && cur === s.abs)) s.base = cur;
+  const v = s.base + add; vec[axis] = v; s.abs = v; s.on = add !== 0;
+}
+function ambWrap(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
+const AMB_POSE = {};
+function ambientModularPose(delta) { // ambient fidgets/chats + (2026-10-22) real one-shot overlays, Cyberpunk only
+  if (!ambientModularOn()) return;
+  const mgr = modularBridge.manager, k = 1 - Math.exp(-delta * 6), tNow = performance.now() / 1000;
+  agents.forEach(obj => {
+    const id = obj.agent.id, entry = mgr.entries[id], g = entry && entry.group;
+    if (!g) return;
+    const live = AMB_ON && AMB;
+    const rov = obj.overlay && obj.overlay.name !== 'handoff' && window.TevaMotion ? obj.overlay : null; // real one-shot overlay
+    if (!live && !entry._amb && !rov) return;
+    const st = entry._amb || (entry._amb = { face: 0, lx: NaN, lz: NaN, bones: null });
+    if (!st.bones) { st.bones = {}; g.traverse(n => { if (n.isBone && /^(spine_03|Head|upperarm_l|upperarm_r|lowerarm_r)$/.test(n.name)) st.bones[n.name] = n; }); }
+    const fx = live ? obj.ambFx : null, moving = !!entry.movement;
+    const celeb = !!(rov && /^(celebrate|party|confetti)$/.test(rov.name)), isFb = !!(g.userData && g.userData.fallback);
+    if (mgr.setInteraction) mgr.setInteraction(id, { celebrate: celeb && !moving, sip: fx && fx.name === 'sip' && !moving && fx.t > 0 ? Math.sin(Math.PI * Math.min(1, fx.t / fx.dur)) : 0 });
+    if (rov && !moving && celeb && isFb) TevaAmbient.modularPose('', 0, AMB_POSE); // capsules jump + wave in TevaAvatarManager
+    else if (rov && !moving) TevaMotion.overlayPose(rov.name, rov.t / rov.dur, AMB_POSE); // real events (turn done ✓, blocked, reactions)
+    else TevaAmbient.modularPose(fx && !moving ? fx.name : '', fx ? fx.t / fx.dur : 0, AMB_POSE);
+    if (live && !fx && !moving && AMB.talking(id)) { AMB_POSE.rArm = 0.35 + Math.sin(tNow * 1.7 + obj.index) * 0.2; AMB_POSE.rLow = 0.4 + Math.sin(tNow * 1.7 + obj.index + 0.5) * 0.2; }
+    // facing: ambient walkers look where they walk, a visitor faces the seat it chats with
+    let want = 0;
+    const px = Number(entry.position.x) || 0, pz = Number(entry.position.z) || 0;
+    const act = live && AMB.seats[id] && AMB.seats[id].act, rot = st.ry && st.ry.on && g.rotation.y === st.ry.abs ? st.ry.base : g.rotation.y;
+    if (act && act.kind !== 'host' && obj.ambModKey) {
+      // walkers already face their heading (TevaAvatarManager + TevaMotion); here only the chat / look facing
+      const f = !moving ? AMB.facing(id) : null;
+      let tgt = moving && !window.TevaMotion && Number.isFinite(st.lx) && Math.hypot(px - st.lx, pz - st.lz) > 1e-4 ? Math.atan2(px - st.lx, pz - st.lz) : null;
+      if (f && f.seat) { const pe = mgr.entries[f.seat]; if (pe) tgt = Math.atan2((Number(pe.position.x) || 0) - px, (Number(pe.position.z) || 0) - pz); }
+      else if (f) tgt = Math.atan2(f.x - px, f.z - pz);
+      if (tgt !== null && tgt !== undefined && Number.isFinite(tgt)) want = ambWrap(tgt - rot);
+    }
+    st.lx = px; st.lz = pz;
+    st.face += ambWrap(want - st.face) * k;
+    if (Math.abs(st.face) < 1e-3 && !want) st.face = 0;
+    const B = st.bones, P = AMB_POSE, parts = g.userData && g.userData.fallback && g.userData.parts;
+    let groupRx = 0, groupRy = st.face;
+    if (parts) {
+      // procedural fallback avatar (box/cylinder parts, no bones): arms pivot at their centre, so a raise
+      // also lifts the arm; head is a plain sphere, so lean / look-around turn the whole figure a little.
+      if (parts.leftArm) { ambScalarAdd(parts.leftArm.rotation, 'x', st, 'f_lax', -P.lArm); ambScalarAdd(parts.leftArm.position, 'y', st, 'f_lay', P.lArm * 0.14); }
+      if (parts.rightArm) { const r = P.rArm + P.rLow * 0.6; ambScalarAdd(parts.rightArm.rotation, 'x', st, 'f_rax', -r); ambScalarAdd(parts.rightArm.position, 'y', st, 'f_ray', r * 0.12); }
+      groupRx = P.bodyRx * 0.8; groupRy += P.headRy * 0.6;
+    } else {
+      // rigged GLB (office-worker): axes measured on the model; upper-arm raise is about local z (mirrored)
+      if (B.spine_03) ambBoneAdd(B.spine_03, st, 'b_sp', P.bodyRx, 0);
+      if (B.Head) ambBoneAdd(B.Head, st, 'b_hd', P.headRx, P.headRy);
+      if (B.upperarm_l) ambBoneAddZ(B.upperarm_l, st, 'b_ul', P.lArm * 0.75);
+      if (B.upperarm_r) ambBoneAddZ(B.upperarm_r, st, 'b_ur', -P.rArm * 0.75);
+      if (B.lowerarm_r) ambBoneAdd(B.lowerarm_r, st, 'b_lr', -P.rLow, 0);
+    }
+    ambScalarAdd(g.position, 'y', st, 'py', P.y);
+    ambScalarAdd(g.rotation, 'x', st, 'rx', groupRx);
+    ambScalarAdd(g.rotation, 'y', st, 'ry', groupRy);
+    const any = st.face || P.bodyRx || P.headRx || P.headRy || P.lArm || P.rArm || P.rLow || P.y;
+    if (any) AMB_MOD_STATS.poses++;
+    if (!live && !rov && !any) entry._amb = null; // everything restored; stop visiting this seat
+  });
 }
 function ambMix(P, k, v, e) { P[k] += (v - P[k]) * e; }
 function ambSeat(id) { for (let i = 0; i < agents.length; i++) if (agents[i].agent.id === id) return agents[i]; return null; }
@@ -5252,6 +5642,7 @@ function ambientPose(a, P, delta) {
   return face;
 }
 VO.ambient = () => ({ on: AMB_ON, wanted: ambientWanted(), walkers: AMB ? AMB.walkers() : 0, stats: Object.assign({}, AMB_STATS),
+  modular: { on: AMB_ON && ambientModularOn(), stats: Object.assign({}, AMB_MOD_STATS), legs: agents.filter(o => o.ambModKey).map(o => o.agent.id) },
   seats: AMB ? Object.keys(AMB.seats).filter(k => AMB.seats[k].act).map(k => ({ id: k, kind: AMB.seats[k].act.kind, phase: AMB.seats[k].act.phase, label: AMB.seats[k].act.label || '' })) : [] });
 function snapToTargets() {
   agents.forEach(obj => {
@@ -5428,8 +5819,8 @@ function partVisible(obj, p, now) {
   if (p.kind === 'ring') return obj.base !== 'OFFLINE';
   if (p.kind === 'flag') return !!(FLAGGED[obj.agent.id] && now - FLAGGED[obj.agent.id] < FLAG_MS);
   if (p.kind === 'helper') return obj.base === 'DELEGATING' && p.n < VOE.helperCount(obj.agent);
-  if (p.kind === 'folder') return !!(obj.overlay && obj.overlay.name === 'handoff' && obj.overlay.phase !== 'back');
-  if (p.kind === 'mug') return !!(obj.ambFx && obj.ambFx.name === 'sip' && obj.ambFx.t > 0);
+  if (p.kind === 'folder') return !!(obj.overlay && obj.overlay.name === 'handoff' && obj.overlay.phase !== 'back') || obj._activity === 'read'; // part 2: the folder is the reading tablet too
+  if (p.kind === 'mug') return !!(obj.ambFx && obj.ambFx.name === 'sip' && obj.ambFx.t > 0) || obj._activity === 'coffee';
   return true;
 }
 function addPart(obj, poolName, o3d, kind, extra) {
@@ -5673,10 +6064,13 @@ function fxSpawn(x, y, z, vx, vy, vz, life, color, g, sx, sy) {
   FX.mesh.setColorAt(FX.items.indexOf(it), _c.set(color)); FX.mesh.instanceColor.needsUpdate = true;
 }
 const CONFETTI = [0xf43f5e, 0xf59e0b, 0x10b981, 0x3b82f6, 0x8b5cf6, 0xfde047];
-function confettiBurst(obj) {
-  const p = obj.group.position;
-  for (let i = 0; i < 20; i++) {
-    const a = (i / 20) * Math.PI * 2;
+function confettiBurst(obj, count) {
+  // Cyberpunk: burst where the modular avatar actually is (the hidden legacy rig can be a step away)
+  const me = modularAvatarsEnabled() && modularBridge && modularBridge.manager && modularBridge.manager.entries[obj.agent.id];
+  const p = me && me.position && Number.isFinite(Number(me.position.x)) ? { x: Number(me.position.x), z: Number(me.position.z) } : obj.group.position;
+  const N = count || 20;
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
     fxSpawn(p.x, 2.0, p.z, Math.cos(a) * 1.4, 3.2 + (i % 4) * 0.4, Math.sin(a) * 1.4, 2.0, CONFETTI[i % CONFETTI.length], -6, 1.6, 0.35);
   }
 }

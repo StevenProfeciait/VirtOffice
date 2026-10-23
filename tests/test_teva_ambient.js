@@ -155,4 +155,68 @@ t('reset clears every action', () => {
   assert.strictEqual(s.walkers(), 0);
 });
 
+// ---- ambient in Cyberpunk (2026-10-22): modular avatar helpers + office.html wiring ----
+const fs = require('fs');
+t('modularRoute: null without an action, for hosts and for unknown seats', () => {
+  const s = new A.Scheduler({ layout: L, rand: lcg(3) });
+  assert.strictEqual(A.modularRoute(s, 'le'), null);
+  assert.strictEqual(A.modularRoute(null, 'le'), null);
+  s.seats.le = { act: { kind: 'host', phase: 'wait', partner: 'x' } };
+  assert.strictEqual(A.modularRoute(s, 'le'), null);
+});
+
+t('modularRoute follows the scheduler route; one stable key per leg (out + pause share it, back differs)', () => {
+  const s = new A.Scheduler({ layout: L, rand: lcg(11) });
+  const list = roster();
+  let seen = null;
+  for (let sec = 0; sec <= 120 && !seen; sec++) {
+    const out = s.tick(T0 + sec * 1000, list);
+    out.started.forEach(w => { if (!seen) seen = w.id; });
+  }
+  assert.ok(seen, 'a walk started within 2 minutes');
+  const r = A.modularRoute(s, seen), a = s.seats[seen].act;
+  assert.deepStrictEqual(r.dest, { x: a.path[a.path.length - 1].x, z: a.path[a.path.length - 1].z });
+  assert.strictEqual(r.path.length, a.path.length - 1);
+  assert.ok(/^out:/.test(r.key));
+  for (let i = 0; i < a.path.length; i++) s.arrived(seen, T0 + 200000);
+  assert.strictEqual(s.seats[seen].act.phase, 'pause');
+  assert.strictEqual(A.modularRoute(s, seen).key, r.key, 'pause keeps the out key (no second moveAgent)');
+  s.sendBack(seen, T0 + 300000);
+  const back = A.modularRoute(s, seen);
+  assert.ok(/^back:/.test(back.key) && back.key !== r.key);
+  assert.deepStrictEqual(back.dest, { x: s.seats[seen].act.rest.x, z: s.seats[seen].act.rest.z });
+  s.cancel(seen, T0 + 300001);
+  assert.strictEqual(A.modularRoute(s, seen), null, 'a cancel drops the modular leg too');
+});
+
+t('modularPose: every fidget moves something mid-way, is zero at the ends, reuses out, unknown names stay still', () => {
+  const out = {};
+  A.FIDGETS.forEach(name => {
+    const mid = A.modularPose(name, 0.5, out);
+    assert.strictEqual(mid, out);
+    assert.ok(A.POSE_KEYS.some(k => Math.abs(mid[k]) > 0.01), name);
+    A.POSE_KEYS.forEach(k => assert.ok(Math.abs(mid[k]) <= 2.3, name + ' ' + k + ' bounded'));
+    [0, 1, -0.2, 1.4, NaN].forEach(u => { const z = A.modularPose(name, u); A.POSE_KEYS.forEach(k => assert.strictEqual(z[k], 0, name + ' u=' + u + ' ' + k)); });
+  });
+  const z = A.modularPose('wave', 0.5); A.POSE_KEYS.forEach(k => assert.strictEqual(z[k], 0));
+  assert.ok(A.modularPose('stretch', 0.5).lArm > 1.5 && A.modularPose('sip', 0.5).rLow > 1);
+});
+
+t('office.html: ambient no longer pauses in Cyberpunk and is mirrored onto the modular avatars', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'office.html'), 'utf8');
+  const on = html.match(/function ambientOn\(\) \{[^\n]*\}/)[0];
+  assert.ok(!/modularAvatarsEnabled/.test(on), 'ambientOn must not exclude Cyberpunk: ' + on);
+  assert.ok(/motionMode\(\) === 'full'/.test(on) && /ambientWanted\(\)/.test(on), 'still opt-out + reduce-motion aware');
+  assert.ok(html.includes('function ambientModularSync()') && html.includes('TevaAmbient.modularRoute(AMB, id)'));
+  assert.ok(html.includes('function ambientModularPose(delta)') && html.includes('TevaAmbient.modularPose('));
+  assert.ok(/if \(modularBridge\) ambientModularPose\(delta\);/.test(html), 'pose layer runs every frame in Cyberpunk');
+  assert.ok(/if \(obj && obj\.ambModKey && AMB_ON\) return;/.test(html), 'idle-destination sync leaves ambient legs alone');
+  assert.ok(/if \(had && obj\.ambModKey\) ambientModularSync\(\);/.test(html), 'real events cancel the modular leg at once');
+  assert.ok(!html.includes('Ambient life pauses in Cyberpunk'), 'Settings copy updated');
+  // honesty: the modular layer never writes to the feed or statuses
+  const block = html.slice(html.indexOf('// ---- Ambient in Cyberpunk'), html.indexOf('function ambMix('));
+  assert.ok(block.length > 500);
+  ['FEED.', 'pushFeed', 'addFeed', '.status =', 'agentStates['].forEach(bad => assert.ok(!block.includes(bad), 'modular ambient must not touch ' + bad));
+});
+
 console.log(`TESTS PASSED (${n})`);

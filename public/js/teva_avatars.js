@@ -192,14 +192,19 @@
       if (bones.upperarm_r) pose.upperarm_r = E(-0.95, 0, -armDelta);
       return pose;
     }
-    function walkingPose(legDelta) {
+    // Walk cycle (2026-10-22 part 2): contact -> passing -> contact -> passing. Arms swing opposite the legs,
+    // the passing leg bends at the knee, the chest counter-rotates a little against the hips.
+    function walkingPose(legDelta, passing) {
       var pose = {};
       addDelta(pose, 'thigh_l', E(legDelta, 0, 0));
       addDelta(pose, 'thigh_r', E(-legDelta, 0, 0));
-      addDelta(pose, 'calf_l', E(-legDelta * 0.45, 0, 0));
-      addDelta(pose, 'calf_r', E(legDelta * 0.45, 0, 0));
+      addDelta(pose, 'calf_l', E(passing === 'l' ? 0.75 : -legDelta * 0.45, 0, 0));
+      addDelta(pose, 'calf_r', E(passing === 'r' ? 0.75 : legDelta * 0.45, 0, 0));
       addDelta(pose, 'upperarm_l', E(-legDelta * 0.7, 0, 0));
       addDelta(pose, 'upperarm_r', E(legDelta * 0.7, 0, 0));
+      addDelta(pose, 'lowerarm_l', E(-0.25, 0, 0));
+      addDelta(pose, 'lowerarm_r', E(-0.25, 0, 0));
+      addDelta(pose, 'spine_02', E(0.05, legDelta * 0.12, 0));
       return pose;
     }
     function standingPose() { return {}; }
@@ -213,7 +218,7 @@
       makeClip('SittingDown', [0, 0.8], [standingPose(), seatedPose(0)]),
       makeClip('StandingUp', [0, 0.8], [seatedPose(0), standingPose()]),
       makeClip('Standing', [0, 2], [standingPose(), standingPose()]),
-      makeClip('Walking', [0, 0.5, 1], [walkingPose(-0.45), walkingPose(0.45), walkingPose(-0.45)])
+      makeClip('Walking', [0, 0.25, 0.5, 0.75, 1], [walkingPose(-0.45), walkingPose(0, 'l'), walkingPose(0.45), walkingPose(0, 'r'), walkingPose(-0.45)])
     ];
     generated.forEach(function (clip) {
       var key = clip.name.toLowerCase().replace(/[ _-]/g, '');

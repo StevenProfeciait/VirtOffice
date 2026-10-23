@@ -141,3 +141,220 @@ the Phase 3a honesty rule, so the office looks alive when no bot is working.
 - **Rollback:** restore `public/office.html`, `docs/TEVA_HQ_NOTES.md` and `tests/e2e_phase3a.py` from their
   `.bak-ambient-2026-10-21` copies, delete `public/js/teva_ambient.js`, `tests/test_teva_ambient.js` and
   `tests/test_teva_ambient_node.py`, then restart the office. Or just press A to turn it off.
+
+## UI style toggle (2026-10-22)
+
+Steve asked for a way to switch between the two office looks in the UI.
+
+- **Looks:** ⬜ **Classic** (bright glass/concrete office, still the default) and 🌆 **Cyberpunk** (the
+  "modular"/futuristic office: dark floor, cyan lighting, neon workstations from `js/teva_environment.js`,
+  modular avatars).
+- **Controls:** the badge in the top bar next to DEMO / ✨ Ambient shows the current look (`⬜ Classic` or
+  `🌆 Cyberpunk`); click it to switch. Same option in ⚙️ Settings ("Office look: Cyberpunk (U)" switch), and
+  the **U** key (ignored while typing in an input/textarea/select or with Cmd/Ctrl/Alt).
+- **How it switches:** the look is chosen while the scene is built, so switching sets or removes
+  `localStorage.teva_modular`, strips any `?modular=` from the URL (other params such as `?ambient=` are kept)
+  and reloads. The choice is per browser and per address (`localhost` and `127.0.0.1` remember separately).
+- **Precedence per load** (pure helper `public/js/teva_ui_style.js`, used by `modularAvatarsEnabled()`):
+  `?modular=1` forces Cyberpunk, `?modular=0` now really forces Classic (before only `1` was checked), then
+  `localStorage.teva_modular === '1'`, then the Classic default. Resolved once per page load.
+- **Note:** ambient life stays paused in Cyberpunk (it already skipped modular avatars, see Ambient mode).
+- **Tests:** `tests/test_teva_ui_style.js` + `tests/test_teva_ui_style_node.py` (11 checks).
+- **Rollback:** restore `public/office.html` and `docs/TEVA_HQ_NOTES.md` from their `.bak-uitoggle-2026-10-22`
+  copies and delete `public/js/teva_ui_style.js`, `tests/test_teva_ui_style.js` and
+  `tests/test_teva_ui_style_node.py`. No server restart needed (static files).
+
+## Cyberpunk default + ambient in Cyberpunk (2026-10-22)
+
+Steve: "Make Cyberpunk the default and add ambient to it".
+
+- **New default:** 🌆 Cyberpunk, unless `?modular=0` or `localStorage.teva_modular === '0'`. A stored `'1'`
+  (or `?modular=1`) also means Cyberpunk; any other stored value falls back to the Cyberpunk default.
+  Switching to Classic now **stores `'0'`** instead of removing the key, so a Classic choice survives the new
+  default. (Browsers that never touched the switch, or that had Classic only by default, now open in Cyberpunk.)
+  `DEFAULT_MODULAR = true` in `public/js/teva_ui_style.js`; the inline no-helper fallback in `office.html`
+  matches. The UI-style note above ("Classic, still the default" / "ambient stays paused") is superseded.
+- **Why ambient was Classic-only:** `ambientOn()` had `!modularAvatarsEnabled()`, and ambient only ever moved
+  and posed the legacy instanced avatars, which are hidden in Cyberpunk; the modular avatars only got desk /
+  idle-spot moves from `syncModularIdleDestinations()`.
+- **How it works now:** the same `TevaAmbient` scheduler, honesty rules, cancels and toggle (A / Settings /
+  `?ambient=`) run in both looks. In Cyberpunk, `ambientModularSync()` mirrors each ambient leg onto the modular
+  avatar with one `TevaAvatarManager.moveAgent` per leg along the scheduler's own route
+  (`TevaAmbient.modularRoute`), at stroll pace (1.3 m/s); while a leg runs, `syncModularIdleDestinations()` leaves
+  that seat alone, and a real event sends it back at once. `ambientModularPose()` adds small fidget / chat poses
+  (`TevaAmbient.modularPose`) every frame after the mixer — bone deltas on rigged GLB avatars, arm / body deltas on
+  the procedural fallback avatars — and removes them completely when they end; ambient walkers face where they
+  walk. It never writes to the feed, statuses or counters (the bottom bar still shows 0 WALKING during a stroll).
+  Diagnostics: `VO.ambient().modular`.
+- **Tests:** `tests/test_teva_ui_style.js` (11 checks, updated for the new default and the stored `'0'`) and
+  `tests/test_teva_ambient.js` (+4 checks: modularRoute, modularPose, office.html wiring and honesty).
+- **Rollback:** restore `public/office.html`, `public/js/teva_ui_style.js`, `public/js/teva_ambient.js`,
+  `tests/test_teva_ui_style.js`, `tests/test_teva_ambient.js` and `docs/TEVA_HQ_NOTES.md` from their
+  `.bak-cyberdefault-2026-10-22` copies (e.g. `for f in $(find . -name '*.bak-cyberdefault-2026-10-22'); do cp -p
+  "$f" "${f%.bak-cyberdefault-2026-10-22}"; done`), then hard-reload the page (Cmd+Shift+R). Static files only, so
+  no server restart is needed. Quicker partial rollbacks: `?modular=0` / press U for Classic; press A to turn
+  ambient off.
+
+## Phase 2: Babylon look, natural walking, real-event zones (2026-10-22)
+
+Research summary, sources and the full zone design are in `docs/TEVA_HQ_ZONES_RESEARCH.md`.
+
+**Babylon look.** The existing renderer `public/babylon-pilot.html` is wired in as a third look:
+Settings → "Office look" lists Classic / Cyberpunk / 🧪 Babylon (pilot) ↗ (`TevaUiStyle.LOOKS`, `chooseLook()`).
+Babylon opens as its own page and has a "← Back to TEVA HQ" link. It does not overwrite `teva_modular`.
+Babylon.js loads from a CDN, so it needs internet access. The pilot does not have the walking or zone changes below.
+
+**Walking.** `public/js/teva_motion.js` (`TevaMotion`, a pure module) is used by Cyberpunk avatars
+(`teva_avatar_manager.js` `_stepMotion`) and by the Classic legacy walkers in `office.html`.
+- Walk speed is 1.35 m/s, ambient strolls 1.0 m/s, capped at 1.6 m/s.
+- The speed profile is a trapezoid (ease in and out), so travel time now follows distance. The old fixed 2.5 s walk is gone.
+- The walk cycle and the clip timeScale are driven by distance (stride 1.25 m), so feet don't slide.
+- Avatars turn to face their target before a big heading change.
+- On arrival they sit at seats, or stand and face the target in zones.
+If `TevaMotion` is missing, the manager falls back to the old behaviour.
+
+**Zones.** `public/js/teva_zones.js` (`TevaZones`) turns real feed events into short zone sessions:
+- handoff → boardroom "Hand-off review" (sender + receiver)
+- BA board-round doc → boardroom
+- SA review/gate doc or task → boardroom
+- research seats READING → Research Lab
+- a real turn or task completion → a 4 s "✓ Turn done" chip at the desk
+
+A session ends 25 s after everyone has arrived, or as soon as a member starts real work. Working, blocked,
+offline, meeting and Needs Steve seats are never pulled into a zone. A zone move is only annotated on the
+real event's own feed line. Fun Wing / lounge use stays ambient-only and is never written to the feed.
+Debug: `VO.zones()` in the console.
+
+**Tests.** New: `tests/test_teva_motion.js` (13 checks), `tests/test_teva_zones.js` (8 checks), and their
+unittest wrappers `test_teva_motion_node.py` / `test_teva_zones_node.py`. `tests/test_teva_ui_style.js` gained
+a Babylon look check.
+
+**Rollback phase 2 only (keeps the Cyberpunk default + ambient from phase 1):**
+```
+cd ~/Documents/GitHub/VirtOffice
+for f in public/office.html public/js/teva_avatar_manager.js public/js/teva_ui_style.js \
+         public/babylon-pilot.html tests/test_teva_ui_style.js docs/TEVA_HQ_NOTES.md; do
+  cp -p "$f.bak-phase2-2026-10-22" "$f"; done
+rm public/js/teva_motion.js public/js/teva_zones.js tests/test_teva_motion.js tests/test_teva_zones.js \
+   tests/test_teva_motion_node.py tests/test_teva_zones_node.py docs/TEVA_HQ_ZONES_RESEARCH.md
+```
+Then restart the office and hard-reload (Cmd+Shift+R). To roll back both phases, run this first and then the phase 1 rollback above.
+
+## Seat fix: one reservation system for every place (2026-10-22)
+
+**Symptom (Steve):** some avatars sat on the same seat on top of each other (for example a green one and a red one
+mixed together) while other spaces stayed free.
+
+**Root cause:**
+- `idleSpotForAgent()` in `office.html` gave every IDLE seat the Fun Wing pad `idleSpots[hash(id) % 6]`, which is
+  used by both looks (Classic `seatTarget`, Cyberpunk `modularRestDest`). 14 seats share 6 pads, and the hash put
+  pm + le + product on one pad, le2 (green) + debugger (red) + erp-research on another, and sa (red) + ui-docs, ba + grok
+  and research-mgr + ai-research + competitor on others.
+- Nothing checked whether a place was already taken. The same was true of ambient trips (a random point near a destination),
+  ambient chat spots, hand-off and meeting standing points, and the Research Lab (`index % 3`).
+- Box check with every seat forced idle in Cyberpunk: 11 pairs of avatars stood within 0.6 m of each other (most at
+  0.00 m) before the fix, and none after.
+
+**Fix:**
+- `public/js/teva_spots.js` (`TevaSpots`, pure) is a single registry of every reservable place, built from the real
+  floor plan and the props that are actually drawn there:
+  - Fun Wing: sofa and beanbag pads, arcade stools and the 5 arcade cabinets, ping pong ends, foosball sides, vending
+    machines and snack bar stools.
+  - Main floor: coffee corner, lounge sofas, Cyber Lounge.
+  - Terrace: lounge, huddle and coffee cart.
+  - Boardroom chairs (15) and Research Lab chairs (3).
+- Each spot holds one avatar at a time. Ad-hoc points (hand-off, backlog meeting slot, ambient chat) keep 0.9 m from
+  every other held place and from desk chairs.
+- Every seat has named slots: `home` (idle place), `away` (ambient leg), `zone` (boardroom or lab chair) and `point`
+  (hand-off or meeting). If the target is taken, the seat gets the nearest free spot. Fun Wing pads come first, then
+  the play stations, then the rest. Idle seats keep their place, so nobody gets reshuffled.
+- Ambient trips spread out: they pick the least-used place within reach, then its nearest free spot.
+- Reservations are released when the avatar leaves:
+  - ambient: on walking back, cancel or reset;
+  - zones: when the session ends or the seat starts real work;
+  - `spotsSync()` (run before every target update): when a seat stops being idle, leaves for a zone, hand-off or
+    meeting, or drops out of the roster.
+- Working, blocked, error, offline, meeting and your-turn (waiting on Steve) seats never hold an idle, ambient or
+  zone place, and are never moved by it. `ERROR` was added to the zone never-move list.
+- Wiring:
+  - `office.html`: `spotsInit` / `SPOTS`, `idleSpotForAgent` (registry, with the old hash only as a no-registry
+    fallback), `spotPoint`, `spotsSync`, `VO.spots()`.
+  - `teva_ambient.js`: `opts.spots`.
+  - `teva_zones.js`: `opts.spots`. Its own registry is used when none is passed.
+- Tests: `tests/test_teva_spots.js` (10 checks, plus the `test_teva_spots_node.py` wrapper). The checks cover:
+  - the old hash collision;
+  - catalog spacing;
+  - one holder per spot, nearest free spot, and release;
+  - all 14 idle at once;
+  - stability;
+  - ad-hoc points;
+  - spread;
+  - zone chairs;
+  - a 3000-step stress run with 14 seats in which idle, ambient (6 walkers), hand-off sessions, the lab and random
+    state changes all happen at once, asserting after every step that no two avatars share a spot or stand within 0.9 m;
+  - the `office.html` wiring.
+- Debug: `VO.spots()` in the console (`conflicts` is always `[]`).
+
+## Part 2: walking and interactions (2026-10-22)
+
+**Walking:**
+- `public/js/teva_nav.js` (`TevaNav`, pure) routes avatars around furniture in both looks. It builds a 0.5 m grid from
+  the real floor plan:
+  - boardroom and round tables, dividers, the kitchen counter and fridge, lounge sofas;
+  - the Fun Wing arcade cabinets, ping pong, foosball, vending machines, snack cart and chill-pit sofa;
+  - the terrace sofa, huddle table, coffee cart and hot desks;
+  - the desks the active look draws (legacy desks in Classic, modular workstations in Cyberpunk).
+- Walls are solid except the real openings: the Fun Wing corridor and the 7 m terrace doorway, which has the coffee
+  cart in its middle. Routes use A* plus string pulling.
+  - Classic walkers now follow the waypoints instead of walking a straight line.
+  - Cyberpunk moves and ambient legs chain the same routes.
+  - Falls back to the old door route if no path is found.
+- Cyberpunk capsule avatars (`teva_avatar_manager.js` `proceduralPose`):
+  - Arms and legs now swing about the shoulder, hip and knee (they used to rotate about the middle of the limb).
+  - Arms swing opposite the legs, and the trailing knee bends.
+  - The body bobs, leans into the walk and shifts its weight side to side. All of this scales with the speed
+    profile, so starts and stops ease in and out.
+  - Turn-to-face and smoothing come from the existing `TevaMotion`.
+- Rigged walk clip (`teva_avatars.js`): 4-phase cycle (contact, passing, contact, passing) with knee bend, elbow bend
+  and chest counter-rotation.
+
+**Interactions:** each reserved spot carries an activity, and the avatar does it once it arrives.
+- Activities by place:
+  - sofa / beanbag → lounge (sit back);
+  - arcade → play (hands on the controls);
+  - ping pong (swing, side-step) and foosball (rods);
+  - coffee, snacks and coffee cart → coffee (sips, with a mug);
+  - stool → watch;
+  - terrace huddle and ambient chats → talk.
+- Boardroom: avatars sit on the real chairs, everyone faces the speaker (the seat whose real event opened the session,
+  e.g. the hand-off giver), and the speaker gestures.
+- Research Lab: avatars sit on the lab chairs and read from a tablet.
+- Desks: Cyberpunk has stand-up and sit-down transitions, typing hands that move, and the head down at the screen.
+- Props:
+  - Cyberpunk: a mug and a tablet are added to every avatar, shown only during sips, coffee spots and reading.
+  - Classic: reuses its instanced mug and folder parts.
+- Task done: the "✓ Turn done" chip stays 3 s, the avatar jumps twice with both fists up and waving, and a small
+  confetti burst fires (full motion only). In Cyberpunk the burst comes from where the modular avatar actually is.
+- Classic sits at sofas, stools and boardroom and lab chairs.
+- Everything is still driven by real events or the base state. Ambient stays labelled ambient and never touches the
+  feed, and every place goes through the seat reservations.
+- Tests:
+  - `tests/test_teva_nav.js` (6 checks): furniture and walls are solid, openings are open, desk → Fun Wing routes cross
+    no furniture and pass through the opening, the straight line through the boardroom table goes around instead, 60
+    random routes, wiring.
+  - `tests/test_teva_interactions.js` (8 checks): arms opposite legs, shoulder and hip pivots, bob, lean, sway,
+    speed-scaled stride, typing, reading, coffee, celebrate, speaker gestures, play, manager sit / face / activity on
+    arrival, rigged clip keys, office.html wiring.
+  - Wrappers: `test_teva_nav_node.py`, `test_teva_interactions_node.py`.
+
+**Rollback (seat fix + part 2 together):**
+```
+cd ~/Documents/GitHub/VirtOffice
+for f in public/office.html public/js/teva_ambient.js public/js/teva_zones.js public/js/teva_avatar_manager.js \
+         public/js/teva_avatars.js docs/TEVA_HQ_NOTES.md; do
+  cp -p "$f.bak-seatfix-2026-10-22" "$f"; done
+rm public/js/teva_spots.js public/js/teva_nav.js tests/test_teva_spots.js tests/test_teva_spots_node.py \
+   tests/test_teva_nav.js tests/test_teva_nav_node.py tests/test_teva_interactions.js tests/test_teva_interactions_node.py
+```
+Then restart the office and hard-reload (Cmd+Shift+R). This returns to the phase 2 state (zones, Babylon look, natural
+pace).

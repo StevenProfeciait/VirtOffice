@@ -86,6 +86,9 @@
     this.rand = this.o.rand || Math.random;
     this.layout = this.o.layout || null;
     this.dests = this.o.destinations || destinations(this.layout);
+    // Seat fix (2026-10-22): with a TevaSpots registry every ambient leg reserves a real spot (slot 'away') and
+    // releases it the moment the seat walks off; destinations are then the registry's ambient places, spread out.
+    this.spots = this.o.spots || null;
     this.seats = {};
     this.nextWalkAt = 0;
   }
@@ -131,6 +134,7 @@
     var s = this.seats[id], a = s && s.act;
     if (!a || a.kind === 'host') { if (s) s.act = null; return; }
     var here = a.phase === 'pause' ? a.dest : (a.path[Math.min(a.i, a.path.length - 1)] || a.rest);
+    if (this.spots) this.spots.release(id, 'away'); // leaving the spot frees it
     a.phase = 'back'; a.path = route(this.layout, here, a.rest); a.i = 0;
     if (a.partner) { var ps = this.seats[a.partner]; if (ps && ps.act && ps.act.kind === 'host') ps.act = null; a.partner = null; a.faceSeat = null; }
   };
@@ -141,6 +145,7 @@
     if (!s || !s.act) return false;
     var a = s.act;
     s.act = null;
+    if (this.spots) this.spots.release(id, 'away');
     if (a.partner) {
       var ps = this.seats[a.partner];
       if (ps && ps.act) {
@@ -150,7 +155,7 @@
     }
     return true;
   };
-  P.reset = function () { for (var id in this.seats) this.seats[id].act = null; this.nextWalkAt = 0; };
+  P.reset = function () { for (var id in this.seats) { this.seats[id].act = null; if (this.spots) this.spots.release(id, 'away'); } this.nextWalkAt = 0; };
 
   /** A walking seat reached its current waypoint. Returns 'next' | 'paused' | 'home' | null. */
   P.arrived = function (id, now) {
@@ -167,6 +172,7 @@
       return 'paused';
     }
     s.act = null;
+    if (this.spots) this.spots.release(id, 'away');
     s.nextFidget = Math.max(s.nextFidget, now + 2500);
     return 'home';
   };
@@ -192,7 +198,7 @@
       a = st.act;
       var lingering = a && (a.phase === 'pause' || (a.kind === 'host' && a.phase === 'chat'));
       if ((!a || lingering) && now >= st.nextFidget) {
-        var name = a && a.kind === 'trip' && /coffee|snacks/.test(a.label || '') ? 'sip' : self.pick(lingering ? ['lookAround', 'sip', 'leanBack'] : FIDGETS);
+        var name = a && a.kind === 'trip' && (a.activity === 'coffee' || /coffee|snack/.test(a.label || '')) ? 'sip' : self.pick(lingering ? ['lookAround', 'sip', 'leanBack'] : FIDGETS);
         out.fidgets.push({ id: s.id, name: name, dur: FIDGET_DUR[name] });
         st.nextFidget = now + self.span(self.o.fidgetMin, self.o.fidgetMax) * st.fidgetScale;
       }
@@ -206,16 +212,32 @@
         if (!finite(rest)) rest = from;
         var partners = free.filter(function (p) { return p.id !== who.id && dist(rest, { x: Number(p.restX), z: Number(p.restZ) }) <= self.o.maxTripDist; });
         var st = this.seats[who.id];
-        if (partners.length && this.rand() < this.o.chatChance) {
-          var pal = this.pick(partners), pr = { x: Number(pal.restX), z: Number(pal.restZ) };
+        var chat = partners.length && this.rand() < this.o.chatChance, pal = null, spot = null;
+        if (chat) {
+          pal = this.pick(partners);
+          var pr = { x: Number(pal.restX), z: Number(pal.restZ) };
           var dx = rest.x - pr.x, dz = rest.z - pr.z, d = Math.sqrt(dx * dx + dz * dz) || 1;
-          var spot = { x: pr.x + dx / d * 1.1, z: pr.z + dz / d * 1.1 };
+          spot = { x: pr.x + dx / d * 1.1, z: pr.z + dz / d * 1.1 };
+          if (this.spots) { spot = this.spots.claimPoint(who.id, 'away', spot, { rings: [0, 0.9] }); if (!spot) chat = false; else spot = { x: spot.x, z: spot.z }; }
+        }
+        if (chat) {
           st.act = { kind: 'visit', phase: 'out', rest: rest, dest: spot, path: route(this.layout, from, spot), i: 0, partner: pal.id, faceSeat: { seat: pal.id }, label: 'chat' };
           this.seats[pal.id].act = { kind: 'host', phase: 'wait', partner: who.id, faceSeat: { seat: who.id } };
           out.started.push({ id: who.id, kind: 'visit', to: pal.id, label: 'chat' });
         } else {
-          var near = this.dests.filter(function (d) { return dist(rest, d) <= self.o.maxTripDist && dist(rest, d) > 2.5; });
-          if (!near.length && this.dests.length) near = this.dests.slice().sort(function (a, b) { return dist(rest, a) - dist(rest, b); }).slice(0, 2);
+          if (this.spots) {
+            // spread: least-used ambient place within reach (not the one the seat rests in), then its nearest free spot
+            var R = this.spots, places = R.places('ambient').filter(function (pl) { var c = R.center(pl); return c && dist(rest, c) <= self.o.maxTripDist && dist(rest, c) > 2.5; });
+            var sp = places.length ? R.claim(who.id, 'away', { places: places, spread: true, near: rest, rand: this.rand }) : null;
+            if (sp) {
+              var lookAt = Number.isFinite(sp.face) ? { x: sp.x + Math.sin(sp.face), z: sp.z + Math.cos(sp.face) } : R.center(sp.place);
+              var dst = { x: sp.x, z: sp.z };
+              st.act = { kind: 'trip', phase: 'out', rest: rest, dest: dst, look: lookAt, path: route(this.layout, from, dst), i: 0, partner: null, label: sp.label, spot: sp.id, activity: sp.activity, sit: sp.sit };
+              out.started.push({ id: who.id, kind: 'trip', to: sp.place, label: sp.label, spot: sp.id });
+            }
+          }
+          var near = this.spots ? [] : this.dests.filter(function (d) { return dist(rest, d) <= self.o.maxTripDist && dist(rest, d) > 2.5; });
+          if (!this.spots && !near.length && this.dests.length) near = this.dests.slice().sort(function (a, b) { return dist(rest, a) - dist(rest, b); }).slice(0, 2);
           if (near.length) {
             var d0 = this.pick(near), ang = this.rand() * Math.PI * 2, r = this.rand() * d0.spread;
             var dest = { x: d0.x + Math.cos(ang) * r, z: d0.z + Math.sin(ang) * r };
@@ -229,5 +251,41 @@
     return out;
   };
 
-  return { Scheduler: Scheduler, eligible: eligible, destinations: destinations, route: route, region: region, hash01: hash01, FIDGETS: FIDGETS, FIDGET_DUR: FIDGET_DUR, DEFAULTS: DEFAULTS };
+  // ---- Cyberpunk / modular avatars (2026-10-22) ------------------------------------------------
+  // The scheduler stays the single source of truth (it keeps driving office.html's hidden legacy seat
+  // objects); these two pure helpers let office.html mirror it onto the modular (GLB) avatars.
+
+  /** Route the modular avatar should walk for a seat's current ambient leg, or null (stay put).
+   *  { key, dest:{x,z}, path:[{x,z}...] (waypoints before dest) }. key is stable for one leg ('out' and its
+   *  'pause' share it) so office.html calls TevaAvatarManager.moveAgent once per leg, not every tick. */
+  function modularRoute(sched, id) {
+    var s = sched && sched.seats && sched.seats[id], a = s && s.act;
+    if (!a || a.kind === 'host' || !a.path || !a.path.length) return null;
+    var pts = [];
+    for (var i = 0; i < a.path.length; i++) { if (!finite(a.path[i])) return null; pts.push({ x: Number(a.path[i].x), z: Number(a.path[i].z) }); }
+    var dest = pts[pts.length - 1];
+    return { key: (a.phase === 'back' ? 'back:' : 'out:') + pts.map(function (p) { return p.x.toFixed(2) + ',' + p.z.toFixed(2); }).join(';'),
+      dest: dest, path: pts.slice(0, -1) };
+  }
+
+  /** Pose deltas (radians / metres) for a fidget at progress u (0..1), eased in and out, for the modular
+   *  avatar's bones: body lean, head nod/turn, upper-arm raise (both sides), right forearm bend, hip lift.
+   *  Zero outside 0 < u < 1 and for unknown names. Writes into `out` when given (no allocation). */
+  var POSE_KEYS = ['bodyRx', 'headRx', 'headRy', 'lArm', 'rArm', 'rLow', 'y'];
+  function modularPose(name, u, out) {
+    out = out || {};
+    for (var k = 0; k < POSE_KEYS.length; k++) out[POSE_KEYS[k]] = 0;
+    if (!(u > 0 && u < 1)) return out;
+    var e = Math.min(1, Math.sin(Math.PI * u) * 1.6);
+    switch (name) {
+      case 'stretch': out.lArm = 2.2 * e; out.rArm = 2.2 * e; out.bodyRx = -0.12 * e; out.headRx = -0.25 * e; out.y = 0.04 * e; break;
+      case 'leanBack': out.bodyRx = -0.22 * e; out.headRx = -0.18 * e; out.lArm = 0.35 * e; out.rArm = 0.35 * e; break;
+      case 'lookAround': out.headRy = Math.sin(u * Math.PI * 3) * 0.6 * e; out.headRx = -0.05 * e; break;
+      case 'sip': out.rArm = 0.5 * e; out.rLow = 1.3 * e; out.headRx = -0.15 * e; break;
+    }
+    return out;
+  }
+
+  return { Scheduler: Scheduler, eligible: eligible, destinations: destinations, route: route, region: region, hash01: hash01, FIDGETS: FIDGETS, FIDGET_DUR: FIDGET_DUR, DEFAULTS: DEFAULTS,
+    modularRoute: modularRoute, modularPose: modularPose, POSE_KEYS: POSE_KEYS };
 });
