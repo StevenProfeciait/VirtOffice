@@ -68,9 +68,22 @@ QUEUED → DELIVERING → DELIVERED → ACKNOWLEDGED → RESPONDED
 
   `{ chatId, endStatus, endedAt, source: "cursor", observedAt }`
 
-  Attached when a Cursor chat mapped to that seat ends (`endStatus` present) and the newest open
-  message matches `handoff.sessionId`, a registry session id, or an unbound handoff on that seat.
-  Emits timeline `outcome_observed`. **Does not** advance status to RESPONDED.
+  Attached when a Cursor chat mapped to that seat ends (`endStatus` present). **Does not** advance
+  status to RESPONDED. An observed turn end is evidence of Cursor activity, **not** proof the task
+  succeeded and **not** a Steve-recorded response.
+
+### Outcome correlation rule (frozen)
+
+Match order for seat `S` and ending `chatId` (never cross-seat):
+
+1. Exact `handoff.sessionId == chatId`
+2. Else unbound handoff (`sessionId` missing) with `chatId` in that seat’s registry sessions
+3. Else newest unbound open message on `S` (by `ts`)
+
+Filters: skip messages bound to a different session; prefer messages with no prior outcome (or same
+`chatId`); for unbound matches require handoff ready time ≤ `endedAt` when known. After a successful
+unbound attach, the server binds `handoff.sessionId = chatId` for later exact matches. Same
+`chatId`+`endedAt` is idempotent (no duplicate timeline spam).
 
 Roster: **14 ROSTER seats** in `teva_sync.ROSTER` + synthetic **`needs-steve`** (15 floor agents).
 Messages and inbox reject `needs-steve` as a recipient.
@@ -110,7 +123,20 @@ SSE: `{type:"message", message}` on status change and when `observed_outcome` is
 ### Attention / blockers
 
 - N-key order: Needs Steve → board-blocked (including when pose is OFFLINE) → FAILED open instructions → your-turn.
+- A seat already listed as blocked is not also listed as failed-instruction (no double-count).
 - `activity.boardBlocked` is true when the board marks the seat blocked, even if `presentationState` is OFFLINE.
+
+### Correlation / reliability acceptance
+
+| Case | Expect |
+|------|--------|
+| Turn end after handoff | `observed_outcome` on that message; status still DELIVERED/ACKNOWLEDGED |
+| Same turn end twice | One timeline `outcome_observed`; status unchanged |
+| Unrelated chat ends | Does not attach to a session-bound sibling handoff |
+| Two open handoffs | Exact session wins; else newest unbound that passes filters |
+| Record response after observe | RESPONDED; outcome retained; never EXECUTED |
+| OFFLINE + board blocked | Blocker chip + Attention still list the seat |
+| FAILED then Cancel | `messaging.failedOpen` clears on next agent refresh |
 
 ### How to add a runtime
 
@@ -185,7 +211,6 @@ SSE: `{type:"local_job", job}`. Timeline: `local_job_*` events.
 
 ## Next phases
 
-2. Unassigned Cursor chat mapping queue (evidence + one-click confirm)  
 3. Tasks + Needs Steve approval centre (generalize local jobs)  
 4. Multi-agent workflows  
 5. Visual polish / renderer choice (after ops are dependable)

@@ -44,6 +44,18 @@ t('mergeFailedAttention order: blocked then failed then your-turn', () => {
     'sa:failed-instruction',
     'le2:your-turn',
   ]);
+  // debugger already blocked — must not also appear as failed-instruction (no double-count)
+  assert.strictEqual(merged.filter((x) => x.seat === 'debugger').length, 1);
+});
+
+t('DELIVERED with observed_outcome still offers Record response', () => {
+  const flags = M.actionFlags({
+    status: 'DELIVERED',
+    observed_outcome: { chatId: 'c', endStatus: 'success', source: 'cursor' },
+  });
+  assert.ok(flags.respond, 'Observed ≠ Responded — Steve still records response');
+  assert.ok(!flags.retry);
+  assert.ok(M.HONESTY.indexOf('Observed') >= 0 && M.HONESTY.indexOf('Responded') >= 0);
 });
 
 t('failedSeatsFrom agents + SEAT_MESSAGES', () => {

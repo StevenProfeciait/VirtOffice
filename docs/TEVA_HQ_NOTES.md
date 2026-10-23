@@ -82,6 +82,24 @@ Every motion is caused by a field in `/api/agents` or by a click/key from Steve.
 - **Composer** — Queue instruction + lifecycle stepper; Save to inbox / Open in Cursor / Copy for Grok unchanged. Executed is never a message status.
 - Full detail: [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md).
 
+## Reload snap (2026-10-23)
+
+Hard-reload used to replay Fun Station walks: idle seats spawn at desks, then `moveAgent` animated them to Fun Wing pads. Same honesty as the silent first payload — **do not replay travel**.
+
+- `VO.snapPlacement` is set on first sync / roster change; Classic `snapToTargets()` and Cyberpunk `moveAgent(..., { instant: true })` teleport to rest targets; ambient waits until `VO.firstSyncAt`.
+- Later real state changes still walk at natural pace.
+
+## Mapping queue Phase 2 (2026-10-23)
+
+- `cursor_activity` adds `candidates` + `conflict` on every chat (display-only).
+- Team board Mapping queue: unassigned list, evidence, candidate chips, confirm via `/api/registry/map`. Helpers: `public/js/teva_mapping_ui.js`.
+
+## Command centre reliability (2026-10-23)
+
+Tightened Cursor → message outcome correlation: temporal gate for unbound handoffs, skip
+already-observed other chats, bind `sessionId` after first unbound attach, exact match preferred.
+Observed turn end ≠ task success ≠ RESPONDED. Acceptance table in [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md).
+
 ## Phase 1 ops: observed outcome + blocker cue (2026-10-23)
 
 Operational reliability before more visuals. Channels stay distinct (inbox / messages / local jobs).

@@ -562,23 +562,37 @@ def _observe_cursor_outcomes(prev, nxt):
                     reg_sessions = list((_registry_entry(aid).get("sessionIds") or []))
             except Exception:
                 reg_sessions = []
-            # Match: exact handoff.sessionId, else registry session, else unbound handoff on this seat.
-            open_msg = message_store.find_open_for_outcome(aid, chat_id, reg_sessions)
+            ended_at = nc.get("endedAt") or nc.get("lastActivity") or 0
+            # Match: exact sessionId, else registry, else newest unbound (temporal + eligibility filters).
+            open_msg = message_store.find_open_for_outcome(
+                aid, chat_id, reg_sessions, ended_at=ended_at,
+            )
             if not open_msg:
                 continue
             ok, updated = message_store.attach_observed_outcome(
                 open_msg["message_id"],
                 chat_id,
                 nc.get("endStatus"),
-                nc.get("endedAt") or nc.get("lastActivity") or 0,
+                ended_at,
             )
             if not ok or not updated:
                 continue
+            # Bind sessionId on unbound handoffs so later ends match exactly (status unchanged).
+            handoff = dict(updated.get("handoff") or {})
+            if not handoff.get("sessionId") and chat_id:
+                handoff["sessionId"] = chat_id
+                ok_bind, bound = message_store.update_fields(
+                    updated["message_id"], {"handoff": handoff},
+                )
+                if ok_bind and bound:
+                    updated = bound
             # Skip SSE/timeline spam when idempotent no-op (same chatId+endedAt already stored)
             prev_out = open_msg.get("observed_outcome") or {}
             new_out = updated.get("observed_outcome") or {}
             if prev_out.get("chatId") == new_out.get("chatId") and int(prev_out.get("endedAt") or 0) == int(new_out.get("endedAt") or 0):
-                if open_msg.get("updated_at") == updated.get("updated_at"):
+                if open_msg.get("updated_at") == updated.get("updated_at") and (
+                    (open_msg.get("handoff") or {}).get("sessionId") == (updated.get("handoff") or {}).get("sessionId")
+                ):
                     continue
             end = new_out.get("endStatus") or "status unknown"
             _emit_msg_event(

@@ -149,30 +149,93 @@ class MessageStoreTest(unittest.TestCase):
         )
         self.assertFalse(ok)
 
+    def _deliver(self, mid, handoff, delivered_at=None):
+        self.ms.transition(mid, "DELIVERING", {"handoff": handoff},
+                           messages_dir=self.msg_dir, index_path=self.index)
+        patch = {"handoff": handoff}
+        if delivered_at is not None:
+            patch["delivered_at"] = delivered_at
+        self.ms.transition(mid, "DELIVERED", patch,
+                           messages_dir=self.msg_dir, index_path=self.index)
+
     def test_find_open_for_outcome_match_rules(self):
         ok, a = self._create(content="bound other")
         mid_a = a["message_id"]
-        self.ms.transition(mid_a, "DELIVERING", {"handoff": {"url": "u", "sessionId": "sess-other"}},
-                           messages_dir=self.msg_dir, index_path=self.index)
-        self.ms.transition(mid_a, "DELIVERED", {"handoff": {"url": "u", "sessionId": "sess-other"}},
-                           messages_dir=self.msg_dir, index_path=self.index)
+        self._deliver(mid_a, {"url": "u", "sessionId": "sess-other"}, delivered_at=1_700_000_000_000)
         ok, b = self._create(content="unbound")
         mid_b = b["message_id"]
-        self.ms.transition(mid_b, "DELIVERING", {"handoff": {"url": "u2"}},
-                           messages_dir=self.msg_dir, index_path=self.index)
-        self.ms.transition(mid_b, "DELIVERED", {"handoff": {"url": "u2"}},
-                           messages_dir=self.msg_dir, index_path=self.index)
+        self._deliver(mid_b, {"url": "u2"}, delivered_at=1_700_000_100_000)
         # Exact match on other session only
         hit = self.ms.find_open_for_outcome("le2", "sess-other", messages_dir=self.msg_dir)
         self.assertEqual(hit["message_id"], mid_a)
         # Unbound newest for a new chat id (message bound to sess-other is skipped)
-        hit2 = self.ms.find_open_for_outcome("le2", "brand-new-chat", messages_dir=self.msg_dir)
+        hit2 = self.ms.find_open_for_outcome(
+            "le2", "brand-new-chat", messages_dir=self.msg_dir, ended_at=1_700_000_200_000,
+        )
         self.assertEqual(hit2["message_id"], mid_b)
-        # Registry match only applies to unbound (or exact) messages — sid mismatch skips mid_a
+        # Registry match only applies to unbound — sid mismatch skips mid_a
         hit3 = self.ms.find_open_for_outcome(
-            "le2", "chat-z", registry_session_ids=["chat-z"], messages_dir=self.msg_dir
+            "le2", "chat-z", registry_session_ids=["chat-z"], messages_dir=self.msg_dir,
+            ended_at=1_700_000_200_000,
         )
         self.assertEqual(hit3["message_id"], mid_b)
+
+    def test_unbound_rejects_turn_ended_before_handoff(self):
+        ok, msg = self._create()
+        mid = msg["message_id"]
+        self._deliver(mid, {"url": "u"}, delivered_at=1_700_000_500_000)
+        # Turn ended before this handoff was delivered → must not attach
+        hit = self.ms.find_open_for_outcome(
+            "le2", "old-chat", messages_dir=self.msg_dir, ended_at=1_700_000_100_000,
+        )
+        self.assertIsNone(hit)
+
+    def test_exact_session_wins_over_newer_unbound(self):
+        ok, a = self._create(content="older exact")
+        mid_a = a["message_id"]
+        self._deliver(mid_a, {"url": "u", "sessionId": "chat-exact"}, delivered_at=1_700_000_000_000)
+        time.sleep(0.01)
+        ok, b = self._create(content="newer unbound")
+        mid_b = b["message_id"]
+        self._deliver(mid_b, {"url": "u2"}, delivered_at=1_700_000_200_000)
+        hit = self.ms.find_open_for_outcome(
+            "le2", "chat-exact", messages_dir=self.msg_dir, ended_at=1_700_000_300_000,
+        )
+        self.assertEqual(hit["message_id"], mid_a)
+
+    def test_skips_message_already_observed_for_other_chat(self):
+        ok, a = self._create(content="first")
+        mid_a = a["message_id"]
+        self._deliver(mid_a, {"url": "u"}, delivered_at=1_700_000_100_000)
+        self.ms.attach_observed_outcome(
+            mid_a, "chat-a", "success", 1_700_000_150_000,
+            messages_dir=self.msg_dir, index_path=self.index,
+        )
+        ok, b = self._create(content="second")
+        mid_b = b["message_id"]
+        self._deliver(mid_b, {"url": "u2"}, delivered_at=1_700_000_200_000)
+        hit = self.ms.find_open_for_outcome(
+            "le2", "chat-b", messages_dir=self.msg_dir, ended_at=1_700_000_300_000,
+        )
+        self.assertEqual(hit["message_id"], mid_b)
+
+    def test_respond_after_observe_keeps_outcome(self):
+        ok, msg = self._create()
+        mid = msg["message_id"]
+        self._deliver(mid, {"url": "u"}, delivered_at=1_700_000_100_000)
+        ok, updated = self.ms.attach_observed_outcome(
+            mid, "chat-x", "success", 1_700_000_200_000,
+            messages_dir=self.msg_dir, index_path=self.index,
+        )
+        self.assertEqual(updated["status"], "DELIVERED")
+        ok, responded = self.ms.transition(
+            mid, "RESPONDED", {"response_text": "looks good"},
+            messages_dir=self.msg_dir, index_path=self.index,
+        )
+        self.assertTrue(ok)
+        self.assertEqual(responded["status"], "RESPONDED")
+        self.assertEqual(responded["observed_outcome"]["chatId"], "chat-x")
+        self.assertNotEqual(responded["status"], "EXECUTED")
 
     def test_seats_with_failed_open(self):
         ok, msg = self._create()

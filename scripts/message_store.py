@@ -350,21 +350,58 @@ def update_fields(message_id, patch, messages_dir=None, index_path=None):
         return True, updated
 
 
-def find_open_for_outcome(agent_id, chat_id, registry_session_ids=None, messages_dir=None):
+def _handoff_ready_ms(msg):
+    """When the handoff became DELIVERED (ms). Prefer delivered_at; fall back to message ts."""
+    from datetime import datetime, timezone
+    da = (msg or {}).get("delivered_at")
+    if isinstance(da, (int, float)) and da > 0:
+        return int(da)
+    if isinstance(da, str) and da.strip():
+        try:
+            dt = datetime.fromisoformat(da.strip().replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return int(dt.timestamp() * 1000)
+        except ValueError:
+            pass
+    return int((msg or {}).get("ts") or 0)
+
+
+def _eligible_for_outcome(msg, chat_id):
+    """Prefer messages with no outcome yet; allow same chatId to refresh endedAt."""
+    oo = (msg or {}).get("observed_outcome") or {}
+    if not oo:
+        return True
+    return oo.get("chatId") == chat_id
+
+
+def find_open_for_outcome(agent_id, chat_id, registry_session_ids=None, messages_dir=None,
+                          ended_at=None):
     """Newest DELIVERED/ACKNOWLEDGED message matching chat_id for this seat, or None.
 
-    Match order: handoff.sessionId == chat_id; else chat_id in registry sessions;
-    else unbound handoff (no sessionId) on this seat. Never invents cross-seat matches.
+    Deterministic match order (never cross-seat):
+      1. Exact handoff.sessionId == chat_id
+      2. Unbound handoff (no sessionId) with chat_id in registry sessions
+      3. Newest unbound handoff on this seat
+    Filters: skip other-session bindings; prefer no prior observed_outcome (or same chatId);
+    for unbound/registry-unbound only, require handoff ready time ≤ ended_at when ended_at known.
+    Tie-break: newest by message ts.
     """
     if not isinstance(agent_id, str) or not AGENT_RE.match(agent_id):
         return None
     if not chat_id:
         return None
+    try:
+        ended_ms = int(ended_at) if ended_at is not None else 0
+    except (TypeError, ValueError):
+        ended_ms = 0
     reg = set(registry_session_ids or [])
     rows = list_messages(agent_id=agent_id, limit=50, messages_dir=messages_dir)
     exact, via_reg, unbound = [], [], []
     for m in rows:
         if m.get("status") not in OPEN_FOR_OUTCOME:
+            continue
+        if not _eligible_for_outcome(m, chat_id):
             continue
         handoff = m.get("handoff") or {}
         sid = handoff.get("sessionId")
@@ -372,10 +409,14 @@ def find_open_for_outcome(agent_id, chat_id, registry_session_ids=None, messages
             exact.append(m)
         elif sid and sid != chat_id:
             continue  # bound to a different Cursor session — never invent a cross-chat match
-        elif chat_id in reg:
-            via_reg.append(m)
-        elif not sid:
-            unbound.append(m)  # new deeplink handoff with no session yet
+        else:
+            # Unbound: temporal gate when ended_at is known (turn must not end before handoff)
+            if ended_ms > 0 and _handoff_ready_ms(m) > ended_ms:
+                continue
+            if chat_id in reg:
+                via_reg.append(m)
+            else:
+                unbound.append(m)
 
     def newest(cands):
         if not cands:

@@ -307,17 +307,7 @@ class ServerSecurityTest(unittest.TestCase):
         self.assertEqual(s, 200, out)
         self.assertEqual(json.loads(out)["message"]["status"], "CANCELLED")
 
-    def test_messages_observed_outcome_on_cursor_turn_end(self):
-        """Queue → handoff DELIVERED → Cursor turn end attaches observed_outcome; status stays DELIVERED."""
-        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "le2", "content": "observe me"})
-        self.assertEqual(s, 200, out)
-        mid = json.loads(out)["message"]["message_id"]
-        s, out, _ = self.req("POST", f"/api/messages/{mid}/handoff-opened", {})
-        self.assertEqual(s, 200, out)
-        self.assertEqual(json.loads(out)["message"]["status"], "DELIVERED")
-
-        chat_id = "fixture-chat-observe-001"
-        ended_at = 1_700_000_111_000
+    def _observe_turn(self, chat_id, ended_at, end_status="success"):
         prev = [{
             "id": "le2",
             "cursor": {"count": 1, "latest": {
@@ -329,10 +319,25 @@ class ServerSecurityTest(unittest.TestCase):
             "id": "le2",
             "cursor": {"count": 1, "latest": {
                 "id": chat_id, "state": "ended", "toolKind": "write",
-                "lastActivity": ended_at, "endStatus": "success", "endedAt": ended_at,
+                "lastActivity": ended_at, "endStatus": end_status, "endedAt": ended_at,
             }},
         }]
         self.srv._observe_cursor_outcomes(prev, nxt)
+        return prev, nxt
+
+    def test_messages_observed_outcome_on_cursor_turn_end(self):
+        """Queue → handoff DELIVERED → Cursor turn end attaches observed_outcome; status stays DELIVERED."""
+        import time as _time
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "le2", "content": "observe me"})
+        self.assertEqual(s, 200, out)
+        mid = json.loads(out)["message"]["message_id"]
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/handoff-opened", {})
+        self.assertEqual(s, 200, out)
+        self.assertEqual(json.loads(out)["message"]["status"], "DELIVERED")
+
+        chat_id = "fixture-chat-observe-001"
+        ended_at = int(_time.time() * 1000) + 5_000  # after handoff delivered_at
+        prev, nxt = self._observe_turn(chat_id, ended_at)
 
         s, out, _ = self.req("GET", f"/api/messages/{mid}", token=False, origin=False)
         self.assertEqual(s, 200)
@@ -342,15 +347,43 @@ class ServerSecurityTest(unittest.TestCase):
         self.assertEqual(msg["observed_outcome"]["chatId"], chat_id)
         self.assertEqual(msg["observed_outcome"]["endStatus"], "success")
         self.assertEqual(msg["observed_outcome"]["source"], "cursor")
+        # Unbound handoff gets sessionId bound for later exact match
+        self.assertEqual((msg.get("handoff") or {}).get("sessionId"), chat_id)
 
         # Idempotent: second observe does not invent RESPONDED
+        before_events = len(json.loads(self.req("GET", "/api/agents/le2/timeline", token=False, origin=False)[1])["events"])
         self.srv._observe_cursor_outcomes(prev, nxt)
         s, out, _ = self.req("GET", f"/api/messages/{mid}", token=False, origin=False)
         self.assertEqual(json.loads(out)["message"]["status"], "DELIVERED")
+        after_events = json.loads(self.req("GET", "/api/agents/le2/timeline", token=False, origin=False)[1])["events"]
+        self.assertEqual(sum(1 for e in after_events if e.get("event_type") == "outcome_observed"), 1)
+        self.assertGreaterEqual(len(after_events), before_events)
 
         s, out, _ = self.req("GET", "/api/agents/le2/timeline", token=False, origin=False)
         types = {e.get("event_type") for e in json.loads(out)["events"]}
         self.assertIn("outcome_observed", types)
+
+        # Record response after observe — advances lifecycle; outcome retained
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/respond", {"text": "Steve confirms"})
+        self.assertEqual(s, 200, out)
+        done = json.loads(out)["message"]
+        self.assertEqual(done["status"], "RESPONDED")
+        self.assertEqual(done["observed_outcome"]["chatId"], chat_id)
+
+    def test_unrelated_chat_end_does_not_steal_session_bound_handoff(self):
+        import time as _time
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "le2", "content": "bound handoff"})
+        mid = json.loads(out)["message"]["message_id"]
+        self.req("POST", f"/api/messages/{mid}/handoff-opened", {})
+        # Bind to chat-A explicitly
+        self.srv.message_store.update_fields(mid, {
+            "handoff": {"url": "cursor://x", "sessionId": "chat-A", "openedAt": "t"},
+        })
+        ended_at = int(_time.time() * 1000) + 5_000
+        self._observe_turn("chat-B", ended_at)  # unrelated
+        msg = json.loads(self.req("GET", f"/api/messages/{mid}", token=False, origin=False)[1])["message"]
+        self.assertIsNone(msg.get("observed_outcome"))
+        self.assertEqual(msg["status"], "DELIVERED")
 
     def test_agents_annotate_failedOpen(self):
         # agents.json fixture only includes le2 (+ needs-steve); force a FAILED instruction on le2
@@ -367,6 +400,15 @@ class ServerSecurityTest(unittest.TestCase):
         rows = body["agents"] if isinstance(body, dict) else body
         agents = {a["id"]: a for a in rows}
         self.assertTrue(agents.get("le2", {}).get("messaging", {}).get("failedOpen"))
+        # Cancel clears failedOpen on next refresh
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/cancel", {})
+        self.assertEqual(s, 200, out)
+        self.srv.refresh_agents()
+        rows = json.loads(self.req("GET", "/api/agents", token=False, origin=False)[1])
+        if isinstance(rows, dict):
+            rows = rows["agents"]
+        agents = {a["id"]: a for a in rows}
+        self.assertFalse(agents.get("le2", {}).get("messaging", {}).get("failedOpen"))
 
     # ---- Local Ollama fallback
     def test_ollama_config_requires_token(self):
