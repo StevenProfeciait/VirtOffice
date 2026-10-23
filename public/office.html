@@ -731,7 +731,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
         <div class="notif-sub" id="meetingSub">Loading the board…</div>
       </div>
       <button class="standup-btn" id="standupBtn" title="Open the team board">Standup Board</button>
-      <button id="nextAttn" title="N: jump to the next seat that needs you (Needs Steve, then blocked, then your-turn)">N · Next</button>
+      <button id="nextAttn" title="N: jump to the next seat that needs you (Needs Steve, then blocked, then FAILED instructions, then your-turn)">N · Next</button>
     </div>
   </div>
   <div id="edgeArrows"></div>
@@ -876,6 +876,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="js/teva_nav.js"></script>
 <script src="js/teva_ambient.js"></script>
 <script src="js/teva_ui_style.js"></script>
+<script src="js/teva_messages_ui.js"></script>
 <script src="js/teva_zones.js"></script>
 <script>
 const AGENTS = (window.__HERMES_AGENTS__ && window.__HERMES_AGENTS__.length)
@@ -962,13 +963,14 @@ async function saveToInbox(agent) {
   }
 }
 
-const LC_STEPS = ['QUEUED', 'DELIVERING', 'DELIVERED', 'ACKNOWLEDGED', 'RESPONDED'];
+const LC_STEPS = (window.TevaMessagesUi && TevaMessagesUi.LC_STEPS) || ['QUEUED', 'DELIVERING', 'DELIVERED', 'ACKNOWLEDGED', 'RESPONDED'];
 let SEAT_MESSAGES = {};
 
 function lcOrder(status) {
-  if (status === 'FAILED' || status === 'CANCELLED' || status === 'EXPIRED') return -1;
-  const i = LC_STEPS.indexOf(status);
-  return i < 0 ? 0 : i;
+  return (window.TevaMessagesUi && TevaMessagesUi.lcOrder) ? TevaMessagesUi.lcOrder(status) : (
+    (status === 'FAILED' || status === 'CANCELLED' || status === 'EXPIRED') ? -1 :
+    Math.max(0, LC_STEPS.indexOf(status))
+  );
 }
 
 function renderLifecycle(msg) {
@@ -979,6 +981,11 @@ function renderLifecycle(msg) {
   const st = msg.status || '';
   const failed = st === 'FAILED' || st === 'CANCELLED' || st === 'EXPIRED';
   const idx = lcOrder(st);
+  const Mui = window.TevaMessagesUi;
+  const obs = msg.observed_outcome;
+  const obsLabel = Mui ? Mui.observedLabel(obs) : (obs && obs.endStatus ? ('Observed: ' + obs.endStatus) : 'Observed: —');
+  const obsCls = obs && obs.endStatus === 'success' ? 'reached' : (obs && obs.endStatus ? 'failed' : '');
+  const honesty = (Mui && Mui.HONESTY) || 'Observed ≠ Responded ≠ work applied. Executed is never a message status.';
   el.innerHTML = '<div class="detail-section-title" style="margin-top:10px">Instruction lifecycle</div>' +
     `<div class="lc-stepper">${LC_STEPS.map((s, i) => {
       let cls = 'lc-step';
@@ -986,23 +993,25 @@ function renderLifecycle(msg) {
       else if (!failed && i < idx) cls += ' reached';
       else if (!failed && i === idx) cls += ' current';
       return `<span class="${cls}">${s}</span>`;
-    }).join('')}${failed ? `<span class="lc-step failed">${esc(st)}</span>` : ''}</div>` +
+    }).join('')}${failed ? `<span class="lc-step failed">${esc(st)}</span>` : ''}` +
+    `<span class="lc-step ${obsCls}" title="Cursor turn end — provenance only; does not mean RESPONDED">${esc(obsLabel)}</span></div>` +
     `<div class="msg-hint">${esc(msg.message_id)} · adapter ${esc(msg.adapter || '?')} · attempts ${esc(msg.delivery_attempts || 0)}` +
     (msg.error_message ? ` · <span class="inbox-err">${esc(msg.error_message)}</span>` : '') +
     (msg.response_text ? ` · response: ${esc(String(msg.response_text).slice(0, 80))}` : '') +
-    '. Executed is never a message status.</div>';
+    `. ${esc(honesty)}</div>`;
+  const flags = Mui ? Mui.actionFlags(msg) : {
+    handoff: st === 'DELIVERING' && !!(msg.handoff && msg.handoff.url),
+    acknowledge: st === 'DELIVERED',
+    respond: st === 'DELIVERED' || st === 'ACKNOWLEDGED',
+    retry: st === 'FAILED',
+    cancel: ['QUEUED', 'DELIVERING', 'DELIVERED', 'FAILED', 'ACKNOWLEDGED'].includes(st)
+  };
   let btns = '';
-  if (st === 'DELIVERING' && msg.handoff && msg.handoff.url) {
-    btns += '<button class="act-btn" id="msgHandoff">Open handoff</button>';
-  }
-  if (st === 'DELIVERED' || st === 'ACKNOWLEDGED') {
-    if (st === 'DELIVERED') btns += '<button class="act-btn secondary" id="msgAck">Mark acknowledged</button>';
-    btns += '<button class="act-btn secondary" id="msgRespond">Record response</button>';
-  }
-  if (st === 'FAILED') btns += '<button class="act-btn secondary" id="msgRetry">Retry</button>';
-  if (['QUEUED', 'DELIVERING', 'DELIVERED', 'FAILED', 'ACKNOWLEDGED'].includes(st)) {
-    btns += '<button class="mini-btn" id="msgCancel">Cancel</button>';
-  }
+  if (flags.handoff) btns += '<button class="act-btn" id="msgHandoff">Open handoff</button>';
+  if (flags.acknowledge) btns += '<button class="act-btn secondary" id="msgAck">Mark acknowledged</button>';
+  if (flags.respond) btns += '<button class="act-btn secondary" id="msgRespond">Record response</button>';
+  if (flags.retry) btns += '<button class="act-btn secondary" id="msgRetry">Retry</button>';
+  if (flags.cancel) btns += '<button class="mini-btn" id="msgCancel">Cancel</button>';
   act.innerHTML = btns;
   const mid = msg.message_id;
   const handoffBtn = document.getElementById('msgHandoff');
@@ -1011,7 +1020,7 @@ function renderLifecycle(msg) {
   if (ackBtn) ackBtn.onclick = () => messageAction(mid, 'acknowledge');
   const respBtn = document.getElementById('msgRespond');
   if (respBtn) respBtn.onclick = () => {
-    const text = window.prompt('Record agent response (Steve-authored note — not auto-detected):');
+    const text = window.prompt('Record agent response (Steve-authored note — not auto-detected from Observed):');
     if (text == null || !String(text).trim()) return;
     messageAction(mid, 'respond', { text: String(text).trim() });
   };
@@ -1035,11 +1044,15 @@ function renderInstrList(agent, rows) {
     if (m.status === 'DELIVERING' && m.handoff && m.handoff.url) {
       acts += `<button class="mini-btn" data-msg-act="handoff" data-mid="${esc(m.message_id)}">Open handoff</button>`;
     }
+    const obsPill = m.observed_outcome && m.observed_outcome.endStatus
+      ? `<span class="pill ${m.observed_outcome.endStatus === 'success' ? 'DELIVERED' : 'FAILED'}" title="Cursor observed outcome — not RESPONDED">${esc((window.TevaMessagesUi && TevaMessagesUi.observedLabel(m.observed_outcome)) || m.observed_outcome.endStatus)}</span>`
+      : '';
     return `<div class="instr-row" data-mid="${esc(m.message_id)}">
-      <div class="instr-meta"><span class="pill ${esc(m.status)}">${esc(m.status)}</span>
+      <div class="instr-meta"><span class="pill ${esc(m.status)}">${esc(m.status)}</span>${obsPill}
         <span class="doc-time">${esc(m.message_id)}</span>
         <span class="doc-time">${esc(fmtTime(m.ts))}</span></div>
       <div>${esc(preview)}${preview.length >= 100 ? '…' : ''}</div>
+      ${m.error_message && m.status === 'FAILED' ? `<div class="inbox-err">${esc(m.error_message)}</div>` : ''}
       ${acts ? `<div class="instr-actions">${acts}</div>` : ''}
     </div>`;
   }).join('');
@@ -1156,6 +1169,13 @@ function onMessageUpdate(msg) {
     renderLifecycle(list[0] || msg);
     renderInstrList(selectedAgent, list);
   }
+  // Keep Attention hot when an instruction fails or is cleared without waiting for /api/agents
+  const ag = AGENTS.find(a => a.id === aid);
+  if (ag) {
+    ag.messaging = ag.messaging || {};
+    ag.messaging.failedOpen = list.some(m => m.status === 'FAILED');
+  }
+  updateAttention();
 }
 
 const JOB_STEPS = ['QUEUED', 'RUNNING', 'AWAITING_APPROVAL', 'APPLIED'];
@@ -4400,7 +4420,8 @@ function selectAgent(agentId, refreshOnly) {
       <span class="act-chip ${esc(conf)}">confidence ${esc(conf)}</span>
       <span class="act-chip">source ${esc(act.source || '—')}</span>
       <span class="act-chip" title="Last supporting evidence">last seen ${act.lastSeenAt ? esc(fmtAgo(act.lastSeenAt)) : '—'}</span>
-      ${agent.blocked ? '<span class="act-chip" style="color:#fbbf24">blocker</span>' : ''}
+      ${(agent.blocked || (act && act.boardBlocked)) ? '<span class="act-chip" style="color:#fbbf24" title="Board blocker (shown even if pose is OFFLINE)">blocker</span>' : ''}
+      ${(agent.messaging && agent.messaging.failedOpen) ? '<span class="act-chip" style="color:#fca5a5">instruction FAILED</span>' : ''}
       ${(liveBase === 'YOUR_TURN') ? '<span class="act-chip" style="color:#6ee7b7">pending decision</span>' : ''}
     </div>`;
   }
@@ -6250,7 +6271,11 @@ function updateBeacon(delta, now) {
 // ---------------------------------------------------------------- attention: N key, edge arrows, tab title
 let ATTN = [], attnIdx = -1;
 function updateAttention(now) {
-  ATTN = VOE.attention(AGENTS, now || Date.now(), SEEN);
+  let list = VOE.attention(AGENTS, now || Date.now(), SEEN);
+  if (window.TevaMessagesUi) {
+    list = TevaMessagesUi.mergeFailedAttention(list, TevaMessagesUi.failedSeatsFrom(AGENTS, SEAT_MESSAGES));
+  }
+  ATTN = list;
   const n = VOE.attentionCount(ATTN);
   const title = n ? `(${n}) TEVA HQ` : 'TEVA HQ';
   if (document.title !== title) document.title = title;
@@ -6263,7 +6288,9 @@ function nextAttention() {
   attnIdx = (attnIdx + 1) % ATTN.length;
   const s = ATTN[attnIdx];
   selectAgent(s.seat);
-  showToast(`${agentName(s.seat)}: ${s.why === 'needs-steve' ? 'waiting on you' : s.why === 'blocked' ? 'blocked' : 'your turn'} (${attnIdx + 1}/${ATTN.length})`);
+  const why = (window.TevaMessagesUi && TevaMessagesUi.whyToast) ? TevaMessagesUi.whyToast(s.why)
+    : (s.why === 'needs-steve' ? 'waiting on you' : s.why === 'blocked' ? 'blocked' : s.why === 'failed-instruction' ? 'instruction FAILED' : 'your turn');
+  showToast(`${agentName(s.seat)}: ${why} (${attnIdx + 1}/${ATTN.length})`);
 }
 let arrowsAt = 0;
 function updateEdgeArrows(ts) {

@@ -48,20 +48,25 @@ def aggregate(agent, now_ms, seen_at=None):
     elif agent.get("updatedAt"):
         last_seen = int(agent["updatedAt"])
 
-    # Connectivity
-    if agent.get("signal") is False and not has_chat:
-        return _act("OFFLINE", "high", "board", last_seen or now_ms, None, board_status)
+    board_blocked = bool(agent.get("blocked"))
 
-    if agent.get("blocked"):
-        return _act("BLOCKED", "high", "board", last_seen or now_ms, None, board_status)
+    # Connectivity — OFFLINE may hide BLOCKED pose; boardBlocked still surfaces the board flag.
+    if agent.get("signal") is False and not has_chat:
+        return _act("OFFLINE", "high", "board", last_seen or now_ms, None, board_status,
+                    board_blocked=board_blocked)
+
+    if board_blocked:
+        return _act("BLOCKED", "high", "board", last_seen or now_ms, None, board_status,
+                    board_blocked=True)
 
     ended_at = (c and c.get("endedAt")) or 0
     if c and c.get("state") == "ended" and _end_failed(c) and ended_at and now_ms - ended_at < FAILED_MS:
         return _act("ERROR", "high", "cursor", ended_at, "ERROR", board_status,
-                    presentation_alias="BLOCKED")
+                    presentation_alias="BLOCKED", board_blocked=board_blocked)
 
     if board_status == "meeting":
-        return _act("MEETING", "high", "board", last_seen or now_ms, None, board_status)
+        return _act("MEETING", "high", "board", last_seen or now_ms, None, board_status,
+                    board_blocked=board_blocked)
 
     # Observed live tools — only if transcript is truly active within ACTIVE_MS
     if c and c.get("state") == "active":
@@ -70,39 +75,46 @@ def aggregate(agent, now_ms, seen_at=None):
             k = KIND_STATE.get(c.get("toolKind"))
             if k and k != "DELEGATING":
                 observed = k
-                return _act(k, "high", "cursor", c.get("lastActivity"), observed, board_status)
+                return _act(k, "high", "cursor", c.get("lastActivity"), observed, board_status,
+                            board_blocked=board_blocked)
             if k == "DELEGATING" or (c.get("subagents") or 0) > 0:
                 observed = "DELEGATING"
-                return _act("DELEGATING", "high", "cursor", c.get("lastActivity"), observed, board_status)
+                return _act("DELEGATING", "high", "cursor", c.get("lastActivity"), observed, board_status,
+                            board_blocked=board_blocked)
             observed = "AT_DESK"
             return _act("AT_DESK", "medium", "cursor", c.get("lastActivity"), observed, board_status,
-                        board_working=board_status == "working")
+                        board_working=board_status == "working", board_blocked=board_blocked)
         # Claimed active but stale by wall clock — do not keep RUNNING/TYPING
         observed = "STALE_ACTIVE"
         if board_status == "working":
             return _act("AT_DESK", "low", "inferred", c.get("lastActivity"), observed, board_status,
-                        board_working=True)
+                        board_working=True, board_blocked=board_blocked)
         if c.get("lastActivity") and now_ms - c["lastActivity"] < THINK_MAX_MS:
-            return _act("THINKING", "low", "inferred", c.get("lastActivity"), observed, board_status)
-        return _act("IDLE", "low", "inferred", c.get("lastActivity"), observed, board_status)
+            return _act("THINKING", "low", "inferred", c.get("lastActivity"), observed, board_status,
+                        board_blocked=board_blocked)
+        return _act("IDLE", "low", "inferred", c.get("lastActivity"), observed, board_status,
+                    board_blocked=board_blocked)
 
     if c and c.get("state") == "ended" and _end_ok(c) and ended_at and now_ms - ended_at < YOUR_TURN_MS:
         if not (seen_at and seen_at >= ended_at):
-            return _act("YOUR_TURN", "high", "cursor", ended_at, "YOUR_TURN", board_status)
+            return _act("YOUR_TURN", "high", "cursor", ended_at, "YOUR_TURN", board_status,
+                        board_blocked=board_blocked)
 
     if board_status == "working":
         return _act("AT_DESK", "medium", "board", last_seen or now_ms, None, board_status,
-                    board_working=True)
+                    board_working=True, board_blocked=board_blocked)
 
     if c and c.get("state") == "stale" and c.get("lastActivity") and now_ms - c["lastActivity"] < THINK_MAX_MS:
-        return _act("THINKING", "medium", "cursor", c.get("lastActivity"), "THINKING", board_status)
+        return _act("THINKING", "medium", "cursor", c.get("lastActivity"), "THINKING", board_status,
+                    board_blocked=board_blocked)
 
     return _act("IDLE", "medium" if has_chat or agent.get("signal") else "low",
-                "board" if agent.get("signal") else "inferred", last_seen or now_ms, None, board_status)
+                "board" if agent.get("signal") else "inferred", last_seen or now_ms, None, board_status,
+                board_blocked=board_blocked)
 
 
 def _act(state, confidence, source, last_seen, observed, board_status,
-         board_working=False, presentation_alias=None):
+         board_working=False, presentation_alias=None, board_blocked=False):
     return {
         "state": state,
         "presentationState": presentation_alias or state,
@@ -112,6 +124,7 @@ def _act(state, confidence, source, last_seen, observed, board_status,
         "observedState": observed,
         "boardStatus": board_status,
         "boardWorking": bool(board_working or state == "AT_DESK"),
+        "boardBlocked": bool(board_blocked),
     }
 
 

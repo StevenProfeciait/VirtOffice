@@ -193,14 +193,16 @@
     this.last[seat] = now; return true;
   };
 
-  /** Seats that need Steve, in N-key order: Needs Steve desk -> blocked -> your-turn. */
+  /** Seats that need Steve, in N-key order: Needs Steve desk -> blocked (incl. OFFLINE+boardBlocked) -> your-turn.
+   *  FAILED open instructions are merged by TevaMessagesUi.mergeFailedAttention in office.html. */
   function attention(agents, now, seen) {
     seen = seen || {};
     var out = [], blocked = [], turn = [];
     (agents || []).forEach(function (a) {
       if (a.id === 'needs-steve') { if ((a.needsSteveItems || []).length) out.push({ seat: a.id, why: 'needs-steve', count: a.needsSteveItems.length }); return; }
       var b = baseState(a, now, seen[a.id]);
-      if (b === 'BLOCKED') blocked.push({ seat: a.id, why: 'blocked', count: 1 });
+      var boardBlocked = !!(a.blocked || (a.activity && a.activity.boardBlocked));
+      if (b === 'BLOCKED' || (boardBlocked && b === 'OFFLINE')) blocked.push({ seat: a.id, why: 'blocked', count: 1 });
       else if (b === 'YOUR_TURN') turn.push({ seat: a.id, why: 'your-turn', count: 1 });
     });
     return out.concat(blocked, turn);

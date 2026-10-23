@@ -20,7 +20,9 @@ http://localhost:9502/office.html. Server binds 127.0.0.1 only.
 ### Seat inbox
 - "Save to inbox" in a seat's message box POSTs `{seat, text}` to `/api/inbox`, which appends
   `{"time","ts","from":"Steve","seat","text"}` as one JSON line to `inbox/<seat>.jsonl` (gitignored, 0600).
-- Seat id must be one of the 14 ROSTER ids (regex + allowlist, so no path traversal).
+- Seat id must be one of the **14 ROSTER ids** (regex + allowlist, so no path traversal).
+  The floor also has a synthetic **`needs-steve`** desk (15 agents visible); inbox notes are
+  roster-only — Needs Steve is not an inbox recipient.
   Text ≤ 4096 bytes UTF-8; each seat file ≤ 1 MiB (413 when full).
 - Counts: `sent` = lines in the file; `unread` = sent − the number in `inbox/<seat>.read`. No seat writes
   `.read` in Phase 2, so everything is unread.
@@ -59,7 +61,7 @@ Every motion is caused by a field in `/api/agents` or by a click/key from Steve.
 - `cursor_activity.py` now reports `toolKind` (write/edit/read/search/fetch/shell/task/reply/other), `endStatus` and `endedAt`. The server rescans every 10 s (`CURSOR_SCAN_SECONDS`).
 
 ### 3D office layout (2026-10-17)
-- **`public/office_layout.js`** — single source for room size (52×36 main), **TEVA seat coordinates**, zone labels, furniture anchors, and camera presets. Keep seat ids aligned with `scripts/teva_sync.py` `ROSTER` (+ `needs-steve`).
+- **`public/office_layout.js`** — single source for room size (52×36 main), **TEVA seat coordinates**, zone labels, furniture anchors, and camera presets. Keep seat ids aligned with `scripts/teva_sync.py` **14 ROSTER seats + synthetic `needs-steve` (15 floor agents)**.
 - **Main floor** — zone edge strips (not filled color pads), glass/black-metal dividers, slim cool ceiling fixtures, light concrete floor, off-white walls with black skirting, front doorway into the wing.
 - **Collab terrace (wing)** — separate group south of the main floor; sidebar **🌿** or keys **`]`** / **`[`** (terrace / main) tween the camera. Agents stay on the main floor; unassigned Cursor chats label hot desks on the terrace (from `GET /api/cursor`, cosmetic only).
 - **Visual language** — bright modern glass/concrete HQ (not warm wood). ACES tone mapping, daylight sky dome, cool fog (`0xc8d0dc`). Procedural exterior: paved ground, entrance plaza/steps, distant box skyline. Minimal brand wall panels (“TEVA” / “HQ”) instead of emoji posters.
@@ -79,6 +81,19 @@ Every motion is caused by a field in `/api/agents` or by a click/key from Steve.
 - **APIs** — `POST/GET /api/messages`, actions: handoff-opened / acknowledge / respond / retry / cancel. Token + Origin locked. SSE `{type:"message"}`.
 - **Composer** — Queue instruction + lifecycle stepper; Save to inbox / Open in Cursor / Copy for Grok unchanged. Executed is never a message status.
 - Full detail: [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md).
+
+## Phase 1 ops: observed outcome + blocker cue (2026-10-23)
+
+Operational reliability before more visuals. Channels stay distinct (inbox / messages / local jobs).
+
+- **`observed_outcome`** on messages in `DELIVERED` or `ACKNOWLEDGED`: when a Cursor chat mapped to that
+  seat ends, the server attaches `{ chatId, endStatus, endedAt, source: "cursor" }` and emits timeline
+  `outcome_observed`. Status does **not** become RESPONDED (and never EXECUTED). Steve still records the response.
+- **Attention (N):** Needs Steve → board-blocked (including OFFLINE+blocked) → FAILED open instructions → your-turn.
+  Pose may stay OFFLINE when `signal` is false; the blocker chip and Attention still surface the board flag
+  via `activity.boardBlocked`.
+- **UI:** delivery stepper + separate Observed chip; honesty copy (Observed ≠ Responded ≠ work applied).
+- Helpers: `public/js/teva_messages_ui.js`. Acceptance checklist in [`docs/COMMAND_CENTRE.md`](COMMAND_CENTRE.md).
 
 ## Local Ollama fallback MVP (2026-10-21)
 - **Provider** (`scripts/ollama_provider.py`) — discovery/health/chat against localhost Ollama; config in `~/.teva_hq/ollama_config.json`.

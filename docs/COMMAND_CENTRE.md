@@ -36,26 +36,38 @@ Ambiguous Cursor chats stay unassigned. Mapping is always an explicit Steve acti
 - Store: `~/.teva_hq/events/<agent_id>.jsonl`
 - Provenance: `observed | agent_reported | server | user | inferred`
 - Inbox save: `message_saved` (≠ delivered)
-- Message lifecycle (Phase 2): `message_created`, `message_queued`, `delivery_started`, `delivery_confirmed`, `message_acknowledged`, `message_responded`, `delivery_failed`, `message_retry`, `message_cancelled`
+- Message lifecycle: `message_created`, `message_queued`, `delivery_started`, `delivery_confirmed`, `message_acknowledged`, `message_responded`, `delivery_failed`, `message_retry`, `message_cancelled`, `outcome_observed`
 - API: `GET /api/agents/<id>/timeline`
 
-## Messaging & delivery (Phase 2)
+## Messaging & delivery (Phase 2 + observed outcome)
 
-Two channels stay distinct:
+Three channels stay distinct:
 
 | Channel | API | Meaning |
 |---------|-----|---------|
-| Inbox notes / reactions | `POST /api/inbox` | Saved-only parking lot; unchanged Phase 1 behaviour |
-| Agent instructions | `/api/messages*` | Lifecycle states + delivery adapter |
+| Inbox notes / reactions | `POST /api/inbox` | Saved-only parking lot |
+| Agent instructions | `/api/messages*` | Delivery lifecycle + optional Cursor `observed_outcome` |
+| Local jobs | `/api/local-jobs*` | Ollama propose → Steve Approves (not a message status) |
 
-### Lifecycle
+### Lifecycle (frozen contract)
 
 ```
 QUEUED → DELIVERING → DELIVERED → ACKNOWLEDGED → RESPONDED
        ↘ FAILED ⇄ QUEUED (retry, max 3) → CANCELLED
 ```
 
-Create skips unused DRAFT and starts as `QUEUED`. Illegal transitions are rejected. Same status twice is idempotent (no duplicate timeline event from the action handlers).
+- Create skips unused DRAFT and starts as `QUEUED`. Illegal transitions are rejected. Same status twice is idempotent (no duplicate timeline event from the action handlers).
+- **No EXECUTED status.** Delivery ≠ acknowledgment ≠ Steve-recorded response ≠ Cursor turn end.
+- **`observed_outcome`** (optional, provenance only) on a message while status is `DELIVERED` or `ACKNOWLEDGED`:
+
+  `{ chatId, endStatus, endedAt, source: "cursor", observedAt }`
+
+  Attached when a Cursor chat mapped to that seat ends (`endStatus` present) and the newest open
+  message matches `handoff.sessionId`, a registry session id, or an unbound handoff on that seat.
+  Emits timeline `outcome_observed`. **Does not** advance status to RESPONDED.
+
+Roster: **14 ROSTER seats** in `teva_sync.ROSTER` + synthetic **`needs-steve`** (15 floor agents).
+Messages and inbox reject `needs-steve` as a recipient.
 
 ### Persistence
 
@@ -87,7 +99,12 @@ Capabilities returned to the client: `programmatic_send`, `deeplink_handoff`, `a
 | POST | `/api/messages/<id>/retry` | FAILED→QUEUED + resubmit if attempts &lt; 3 |
 | POST | `/api/messages/<id>/cancel` | Cancel from open states |
 
-SSE: `{type:"message", message}` on status change.
+SSE: `{type:"message", message}` on status change and when `observed_outcome` is attached.
+
+### Attention / blockers
+
+- N-key order: Needs Steve → board-blocked (including when pose is OFFLINE) → FAILED open instructions → your-turn.
+- `activity.boardBlocked` is true when the board marks the seat blocked, even if `presentationState` is OFFLINE.
 
 ### How to add a runtime
 
@@ -152,6 +169,7 @@ SSE: `{type:"local_job", job}`. Timeline: `local_job_*` events.
 
 - Inbox save ≠ delivered or acknowledged
 - Handoff DELIVERED ≠ agent executed the work
+- `observed_outcome` ≠ RESPONDED ≠ work applied
 - Local job APPLIED ≠ Cursor executed the same task
 - Idle runtime ≠ task completed
 - Animations ≠ productivity
@@ -161,20 +179,24 @@ SSE: `{type:"local_job", job}`. Timeline: `local_job_*` events.
 
 ## Next phases
 
+2. Unassigned Cursor chat mapping queue (evidence + one-click confirm)  
 3. Tasks + Needs Steve approval centre (generalize local jobs)  
 4. Multi-agent workflows  
-5. Analytics / health from real task+event records  
+5. Visual polish / renderer choice (after ops are dependable)
 
-## Verification (manual)
+## Verification (manual) — Phase 1 acceptance
 
 | Check | Expect |
 |-------|--------|
 | Save note | Saved only; `message_saved` on timeline |
-| Queue Cursor instruction | `message_id` + DELIVERING + handoff URL |
-| Unsupported runtime | FAILED + clear error |
+| Queue Cursor instruction (e.g. le2) | `message_id` + DELIVERING + handoff URL |
+| Unsupported runtime | FAILED + clear error; Retry / Cancel visible |
 | Open handoff | DELIVERED only after handoff-opened |
+| Cursor turn ends on mapped chat | Observed chip success/fail; status still DELIVERED/ACKNOWLEDGED; timeline `outcome_observed` |
+| Record response | RESPONDED; Observed ≠ Responded in UI copy |
+| Force delivery failure | FAILED in panel + Attention; Retry / Cancel work; no fake success |
+| Board blocked + offline signal | Pose may be OFFLINE; blocker chip + N Attention still list the seat |
 | Ollama health | Office chip up/down; models from discovery |
 | Run on Ollama (le2) | Job QUEUED→…→AWAITING_APPROVAL; no files written yet |
 | Approve / Reject | Files change only on Approve |
-| Ollama stopped | Health down; Run on Ollama fails clearly |
-| Restart server | Last job/message status preserved on disk |
+| Restart server | Last job/message status + observed_outcome preserved on disk |

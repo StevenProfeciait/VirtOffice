@@ -500,6 +500,19 @@ def refresh_agents():
             normalized = out
         except Exception as e:
             logger.warning("ollama attach failed: %s", e)
+    if message_store:
+        try:
+            failed = message_store.seats_with_failed_open()
+            annotated = []
+            for a in normalized:
+                a = dict(a)
+                aid = a.get("id")
+                if aid and aid != "needs-steve":
+                    a["messaging"] = {"failedOpen": aid in failed}
+                annotated.append(a)
+            normalized = annotated
+        except Exception as e:
+            logger.warning("messaging annotate failed: %s", e)
     payload = json.dumps({"agents": normalized})
 
     with state_lock:
@@ -511,7 +524,72 @@ def refresh_agents():
 
     if changed:
         _emit_agent_edge_events(prev, normalized)
+        _observe_cursor_outcomes(prev, normalized)
         _broadcast_sse(payload)
+
+
+def _cursor_turn_ended_edge(pc, nc):
+    """True when latest chat newly ended (mirrors vo_events turnEnded edges)."""
+    if not nc or nc.get("state") != "ended" or not nc.get("endStatus"):
+        return False
+    if not nc.get("id"):
+        return False
+    same = pc and pc.get("id") == nc.get("id")
+    was_running = same and pc.get("state") in ("active", "stale")
+    new_end = same and pc.get("state") == "ended" and (nc.get("endedAt") or 0) > (pc.get("endedAt") or 0)
+    fresh_chat = (not same) and bool(nc.get("endedAt"))
+    return bool(was_running or new_end or fresh_chat)
+
+
+def _observe_cursor_outcomes(prev, nxt):
+    """Attach observed_outcome on open messages when a mapped Cursor turn ends. Never auto-RESPONDED."""
+    if not message_store:
+        return
+    try:
+        P = {a["id"]: a for a in (prev or []) if a.get("id")}
+        for n in nxt or []:
+            aid = n.get("id")
+            if not aid or aid == "needs-steve" or aid not in SEAT_IDS:
+                continue
+            nc = ((n.get("cursor") or {}).get("latest") or {})
+            pc = ((P.get(aid) or {}).get("cursor") or {}).get("latest") or {}
+            if not _cursor_turn_ended_edge(pc, nc):
+                continue
+            chat_id = nc.get("id")
+            reg_sessions = []
+            try:
+                if agent_registry:
+                    reg_sessions = list((_registry_entry(aid).get("sessionIds") or []))
+            except Exception:
+                reg_sessions = []
+            # Match: exact handoff.sessionId, else registry session, else unbound handoff on this seat.
+            open_msg = message_store.find_open_for_outcome(aid, chat_id, reg_sessions)
+            if not open_msg:
+                continue
+            ok, updated = message_store.attach_observed_outcome(
+                open_msg["message_id"],
+                chat_id,
+                nc.get("endStatus"),
+                nc.get("endedAt") or nc.get("lastActivity") or 0,
+            )
+            if not ok or not updated:
+                continue
+            # Skip SSE/timeline spam when idempotent no-op (same chatId+endedAt already stored)
+            prev_out = open_msg.get("observed_outcome") or {}
+            new_out = updated.get("observed_outcome") or {}
+            if prev_out.get("chatId") == new_out.get("chatId") and int(prev_out.get("endedAt") or 0) == int(new_out.get("endedAt") or 0):
+                if open_msg.get("updated_at") == updated.get("updated_at"):
+                    continue
+            end = new_out.get("endStatus") or "status unknown"
+            _emit_msg_event(
+                aid, "outcome_observed",
+                f"Cursor turn ended ({end}) — not RESPONDED",
+                updated["message_id"],
+                {"chatId": chat_id, "endStatus": end, "endedAt": new_out.get("endedAt"), "source": "cursor"},
+            )
+            _broadcast_message_update(updated)
+    except Exception as e:
+        logger.warning("observe cursor outcomes failed: %s", e)
 
 
 def _emit_agent_edge_events(prev, nxt):
@@ -543,7 +621,6 @@ def _emit_agent_edge_events(prev, nxt):
                     nc.get("step") or (nc.get("toolKind") or "tool"),
                     source="cursor", provenance="observed",
                     metadata={"chatId": nc.get("id"), "toolKind": nc.get("toolKind")},
-                    correlation_id=nc.get("id"),
                 )
     except Exception as e:
         logger.warning("edge events failed: %s", e)
@@ -607,10 +684,21 @@ def _emit_msg_event(agent_id, event_type, summary, message_id, extra=None):
     if not event_store or not agent_id:
         return
     try:
+        if event_type == "outcome_observed":
+            source, provenance = "cursor", "observed"
+        elif event_type.startswith("message_") or "confirm" in event_type:
+            source, provenance = "user", (
+                "user" if ("acknowledged" in event_type or "responded" in event_type
+                           or "handoff" in event_type or event_type == "delivery_confirmed")
+                else "server"
+            )
+        else:
+            source, provenance = "server", "server"
+            if "acknowledged" in event_type or "responded" in event_type or "handoff" in event_type or event_type == "delivery_confirmed":
+                provenance = "user"
         event_store.append_event(
             agent_id, event_type, summary,
-            source="user" if event_type.startswith("message_") or "confirm" in event_type else "server",
-            provenance="user" if "acknowledged" in event_type or "responded" in event_type or "handoff" in event_type or event_type == "delivery_confirmed" else "server",
+            source=source, provenance=provenance,
             metadata=dict({"message_id": message_id}, **(extra or {})),
             correlation_id=message_id,
         )

@@ -2,7 +2,7 @@
 """TEVA HQ Phase 2: agent instruction messages with validated lifecycle (JSONL).
 
 Distinct from inbox notes/reactions (saved-only). Status never includes EXECUTED —
-execution is observed separately via state_aggregator / event_store.
+Cursor turn ends may attach observed_outcome (provenance only) without advancing status.
 """
 from __future__ import annotations
 
@@ -29,6 +29,9 @@ STATUSES = (
     "DRAFT", "QUEUED", "DELIVERING", "DELIVERED", "ACKNOWLEDGED", "RESPONDED",
     "FAILED", "CANCELLED", "EXPIRED",
 )
+
+# Statuses that may receive a Cursor observed_outcome (never auto-RESPONDED).
+OPEN_FOR_OUTCOME = frozenset({"DELIVERED", "ACKNOWLEDGED"})
 
 # from -> allowed to
 TRANSITIONS = {
@@ -176,6 +179,7 @@ def create_message(recipient_agent_id, content, runtime="none", adapter="unsuppo
         "adapter": adapter,
         "runtime": runtime,
         "handoff": None,
+        "observed_outcome": None,  # provenance only; never implies EXECUTED / RESPONDED
     }
     with _lock:
         _ensure_dirs(messages_dir, index_path)
@@ -312,3 +316,109 @@ def bump_attempt(message_id, messages_dir=None, index_path=None):
 
 def can_retry(msg):
     return msg and msg.get("status") == "FAILED" and int(msg.get("delivery_attempts") or 0) < MAX_RETRIES
+
+
+def update_fields(message_id, patch, messages_dir=None, index_path=None):
+    """Patch fields without changing status. Returns (ok, message_or_error)."""
+    if not isinstance(patch, dict) or not patch:
+        return False, {"ok": False, "error": "patch required"}
+    if not isinstance(message_id, str) or not MSG_RE.match(message_id):
+        return False, {"ok": False, "error": "unknown message"}
+    with _lock:
+        agent_id = _index_lookup(message_id, index_path)
+        msg = None
+        if agent_id:
+            for m in _read_lines(_agent_path(agent_id, messages_dir)):
+                if m.get("message_id") == message_id:
+                    msg = m
+                    break
+        if not msg:
+            return False, {"ok": False, "error": "unknown message"}
+        agent_id = msg.get("recipient_agent_id")
+        updated = deepcopy(msg)
+        updated["updated_at"] = _now_iso()
+        for k, v in patch.items():
+            if k in ("message_id", "schema", "sender_id", "recipient_agent_id", "created_at", "ts", "status"):
+                continue
+            updated[k] = v
+        rows = _read_lines(_agent_path(agent_id, messages_dir))
+        rows = [updated if r.get("message_id") == message_id else r for r in rows]
+        try:
+            _rewrite_agent_file(agent_id, rows, messages_dir)
+        except ValueError as e:
+            return False, {"ok": False, "error": str(e)}
+        return True, updated
+
+
+def find_open_for_outcome(agent_id, chat_id, registry_session_ids=None, messages_dir=None):
+    """Newest DELIVERED/ACKNOWLEDGED message matching chat_id for this seat, or None.
+
+    Match order: handoff.sessionId == chat_id; else chat_id in registry sessions;
+    else unbound handoff (no sessionId) on this seat. Never invents cross-seat matches.
+    """
+    if not isinstance(agent_id, str) or not AGENT_RE.match(agent_id):
+        return None
+    if not chat_id:
+        return None
+    reg = set(registry_session_ids or [])
+    rows = list_messages(agent_id=agent_id, limit=50, messages_dir=messages_dir)
+    exact, via_reg, unbound = [], [], []
+    for m in rows:
+        if m.get("status") not in OPEN_FOR_OUTCOME:
+            continue
+        handoff = m.get("handoff") or {}
+        sid = handoff.get("sessionId")
+        if sid and sid == chat_id:
+            exact.append(m)
+        elif sid and sid != chat_id:
+            continue  # bound to a different Cursor session — never invent a cross-chat match
+        elif chat_id in reg:
+            via_reg.append(m)
+        elif not sid:
+            unbound.append(m)  # new deeplink handoff with no session yet
+
+    def newest(cands):
+        if not cands:
+            return None
+        cands.sort(key=lambda m: -int(m.get("ts") or 0))
+        return cands[0]
+
+    return newest(exact) or newest(via_reg) or newest(unbound)
+
+
+def attach_observed_outcome(message_id, chat_id, end_status, ended_at,
+                            messages_dir=None, index_path=None):
+    """Attach observed_outcome without changing status. Idempotent for same chatId+endedAt.
+
+    Returns (ok, message_or_error). ok True with unchanged message if already attached.
+    """
+    if not chat_id:
+        return False, {"ok": False, "error": "chatId required"}
+    end_status = str(end_status or "").strip() or "status unknown"
+    try:
+        ended_at = int(ended_at) if ended_at is not None else 0
+    except (TypeError, ValueError):
+        ended_at = 0
+    msg = get_message(message_id, messages_dir, index_path)
+    if not msg:
+        return False, {"ok": False, "error": "unknown message"}
+    if msg.get("status") not in OPEN_FOR_OUTCOME:
+        return False, {"ok": False, "error": f"cannot observe outcome from {msg.get('status')}"}
+    existing = msg.get("observed_outcome") or {}
+    if existing.get("chatId") == chat_id and int(existing.get("endedAt") or 0) == ended_at:
+        return True, msg
+    outcome = {
+        "chatId": chat_id,
+        "endStatus": end_status,
+        "endedAt": ended_at,
+        "source": "cursor",
+        "observedAt": _now_iso(),
+    }
+    return update_fields(message_id, {"observed_outcome": outcome},
+                         messages_dir=messages_dir, index_path=index_path)
+
+
+def seats_with_failed_open(messages_dir=None, limit=200):
+    """Set of recipient_agent_id that have at least one FAILED message."""
+    rows = list_messages(status="FAILED", limit=limit, messages_dir=messages_dir)
+    return {m.get("recipient_agent_id") for m in rows if m.get("recipient_agent_id")}
