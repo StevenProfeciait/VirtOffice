@@ -171,6 +171,16 @@ t('attention order: Needs Steve -> blocked -> your-turn, and 👀 removes your-t
   assert.strictEqual(V.attentionCount(list), 4);
   assert.deepStrictEqual(V.attention(agents, NOW, { le2: NOW }).map((x) => x.seat), ['needs-steve', 'debugger']);
 });
+t('attention includes OFFLINE seat when boardBlocked (pose stays OFFLINE)', () => {
+  const offlineBlocked = seat('sa', {
+    signal: false,
+    blocked: true,
+    activity: { state: 'OFFLINE', presentationState: 'OFFLINE', boardBlocked: true, confidence: 'high', source: 'board' },
+  });
+  const list = V.attention([offlineBlocked, ns()], NOW, {});
+  assert.ok(list.some((x) => x.seat === 'sa' && x.why === 'blocked'));
+  assert.strictEqual(V.baseState(offlineBlocked, NOW), 'OFFLINE');
+});
 t('reaction table: 1 wave + 5 poke are local; 2,3,4,6 stored', () => {
   const stored = Object.keys(V.REACTIONS).filter((k) => V.REACTIONS[k].stored);
   assert.deepStrictEqual(stored, ['2', '3', '4', '6']);

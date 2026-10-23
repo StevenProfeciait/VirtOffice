@@ -67,6 +67,19 @@ class StateAggregatorTest(unittest.TestCase):
         self.assertIn("activity", out[0])
         self.assertEqual(out[0]["activityState"], "AT_DESK")
 
+    def test_offline_with_board_blocked_keeps_boardBlocked(self):
+        a = agent(signal=False, blocked=True, cursor={"count": 0, "latest": None})
+        act = sa.aggregate(a, NOW)
+        self.assertEqual(act["state"], "OFFLINE")
+        self.assertEqual(act["presentationState"], "OFFLINE")
+        self.assertTrue(act["boardBlocked"])
+
+    def test_blocked_online_is_BLOCKED_with_boardBlocked(self):
+        a = agent(signal=True, blocked=True)
+        act = sa.aggregate(a, NOW)
+        self.assertEqual(act["state"], "BLOCKED")
+        self.assertTrue(act["boardBlocked"])
+
 
 if __name__ == "__main__":
     unittest.main()

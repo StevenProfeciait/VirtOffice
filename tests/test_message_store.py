@@ -165,19 +165,13 @@ class MessageStoreTest(unittest.TestCase):
         # Exact match on other session only
         hit = self.ms.find_open_for_outcome("le2", "sess-other", messages_dir=self.msg_dir)
         self.assertEqual(hit["message_id"], mid_a)
-        # Unbound newest for a new chat id
+        # Unbound newest for a new chat id (message bound to sess-other is skipped)
         hit2 = self.ms.find_open_for_outcome("le2", "brand-new-chat", messages_dir=self.msg_dir)
         self.assertEqual(hit2["message_id"], mid_b)
-        # Cross-session: chat X must not attach to message bound to sess-other when unbound exists... 
-        # brand-new matches unbound; chat that isn't unbound's and isn't exact: still unbound
-        self.assertIsNone(self.ms.find_open_for_outcome(
-            "le2", "sess-other", registry_session_ids=[], messages_dir=self.msg_dir
-        ) if False else None)  # noqa — keep exact path tested above
-        # Bound-to-other must not match chat-z via registry alone when sid differs
+        # Registry match only applies to unbound (or exact) messages — sid mismatch skips mid_a
         hit3 = self.ms.find_open_for_outcome(
             "le2", "chat-z", registry_session_ids=["chat-z"], messages_dir=self.msg_dir
         )
-        # unbound mid_b has no sid → eligible; newest unbound wins over via_reg on mid_a (sid mismatch skips mid_a)
         self.assertEqual(hit3["message_id"], mid_b)
 
     def test_seats_with_failed_open(self):

@@ -307,6 +307,67 @@ class ServerSecurityTest(unittest.TestCase):
         self.assertEqual(s, 200, out)
         self.assertEqual(json.loads(out)["message"]["status"], "CANCELLED")
 
+    def test_messages_observed_outcome_on_cursor_turn_end(self):
+        """Queue → handoff DELIVERED → Cursor turn end attaches observed_outcome; status stays DELIVERED."""
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "le2", "content": "observe me"})
+        self.assertEqual(s, 200, out)
+        mid = json.loads(out)["message"]["message_id"]
+        s, out, _ = self.req("POST", f"/api/messages/{mid}/handoff-opened", {})
+        self.assertEqual(s, 200, out)
+        self.assertEqual(json.loads(out)["message"]["status"], "DELIVERED")
+
+        chat_id = "fixture-chat-observe-001"
+        ended_at = 1_700_000_111_000
+        prev = [{
+            "id": "le2",
+            "cursor": {"count": 1, "latest": {
+                "id": chat_id, "state": "active", "toolKind": "write",
+                "lastActivity": ended_at - 5000, "endStatus": "", "endedAt": None,
+            }},
+        }]
+        nxt = [{
+            "id": "le2",
+            "cursor": {"count": 1, "latest": {
+                "id": chat_id, "state": "ended", "toolKind": "write",
+                "lastActivity": ended_at, "endStatus": "success", "endedAt": ended_at,
+            }},
+        }]
+        self.srv._observe_cursor_outcomes(prev, nxt)
+
+        s, out, _ = self.req("GET", f"/api/messages/{mid}", token=False, origin=False)
+        self.assertEqual(s, 200)
+        msg = json.loads(out)["message"]
+        self.assertEqual(msg["status"], "DELIVERED")
+        self.assertIsNotNone(msg.get("observed_outcome"))
+        self.assertEqual(msg["observed_outcome"]["chatId"], chat_id)
+        self.assertEqual(msg["observed_outcome"]["endStatus"], "success")
+        self.assertEqual(msg["observed_outcome"]["source"], "cursor")
+
+        # Idempotent: second observe does not invent RESPONDED
+        self.srv._observe_cursor_outcomes(prev, nxt)
+        s, out, _ = self.req("GET", f"/api/messages/{mid}", token=False, origin=False)
+        self.assertEqual(json.loads(out)["message"]["status"], "DELIVERED")
+
+        s, out, _ = self.req("GET", "/api/agents/le2/timeline", token=False, origin=False)
+        types = {e.get("event_type") for e in json.loads(out)["events"]}
+        self.assertIn("outcome_observed", types)
+
+    def test_agents_annotate_failedOpen(self):
+        # agents.json fixture only includes le2 (+ needs-steve); force a FAILED instruction on le2
+        s, out, _ = self.req("POST", "/api/messages", {"recipient_agent_id": "le2", "content": "fail annotate"})
+        self.assertEqual(s, 200, out)
+        mid = json.loads(out)["message"]["message_id"]
+        ok, updated = self.srv.message_store.transition(
+            mid, "FAILED", {"error_code": "test", "error_message": "forced for annotate"}
+        )
+        self.assertTrue(ok, updated)
+        self.srv.refresh_agents()
+        s, out, _ = self.req("GET", "/api/agents", token=False, origin=False)
+        body = json.loads(out)
+        rows = body["agents"] if isinstance(body, dict) else body
+        agents = {a["id"]: a for a in rows}
+        self.assertTrue(agents.get("le2", {}).get("messaging", {}).get("failedOpen"))
+
     # ---- Local Ollama fallback
     def test_ollama_config_requires_token(self):
         body = {"seat_models": {"le2": {"model": "mock-model"}}}

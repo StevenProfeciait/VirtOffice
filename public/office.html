@@ -4913,7 +4913,7 @@ function updateMsgHint() {
   if (!selectedAgent) return;
   const len = cursorPromptUrl(buildPrompt(selectedAgent, document.getElementById('msgText').value, false)).length;
   const route = selectedAgent.channel === 'cursor'
-    ? 'Cursor seat: Queue instruction tracks handoff; "Open handoff" confirms DELIVERED. Standalone "Open in Cursor" has no message id.'
+    ? 'Cursor seat: Queue → Open handoff → DELIVERED; Cursor turn end sets Observed (not RESPONDED). Record response yourself. Observed ≠ Responded ≠ work applied.'
     : 'Non-Cursor seat: Queue instruction fails truthfully (use Copy for Grok / Save note). No fake delivery.';
   document.getElementById('msgHint').textContent = `${route} Save ≠ deliver ≠ ack ≠ executed. Link length ${len}/${CURSOR_PROMPT_MAX}${len > CURSOR_PROMPT_MAX ? ' (docs trimmed for Cursor link)' : ''}.`;
 }
