@@ -362,13 +362,24 @@
       badge.position.set(0.12, 1.15, 0.17);
       group.add(badge);
     }
-    var parts = { head: head, leftArm: null, rightArm: null, leftThigh: null, rightThigh: null, leftShin: null, rightShin: null };
+    var parts = { head: head, leftArm: null, rightArm: null, leftFore: null, rightFore: null, leftThigh: null, rightThigh: null, leftShin: null, rightShin: null };
     [-1, 1].forEach(function (side) {
-      var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.55, 8), body);
-      arm.position.set(side * 0.31, 1.08, 0);
+      // upper arm + forearm (typing fix 2026-10-23): the forearm hangs from an elbow pivot parented to the upper
+      // arm, so the manager can bend the elbow (hands over the keyboard) without the arm going rigid
+      var arm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.3, 8), body);
+      arm.position.set(side * 0.31, 1.205, 0);
       arm.rotation.z = side * -0.18;
       group.add(arm);
-      if (side < 0) parts.leftArm = arm; else parts.rightArm = arm;
+      var elbow = new THREE.Group();
+      elbow.position.set(0, -0.15, 0);
+      arm.add(elbow);
+      var fore = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.075, 0.27, 8), body);
+      fore.position.y = -0.135;
+      elbow.add(fore);
+      var hand = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 6), skin);
+      hand.position.y = -0.28;
+      elbow.add(hand);
+      if (side < 0) { parts.leftArm = arm; parts.leftFore = elbow; } else { parts.rightArm = arm; parts.rightFore = elbow; }
       var legMat = new THREE.MeshStandardMaterial({ color: 0x293140, roughness: 0.86 });
       var thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.09, 0.52, 8), legMat);
       thigh.position.set(side * 0.13, 0.76, -0.16);

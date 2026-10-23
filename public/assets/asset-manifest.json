@@ -3,8 +3,8 @@
   "workstation": {
     "assetId": "cyberpunk-workstation-procedural",
     "seatHeight": 0.62,
-    "agentLocal": { "x": 0, "z": -0.52 },
-    "agentRotation": 3.141592653589793,
+    "agentLocal": { "x": 0, "z": -0.85 },
+    "agentRotation": 0,
     "chairLocalZ": -0.9
   },
   "rolePresets": {

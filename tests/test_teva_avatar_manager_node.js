@@ -62,6 +62,13 @@ check(moved.entries.move.movement.elapsed === 0.5, 'duplicate movement does not 
 moved.update(0.6, Date.now());
 check(moved.entries.move.movement === null && moved.entries.move.lastMovementKey, 'movement completes once');
 check(moved.moveAgent('move', { x: 2, z: 0 }, { duration: 1 }) === true && moved.entries.move.movement === null, 'completed movement is not replayed');
+const instant = new M.Manager(null);
+instant.addAgent({ id: 'snap' }, { x: 0, z: 0 });
+check(instant.moveAgent('snap', { x: 10, z: -4 }, { instant: true, pose: 'sit', activity: 'lounge', faceYaw: 1.2 }) === true, 'instant move accepted');
+check(instant.entries.snap.movement === null, 'instant move has no walk');
+check(instant.entries.snap.position.x === 10 && instant.entries.snap.position.z === -4, 'instant move teleports');
+check(instant.entries.snap.activity === 'lounge' && instant.entries.snap.yaw === 1.2, 'instant pose/activity applied');
+check(instant.moveAgent('snap', { x: 1, z: 1 }, { teleport: true }) === true && instant.entries.snap.movement === null && instant.entries.snap.position.x === 1, 'teleport alias');
 const routed = new M.Manager(null);
 routed.addAgent({ id: 'route' }, { x: 0, z: 0 });
 routed.moveAgent('route', { x: 2, z: 2 }, { duration: 1, path: [{ x: 0, z: 2 }] });

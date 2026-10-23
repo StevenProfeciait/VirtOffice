@@ -358,27 +358,32 @@ class Tailer:
                 continue
             title = self.titles.get(cid, "")
             seat, evidence = None, ""
+            by_title, by_prompt = seats_named(title), seats_in_prompt(st["prompt"])
+            strong = by_title | by_prompt
+            ds, hits = doc_seats(st["writes"], self.docs_dir)
+            # Display-only candidates for the mapping queue (never auto-assign from this list alone).
+            candidates = sorted(strong | ds)
             if cid in reg:
                 seat, evidence = reg[cid], "agent_registry"
+                if seat not in candidates:
+                    candidates = sorted(set(candidates) | {seat})
             elif cid in manual:
                 seat, evidence = manual[cid], "seat_map.json"
+                if seat not in candidates:
+                    candidates = sorted(set(candidates) | {seat})
             else:
-                by_title, by_prompt = seats_named(title), seats_in_prompt(st["prompt"])
-                strong = by_title | by_prompt
                 if len(strong) == 1:
                     seat = next(iter(strong))
                     evidence = (f"title names {SEAT_NAMES[seat]}" if by_title else f"first prompt names {SEAT_NAMES[seat]}")
                 elif len(strong) > 1:
                     evidence = "ambiguous: names " + ", ".join(SEAT_NAMES[s] for s in sorted(strong))
+                elif len(ds) == 1:
+                    seat = next(iter(ds))
+                    evidence = "writes docs/" + next(n for s, n in hits if s == seat)
+                elif len(ds) > 1:
+                    evidence = "ambiguous: writes docs owned by " + ", ".join(SEAT_NAMES[s] for s in sorted(ds))
                 else:
-                    ds, hits = doc_seats(st["writes"], self.docs_dir)
-                    if len(ds) == 1:
-                        seat = next(iter(ds))
-                        evidence = "writes docs/" + next(n for s, n in hits if s == seat)
-                    elif len(ds) > 1:
-                        evidence = "ambiguous: writes docs owned by " + ", ".join(SEAT_NAMES[s] for s in sorted(ds))
-                    else:
-                        evidence = "no seat named in title or first prompt, no owned doc written"
+                    evidence = "no seat named in title or first prompt, no owned doc written"
             last = int(mtime * 1000)
             state = "ended" if st["ended"] else ("active" if now_ms - last < ACTIVE_MS else "stale")
             if st["ended"] and not st.get("endedAt"):
@@ -386,8 +391,10 @@ class Tailer:
             step = st["step"] or "No activity yet"
             if st["ended"]:
                 step = f"Turn ended ({st['endStatus'] or 'done'}) · last step: {step}"
+            conflict = seat is None and len(candidates) > 1
             chats.append({
                 "id": cid, "title": title or "Untitled Cursor chat", "seat": seat, "evidence": evidence,
+                "candidates": candidates, "conflict": conflict,
                 "lastActivity": last, "step": step[:140], "state": state, "turns": st["turns"],
                 "subagents": len(subs),
                 "tool": st.get("tool"), "toolKind": st.get("toolKind"),

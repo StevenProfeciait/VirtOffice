@@ -34,7 +34,8 @@ check(optionalModel === null, 'room asset falls back when model is not installed
 const pos = A.resolveAgentPosition({ id: 'le' });
 check(Number.isFinite(pos.x) && Number.isFinite(pos.z), 'agent position');
 check(pos.seatHeight === 0.62, 'seat height default');
-check(Math.abs(pos.z - (-3.52)) < 0.001, 'agent sits forward of chair center');
+check(Math.abs(pos.z - (-3.85)) < 0.001, 'agent sits on the chair, just forward of its centre, clear of the desk (typing fix 2026-10-23)');
+check(Math.abs(pos.rotation - A.resolveWorkstationOrigin({ id: 'le' }).rotation) < 1e-9, 'seated agent faces the desk (+z of the workstation), not away from it');
 check(A.resolveWorkstationOrigin({ id: 'le' }).style === 'gaming', 'le workstation style');
 check(A.resolveNavPoint('meeting') && A.resolveNavPoint('meeting').x === 0, 'nav meeting');
 const modelPath = path.join(__dirname, '..', 'public', 'assets', 'avatars', 'office-worker', 'model.glb');

@@ -20,6 +20,12 @@ Layers stay separate:
 
 Ambiguous Cursor chats stay unassigned. Mapping is always an explicit Steve action.
 
+### Mapping queue (Phase 2 ops)
+
+- Each Cursor chat carries `candidates: [seatId, …]` (title ∪ prompt ∪ doc-owner hits) and `conflict: true` when unassigned with more than one candidate.
+- Unique evidence still auto-maps; candidates never auto-assign on their own.
+- Team board (📋) **Mapping queue** lists unassigned chats with evidence, candidate one-click chips, and Map-to-seat → `POST /api/registry/map`. Uncertain stays unassigned until Steve confirms.
+
 ## State reconciliation (Phase 1)
 
 - Module: `scripts/state_aggregator.py`

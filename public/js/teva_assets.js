@@ -8,9 +8,12 @@
     workstation: {
       assetId: 'cyberpunk-workstation-procedural',
       seatHeight: 0.62,
-      agentLocal: { x: 0, z: -0.52 },
-      // Seat the avatar slightly forward of the chair mesh (chair at chairLocalZ).
-      agentRotation: Math.PI,
+      // Typing fix (2026-10-23): the avatar sits ON the chair (chair at chairLocalZ, desk front edge at
+      // -deskD/2 = -0.64), just forward of the chair centre, and faces +z (the monitors). Avatars (capsules and
+      // the GLB) face +z in their own space, so no extra rotation. Was z -0.52 (inside the desk) and rotation PI
+      // (back to the monitors).
+      agentLocal: { x: 0, z: -0.85 },
+      agentRotation: 0,
       chairLocalZ: -0.9
     },
     rolePresets: {}
@@ -221,13 +224,17 @@
     var cfg = ws.config || DEFAULT_MANIFEST.workstation;
     var local = cfg.agentLocal || DEFAULT_MANIFEST.workstation.agentLocal;
     var rot = Number(cfg.agentRotation) || 0;
+    // a manifest written before the typing fix still says PI (back to the monitors): the avatars face +z
+    if (Math.abs(Math.abs(rot) - Math.PI) < 1e-6) rot = 0;
     var cos = Math.cos(ws.rotation);
     var sin = Math.sin(ws.rotation);
     var lx = Number(local.x) || 0;
     var lz = Number(local.z) || 0;
     return {
-      x: ws.x + lx * cos - lz * sin,
-      z: ws.z + lx * sin + lz * cos,
+      // three.js rotation.y: local (x, z) -> world (x cos + z sin, -x sin + z cos). The old formula rotated the
+      // other way, which only mattered for the 90-degree desk (needs-steve), whose seat landed beside the desk.
+      x: ws.x + lx * cos + lz * sin,
+      z: ws.z - lx * sin + lz * cos,
       rotation: ws.rotation + rot,
       seatHeight: Number(cfg.seatHeight) || 0.62,
       workstation: ws

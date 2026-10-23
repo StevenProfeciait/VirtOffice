@@ -85,6 +85,7 @@
 
     var desk = new THREE.Mesh(new THREE.BoxGeometry(deskW, 0.12, deskD), deskMat);
     desk.position.y = 1.08;
+    desk.userData.deskTop = true;
     desk.castShadow = desk.receiveShadow = true;
     group.add(desk);
     if (cyberpunk || isCommand) {
@@ -188,11 +189,12 @@
       group.add(credTop);
     }
     var keyboard = new THREE.Mesh(new THREE.BoxGeometry(isCommand ? 0.85 : 0.62, 0.035, 0.24), cyberpunk || isCommand ? new THREE.MeshStandardMaterial({ color: 0x101827, roughness: 0.42, metalness: 0.45, emissive: accent, emissiveIntensity: 0.18 }) : new THREE.MeshStandardMaterial({ color: 0x303744, roughness: 0.7 }));
-    keyboard.position.set(-0.12, 1.17, -0.28);
+    keyboard.position.set(-0.12, 1.17, -halfD + 0.3);
+    keyboard.userData.keyboard = true; // typing fix: at the front edge, within reach of the seated avatar
     group.add(keyboard);
     var mouse = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 6), trim);
     mouse.scale.y = 0.35;
-    mouse.position.set(isCommand ? 0.62 : 0.48, 1.18, -0.28);
+    mouse.position.set(isCommand ? 0.62 : 0.48, 1.18, -halfD + 0.3);
     group.add(mouse);
     if (style === 'gaming' || style === 'command' || options.headphones) {
       var phones = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.035, 8, 16), shared.rubber);
@@ -225,6 +227,7 @@
     // the +z side of the seat, so an unrotated chair puts the backrest between the
     // sitter and the monitors. Face the chair into the desk instead.
     chair.rotation.y = Math.PI;
+    chair.userData.chair = true;
     if (cyberpunk || isCommand) {
       var chairTrim = new THREE.Mesh(new THREE.BoxGeometry(0.55 * chairScale, 0.025, 0.026), new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.85 }));
       chairTrim.position.set(0, isCommand ? 1.5 : 1.34, 0.215 * chairScale);

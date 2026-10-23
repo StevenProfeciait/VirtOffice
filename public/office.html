@@ -877,6 +877,7 @@ select.set-select { background: rgba(0,0,0,0.35); color: #fff; border: 1px solid
 <script src="js/teva_ambient.js"></script>
 <script src="js/teva_ui_style.js"></script>
 <script src="js/teva_messages_ui.js"></script>
+<script src="js/teva_mapping_ui.js"></script>
 <script src="js/teva_zones.js"></script>
 <script>
 const AGENTS = (window.__HERMES_AGENTS__ && window.__HERMES_AGENTS__.length)
@@ -1324,16 +1325,59 @@ function seatOptionsHtml(selected) {
   return AGENTS.filter(a => a.id !== 'needs-steve').map(a =>
     `<option value="${esc(a.id)}"${a.id === selected ? ' selected' : ''}>${esc(a.emoji)} ${esc(a.name)}</option>`).join('');
 }
+function candidateChipsHtml(chat) {
+  const cands = (window.TevaMappingUi ? TevaMappingUi.candidatesOf(chat) : (chat.candidates || []));
+  if (!cands.length) return '<span class="src">No suggested seat — pick from the list (uncertain stays unassigned).</span>';
+  return cands.map(id => {
+    const a = AGENTS.find(x => x.id === id);
+    const label = a ? `${a.emoji} ${a.name}` : id;
+    return `<button class="mini-btn" data-map-btn="${esc(chat.id)}" data-map-seat="${esc(id)}" title="Map to ${esc(label)} — Steve confirms; never auto-assigned">${esc(label)}</button>`;
+  }).join(' ');
+}
 function cursorRows(chats, showSeat) {
   return (chats || []).map(c => {
     const seat = c.seat ? AGENTS.find(a => a.id === c.seat) : null;
     const who = showSeat ? (seat ? `<a class="lnk" data-select-agent="${esc(seat.id)}">${esc(seat.emoji)} ${esc(seat.name)}</a>` : '<span class="pill unassigned">Unassigned Cursor chat</span>') : '';
-    const mapUi = !c.seat ? `<div class="map-row"><select data-map-session="${esc(c.id)}">${seatOptionsHtml()}</select>
-      <button class="mini-btn" data-map-btn="${esc(c.id)}" title="Explicit registry mapping — never guessed">Map to seat</button></div>` : '';
+    const conflict = window.TevaMappingUi ? TevaMappingUi.isConflict(c) : !!(c.conflict);
+    const mapUi = !c.seat ? `<div class="map-row" style="flex-wrap:wrap;gap:6px;margin-top:6px">
+      <span class="src">Candidates (display only):</span> ${candidateChipsHtml(c)}
+      <select data-map-session="${esc(c.id)}">${seatOptionsHtml((c.candidates || [])[0])}</select>
+      <button class="mini-btn" data-map-btn="${esc(c.id)}" title="Explicit registry mapping — never guessed">Map to seat</button>
+      ${conflict ? '<span class="pill unassigned">conflict — confirm one</span>' : ''}
+    </div>` : '';
     return `<div class="cur-row"><div class="t"><span class="pill ${esc(c.state)}">${esc(c.state)}</span><b title="${esc(c.id)}">${esc(c.title)}</b>
       <span class="doc-time" title="${esc(fmtTime(c.lastActivity))}">${esc(fmtTime(c.lastActivity))} · ${esc(fmtAgo(c.lastActivity))}</span></div>
       <div class="cur-step">${esc(c.step)}</div><div class="cur-ev">${who ? who + ' · ' : ''}Evidence: ${esc(c.evidence)}</div>${mapUi}</div>`;
   }).join('');
+}
+/** Dedicated Mapping queue for the Team board (Phase 2). */
+function mappingQueueHtml(cursorBoard) {
+  const all = (cursorBoard && (cursorBoard.unassigned || cursorBoard.chats)) || [];
+  const queue = window.TevaMappingUi ? TevaMappingUi.unassignedQueue(all) : all.filter(c => c && !c.seat);
+  if (!queue.length) {
+    return `<div class="vp-section">Mapping queue</div>
+      <div class="vp-sub">No unassigned Cursor chats. Uncertain matches stay unassigned until you confirm a seat — nothing is guessed.</div>`;
+  }
+  const rows = queue.map(c => {
+    const m = window.TevaMappingUi ? TevaMappingUi.rowModel(c) : c;
+    return `<div class="cur-row" data-map-queue-id="${esc(m.id)}">
+      <div class="t"><span class="pill unassigned">unassigned</span>
+        ${m.conflict ? '<span class="pill unassigned">conflict</span>' : ''}
+        <span class="pill ${esc(m.state)}">${esc(m.state)}</span>
+        <b title="${esc(m.id)}">${esc(m.title)}</b>
+        <span class="doc-time">${esc(fmtAgo(m.lastActivity))}</span></div>
+      <div class="cur-step">${esc(m.step)}</div>
+      <div class="cur-ev">Evidence: ${esc(m.evidence)}</div>
+      <div class="map-row" style="flex-wrap:wrap;gap:6px;margin-top:6px">
+        <span class="src">One-click candidates:</span> ${candidateChipsHtml(c)}
+        <select data-map-session="${esc(m.id)}">${seatOptionsHtml((m.candidates || [])[0])}</select>
+        <button class="mini-btn" data-map-btn="${esc(m.id)}" title="Confirm mapping — never guessed">Map to seat</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="vp-section">Mapping queue (${queue.length} unassigned)</div>
+    <div class="vp-sub">Title, evidence and candidate seats are shown for confirmation only. Ambiguous chats stay unassigned until you map them. Maps persist in the agent registry (and seat_map.json).</div>
+    <div class="act-list">${rows}</div>`;
 }
 async function mapSessionToSeat(sessionId, agentId) {
   if (!sessionId || !agentId || !TEVA_TOKEN) { showToast('Cannot map: missing token or seat'); return; }
@@ -1436,8 +1480,9 @@ document.addEventListener('click', (e) => {
   if (mapBtn) {
     e.preventDefault(); e.stopPropagation();
     const sid = mapBtn.dataset.mapBtn;
+    const chipSeat = mapBtn.dataset.mapSeat;
     const sel = document.querySelector(`select[data-map-session="${sid}"]`);
-    mapSessionToSeat(sid, sel && sel.value);
+    mapSessionToSeat(sid, chipSeat || (sel && sel.value));
     return;
   }
   const sel = e.target.closest('[data-select-agent]');
@@ -1528,6 +1573,8 @@ function applyLiveAgents(newAgents) {
   if (rosterChanged) createAgents();
   setupUI();
   updateNeedsSteve();
+  // Reload honesty: do not replay Fun Station / idle walks — snap Classic + Cyberpunk to rest targets once.
+  if (firstSync || rosterChanged) VO.snapPlacement = true;
   refreshBases();
   if (firstSync || rosterChanged) { snapToTargets(); VO.firstSyncAt = VO.firstSyncAt || Date.now(); }
   updateStatusBar();
@@ -1538,6 +1585,7 @@ function applyLiveAgents(newAgents) {
   if (!firstSync && !rosterChanged && before) handleEvents(VOE.deriveEvents(before, newAgents, Date.now()), Date.now());
   if (firstSync || boardChanged) showToast(firstSync ? 'TEVA team connected' : 'Board updated');
   syncModularOffice();
+  if (VO.snapPlacement) { VO.snapPlacement = false; if (AMB) ambientStopAll(); }
 }
 
 function updateNeedsSteve() {
@@ -3885,7 +3933,10 @@ function createWorkstations() {
     // One desk per TEVA bot, just behind where it stands; Leadership uses the meeting table
     Object.entries(TEVA_SEATS).forEach(([id, p]) => {
       if (['supervisor', 'pm', 'ba'].includes(id)) return;
-      createDesk(p.x, p.z - 0.9, Math.PI, id);
+      // typing fix (2026-10-23): angle 0, so the keyboard, the screens and the chair all sit on the seat's side
+      // (+z) and the seat faces the monitors (-z). Was PI: chair and keyboard on the far side, the seat behind
+      // the monitors with its back to them.
+      createDesk(p.x, p.z - 0.9, 0, id);
     });
   }
   createRoomSigns();
@@ -3953,10 +4004,10 @@ function createDesk(x, z, angle, ownerId) {
   dock.position.set(0, 0.92, -0.15);
   group.add(dock);
   const kb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.012, 0.16), new THREE.MeshStandardMaterial({ color: 0xe8eaee, roughness: 0.55, metalness: 0.1 }));
-  kb.position.set(-0.05, 0.925, 0.22);
+  kb.position.set(-0.05, 0.925, 0.45); // front edge (0.575): within reach of the seated owner
   group.add(kb);
   const mouse = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.025, 0.11), new THREE.MeshStandardMaterial({ color: 0xe8eaee, roughness: 0.5, metalness: 0.15 }));
-  mouse.position.set(0.38, 0.93, 0.22);
+  mouse.position.set(0.38, 0.93, 0.45);
   group.add(mouse);
   // Status LED strip under monitor
   const led = new THREE.Mesh(
@@ -3967,7 +4018,8 @@ function createDesk(x, z, angle, ownerId) {
   led.userData = { blink: true, offset: (ownerId || '').length * 3 };
   group.add(led);
 
-  const chair = createChair(x + Math.sin(angle) * 1.55, z + Math.cos(angle) * 1.55, angle, 0x2a2a32);
+  // the chair stands where the owner sits (its seat position, 0.9 in front of the desk centre), backrest away from the desk
+  const chair = createChair(x + Math.sin(angle) * 0.9, z + Math.cos(angle) * 0.9, angle, 0x2a2a32);
   chair.userData.tevaLegacyWorkstation = true;
 
   rAdd(group);
@@ -4652,13 +4704,17 @@ function updateBubbles(delta) {
 function createTypingParticles(agentObj) {
   // Phase 3a: pooled InstancedMesh (no new geometry/material per particle, nothing to leak)
   const p = agentObj.group.position, i = (agentObj.pSeq = (agentObj.pSeq || 0) + 1);
-  fxSpawn(p.x + ((i * 37) % 10 - 5) * 0.05, 1.2, p.z + 0.4, ((i * 13) % 7 - 3) * 0.04, 1.1 + (i % 3) * 0.3, 0, 1.0, agentObj.agent.color, 0, 1, 1);
+  fxSpawn(p.x + ((i * 37) % 10 - 5) * 0.05, 1.2, p.z - 0.5, ((i * 13) % 7 - 3) * 0.04, 1.1 + (i % 3) * 0.3, 0, 1.0, agentObj.agent.color, 0, 1, 1);
 }
 
 function updateParticles(delta) {
   updateFx(delta);
 }
 
+// Classic desks (createWorkstations): every seat but leadership has one, 0.9 m in -z of its seat position, and
+// sits facing it. Pure helper, exported on VO for tests.
+const DESK_FACE = Math.PI;
+function classicHasDesk(id) { return !!(TEVA_SEATS && TEVA_SEATS[id]) && !['supervisor', 'pm', 'ba'].includes(id); }
 function animateAgents(delta) {
   // Phase 3a: base state (vo_events.js baseState) + one-shot overlay -> procedural pose. No random targets.
   const mm = motionMode(), now = Date.now();
@@ -4697,7 +4753,10 @@ function animateAgents(delta) {
     const ov = a.overlay, ok = ov ? Math.min(1, ov.t / ov.dur) : 0, on = ov ? ov.name : '';
     // desired pose
     const P = { bodyRx: 0, headRx: 0, headRy: 0, lArmRx: 0, lArmRz: 0, rArmRx: 0, rArmRz: 0, lLow: 0, rLow: 0, lLeg: 0, rLeg: 0, lKnee: 0, rKnee: 0, y: 0, breath: 0 };
-    let face = 0;
+    // typing fix (2026-10-23): a seat at its own desk sits on the chair facing the monitors (-z); leadership has no desk
+    const atDesk = !walking && classicHasDesk(a.agent.id) && (state.targetKind || 'desk') === 'desk' && !state.targetActivity &&
+      Math.hypot(a.group.position.x - state.targetX, a.group.position.z - state.targetZ) < 0.05;
+    let face = atDesk ? DESK_FACE : 0;
     if (walking) {
       if (a.ambFx) a.ambFx = null;
       a._activity = null;
@@ -4724,22 +4783,24 @@ function animateAgents(delta) {
       if (on === 'handoff') { P.rArmRx = -0.9; P.rLow = 0.7; }
     } else if (base !== 'OFFLINE') {
       if (mm !== 'off') P.breath = Math.sin(t * 1.5) * 0.02;
-      const typing = (speed) => Object.assign(P, { lArmRx: -0.7 + Math.sin(t * speed) * 0.08, rArmRx: -0.7 + Math.sin(t * speed + 0.3) * 0.08,
-        lLow: 0.6 + Math.sin(t * speed) * 0.05, rLow: 0.6 + Math.sin(t * speed + 0.3) * 0.05, lArmRz: 0.15, rArmRz: -0.15, bodyRx: 0.12, headRx: 0.08 });
+      // typing (fix 2026-10-23): upper arms forward, elbows bent so the forearms lie level over the keyboard at the
+      // desk's front edge, fingers tapping (elbow bend oscillates); eyes on the screen
+      const typing = (speed) => Object.assign(P, { lArmRx: -0.95 + Math.sin(t * speed) * 0.04, rArmRx: -0.95 + Math.sin(t * speed + 1.7) * 0.04,
+        lLow: 0.72 + Math.sin(t * speed + 0.6) * 0.12, rLow: 0.72 + Math.sin(t * speed + 2.3) * 0.12, lArmRz: 0.12, rArmRz: -0.12, bodyRx: 0.1, headRx: 0.04 });
       switch (base) {
         case 'TYPING': typing(12); if (mm === 'full') { a.pAcc += delta * 7; while (a.pAcc >= 1) { a.pAcc--; createTypingParticles(a); } } break;
         case 'DELEGATING': typing(8); break;
         case 'AT_DESK':
           Object.assign(P, {
             bodyRx: 0.1, headRx: 0.06 + Math.sin(t * 0.35) * 0.03, headRy: Math.sin(t * 0.25) * 0.08,
-            lArmRx: -0.55, rArmRx: -0.52, lLow: 0.45, rLow: 0.42, lArmRz: 0.12, rArmRz: -0.1
+            lArmRx: -0.9, rArmRx: -0.88, lLow: 0.62, rLow: 0.6, lArmRz: 0.12, rArmRz: -0.1
           });
           break;
-        case 'READING': Object.assign(P, { bodyRx: 0.17, headRx: 0.28, rArmRx: -0.6 + Math.sin(t * 1.8) * 0.06, rLow: 0.5, rArmRz: -0.1 }); break;
+        case 'READING': Object.assign(P, { bodyRx: 0.17, headRx: 0.28, rArmRx: -0.85 + Math.sin(t * 1.8) * 0.06, rLow: 0.9, rArmRz: -0.1 }); break;
         case 'RUNNING':
           Object.assign(P, {
             bodyRx: 0.14, headRx: 0.1, headRy: Math.sin(t * 0.5) * 0.04,
-            lArmRx: -0.65 + Math.sin(t * 2.2) * 0.04, rArmRx: -0.68, lLow: 0.55, rLow: 0.58, lArmRz: 0.1, rArmRz: -0.12
+            lArmRx: -0.92 + Math.sin(t * 2.2) * 0.04, rArmRx: -0.95, lLow: 0.66, rLow: 0.7, lArmRz: 0.1, rArmRz: -0.12
           });
           break;
         case 'THINKING': Object.assign(P, { rArmRx: -0.55, rArmRz: -0.35, rLow: 2.1, lArmRx: -0.5, lArmRz: 0.45, lLow: 1.2, headRx: 0.1, headRy: 0.15 + Math.sin(t * 0.3) * 0.04 }); break;
@@ -4765,6 +4826,7 @@ function animateAgents(delta) {
       if (a.settle > 0 && mm === 'full') { a.settle -= delta; const e = Math.sin(Math.max(0, a.settle) / 0.45 * Math.PI); P.y -= 0.035 * e; P.bodyRx += 0.06 * e; }
       if (AMB_ON && !ov) { const f = ambientPose(a, P, delta); if (f !== null) face = f; }
     }
+    if (atDesk) Object.assign(P, { lLeg: -1.5, rLeg: -1.5, lKnee: 1.5, rKnee: 1.5, y: P.y - 0.03 }); // on the chair, knees under the desk
     // one-shot overlays on top of the base pose
     if (ov && !walking && base !== 'OFFLINE') {
       const hop = mm === 'full' ? Math.abs(Math.sin(ok * Math.PI * 2)) * 0.3 : 0;
@@ -4970,8 +5032,9 @@ function renderView(view) {
         const c = b.cursor;
         if (!c) return '<div class="vp-section">Cursor chats</div><div class="vp-sub">No transcript scan yet.</div>';
         const mapped = Object.entries(c.mapped || {}).map(([k, v]) => { const a = AGENTS.find(x => x.id === k); return `${esc(a ? a.name : k)} ${esc(v)}`; }).join(', ') || 'none';
-        return `<div class="vp-section">Cursor chats in template_1 (${esc(c.found)} found · ${esc(c.mappedCount)} mapped · ${esc(c.unassignedCount)} unassigned)</div>
-          <div class="vp-sub">Mapped: ${mapped}. A chat is only mapped when its title, its first prompt, or a doc it writes names one seat; nothing is guessed. Scanned ${esc(fmtTime(c.scannedAt))}.</div>
+        return `${mappingQueueHtml(c)}
+          <div class="vp-section">Cursor chats in template_1 (${esc(c.found)} found · ${esc(c.mappedCount)} mapped · ${esc(c.unassignedCount)} unassigned)</div>
+          <div class="vp-sub">Mapped: ${mapped}. Unique evidence still auto-maps; ambiguous or empty evidence stays in the Mapping queue until you confirm. Scanned ${esc(fmtTime(c.scannedAt))}.</div>
           <div class="vp-section">Most recent unassigned Cursor chats</div><div class="act-list">${cursorRows(c.unassigned, true) || '<div class="vp-sub">None.</div>'}</div>`;
       })()}`;
   } else if (view === 'metrics') {
@@ -5050,7 +5113,7 @@ function renderView(view) {
 // ==== R-VO-002 Phase 3a: honest procedural animation, events, reactions, attention, perf ====
 // Every motion below is caused by a field in /api/agents (see public/vo_events.js) or by a local
 // click/key from Steve. With no data change, nothing but idle-neutral rendering moves.
-const VO = { frames: 0, renders: 0, fetches: 0, sse: 0, chimes: 0, events: [], overlays: [], lastCalls: 0, lastTris: 0, fps: 0, firstSyncAt: 0 };
+const VO = { frames: 0, renders: 0, fetches: 0, sse: 0, chimes: 0, events: [], overlays: [], lastCalls: 0, lastTris: 0, fps: 0, firstSyncAt: 0, snapPlacement: false };
 window.__vo = VO;
 const FEED = [], FEED_MAX = 300;
 const THROTTLE = new VOE.Throttle();
@@ -5349,7 +5412,9 @@ function syncModularDestinations() {
     if (!dest || !Number.isFinite(Number(dest.x)) || !Number.isFinite(Number(dest.z))) return;
     dest = { x: Number(dest.x), z: Number(dest.z) };
     const e = mgr.entries[agent.id];
-    if (e && e.position) {
+    if (VO.snapPlacement) {
+      opts.instant = true; // first sync / roster: teleport — no Fun Station walk replay
+    } else if (e && e.position) {
       const r = navRoute({ x: Number(e.position.x) || 0, z: Number(e.position.z) || 0 }, dest);
       if (r.length > 1) opts.path = r.slice(0, -1);
     }
@@ -5439,7 +5504,10 @@ var AMB = null, AMB_ON = false;
 const AMB_URL = (() => { try { return new URLSearchParams(location.search).get('ambient'); } catch (e) { return null; } })();
 const AMB_STATS = { walks: 0, chats: 0, fidgets: 0, cancels: 0 }; // diagnostics only (window.__vo.ambient), never shown as work
 function ambientWanted() { return AMB_URL === '1' ? true : AMB_URL === '0' ? false : !!SETTINGS.ambient; }
-function ambientOn() { return ambientWanted() && motionMode() === 'full' && !!window.TevaAmbient; } // both looks (2026-10-22)
+function ambientOn() {
+  // both looks (2026-10-22); wait until firstSync so reload does not start decorative Fun Station strolls
+  return ambientWanted() && motionMode() === 'full' && !!window.TevaAmbient && !!VO.firstSyncAt && !VO.snapPlacement;
+}
 function ambientMotion(obj) { return !!obj && (!!obj.ambHoming || !!(AMB && AMB.active(obj.agent.id))); }
 function ambientCancel(obj) {
   if (!obj) return false;
@@ -5666,10 +5734,30 @@ VO.ambient = () => ({ on: AMB_ON, wanted: ambientWanted(), walkers: AMB ? AMB.wa
   modular: { on: AMB_ON && ambientModularOn(), stats: Object.assign({}, AMB_MOD_STATS), legs: agents.filter(o => o.ambModKey).map(o => o.agent.id) },
   seats: AMB ? Object.keys(AMB.seats).filter(k => AMB.seats[k].act).map(k => ({ id: k, kind: AMB.seats[k].act.kind, phase: AMB.seats[k].act.phase, label: AMB.seats[k].act.label || '' })) : [] });
 function snapToTargets() {
+  // Classic legacy groups + Cyberpunk modular entries (instant moveAgent). Reload must not replay walks.
   agents.forEach(obj => {
     const st = agentStates[obj.agent.id]; if (!st) return;
-    obj.group.position.set(st.targetX, 0, st.targetZ); obj.group.rotation.y = 0;
+    obj.group.position.set(st.targetX, 0, st.targetZ);
+    if (Number.isFinite(st.targetFace)) obj.group.rotation.y = st.targetFace;
+    else obj.group.rotation.y = 0;
+    obj.walking = false; obj.ambHoming = false; obj.ambModKey = null;
   });
+  if (modularAvatarsEnabled() && modularBridge && modularBridge.manager && modularBridge.manager.moveAgent) {
+    const mgr = modularBridge.manager;
+    AGENTS.forEach(agent => {
+      if (!agent || !agent.id || !mgr.entries[agent.id]) return;
+      const obj = seatObj(agent.id);
+      const t = obj ? seatTarget(agent, obj, true) : { kind: 'desk' };
+      let dest, opts = { instant: true };
+      if (t.kind === 'desk' || (t.kind === 'idle' && !t.spot)) dest = modularRestDest(agent, obj);
+      else {
+        dest = { x: t.x, z: t.z }; opts.pose = t.sit ? 'sit' : 'stand';
+        if (Number.isFinite(t.face)) opts.faceYaw = t.face;
+        opts.activity = t.activity || null;
+      }
+      if (dest && Number.isFinite(Number(dest.x))) mgr.moveAgent(agent.id, { x: Number(dest.x), z: Number(dest.z) }, opts);
+    });
+  }
 }
 function baseCause(agent) {
   const obj = seatObj(agent.id), b = obj ? obj.base : VOE.baseState(agent, Date.now(), SEEN[agent.id]);
@@ -6118,7 +6206,7 @@ const MON = { cols: 4, rows: 5, cw: 256, ch: 204, quads: [], cells: {}, keys: {}
 function registerMonitor(ownerId, deskGroup) {
   if (MON.cells[ownerId] != null || MON.quads.length >= MON.cols * MON.rows) return;
   // Align atlas with primary monitor face (createDesk mon1 at -0.28, 1.28, -0.4)
-  const local = new THREE.Object3D(); local.position.set(-0.28, 1.28, -0.385); local.rotation.y = Math.PI; deskGroup.add(local);
+  const local = new THREE.Object3D(); local.position.set(-0.28, 1.28, -0.385); local.rotation.y = 0; deskGroup.add(local); // faces +z, the owner's side (typing fix 2026-10-23)
   deskGroup.updateMatrixWorld(true);
   MON.cells[ownerId] = MON.quads.length;
   MON.quads.push({ seat: ownerId, matrix: local.matrixWorld.clone() });

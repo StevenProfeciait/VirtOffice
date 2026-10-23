@@ -58,12 +58,29 @@ class CursorMappingTest(unittest.TestCase):
         # title says Laravel Expert, first prompt says Debugger -> never pick one
         self.assertIsNone(self.by["6"]["seat"])
         self.assertTrue(self.by["6"]["evidence"].startswith("ambiguous"))
+        self.assertTrue(self.by["6"]["conflict"])
+        self.assertGreaterEqual(len(self.by["6"]["candidates"]), 2)
 
     def test_board_doc_is_not_evidence(self):
         self.assertIsNone(self.by["7"]["seat"])
 
     def test_passing_mention_is_not_evidence(self):
         self.assertIsNone(self.by["8"]["seat"])
+
+    def test_candidates_on_mapped_and_unassigned(self):
+        # Unique map still has candidates listing that seat; empty evidence → []
+        self.assertEqual(self.by["1"]["candidates"], ["le2"])
+        self.assertFalse(self.by["1"]["conflict"])
+        self.assertEqual(self.by["5"]["candidates"], [])
+        self.assertFalse(self.by["5"]["conflict"])
+        # Unassigned list in overlay carries candidates for the mapping queue
+        agents = [{"id": "le2"}, {"id": "needs-steve", "board": {}}]
+        out = ca.overlay(agents, self.snap)
+        ns = next(a for a in out if a["id"] == "needs-steve")
+        un = ns["board"]["cursor"]["unassigned"]
+        amb = next(c for c in un if c["id"].endswith("6"))
+        self.assertTrue(amb["conflict"])
+        self.assertGreaterEqual(len(amb["candidates"]), 2)
 
     def test_shell_redaction(self):
         self.assertNotIn("abc123secret", json.dumps(self.snap))

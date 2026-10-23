@@ -174,10 +174,12 @@
         rotation: Math.PI / 2,
         deskW: 4.4,
         deskD: 1.7,
-        agentLocal: { x: 0, z: 0.15 },
+        // typing fix (2026-10-23): on the command chair (local z -1.05) in front of the 1.7 m desk; was z 0.15,
+        // the middle of the desk
+        agentLocal: { x: 0, z: -1.05 },
         seatHeight: 0.55
       },
-      meeting: { accent: '#8B5CF6', style: 'collab', rotation: 0, agentLocal: { x: 0, z: 0.2 }, seatHeight: 0.55 },
+      meeting: { accent: '#8B5CF6', style: 'collab', rotation: 0, seatHeight: 0.55 }, // typing fix: default seat (was z 0.2, inside the desk)
       left: { accent: '#3B82F6', style: 'standard', rotation: 0 },
       center: { accent: '#EC4899', style: 'standard', rotation: 0 },
       right: { accent: '#F59E0B', style: 'standard', rotation: Math.PI },

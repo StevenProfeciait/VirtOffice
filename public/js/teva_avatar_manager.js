@@ -15,12 +15,21 @@
   // 'pingpong' | 'foosball' | 'lounge' | 'coffee' | 'watch'), sip (0..1 while sipping) }.
   // Limbs are cylinders centred on their middle, so every rotation is applied about the shoulder / hip / knee
   // (pivot maths below) instead of the middle of the limb: the old walk swung arms and legs about their centres.
-  var ARM_LEN = 0.55, ARM_TOP = 1.08 + 0.275, THIGH = 0.52, KNEE_DROP = 0.33, SHIN = 0.52, HIP_Y = 1.02; // capsule legs overlap: knee 0.33 below the hip
+  var ARM_LEN = 0.55, UPPER_LEN = 0.3, FORE_LEN = 0.27, SEAT_HIP_Y = 0.76, ARM_TOP = 1.08 + 0.275, THIGH = 0.52, KNEE_DROP = 0.33, SHIN = 0.52, HIP_Y = 1.02; // capsule legs overlap: knee 0.33 below the hip
   function limbAt(part, px, py, pz, ang, len, roll) {
     // place a centred cylinder of length len hanging from pivot (px,py,pz), swung by ang about x (+ = forward)
     part.rotation.x = -ang;
     part.position.set(px, py - Math.cos(ang) * len / 2, pz + Math.sin(ang) * len / 2);
     if (roll != null) part.rotation.z = roll;
+  }
+  // Arm with an elbow (typing fix 2026-10-23): capsules built by makeFallback carry a forearm pivot as a child
+  // of the upper arm (parts.leftFore / rightFore), so the bend rides along with any rotation applied to the
+  // upper arm (ambient deltas included). Minimal stubs without a forearm keep the old one-piece arm.
+  function armAt(upper, fore, x, ang, bend, roll) {
+    if (!fore) { limbAt(upper, x, ARM_TOP, 0, ang, ARM_LEN, roll); return; }
+    limbAt(upper, x, ARM_TOP, 0, ang, UPPER_LEN, roll);
+    fore.position.set(0, -UPPER_LEN / 2, 0);
+    fore.rotation.x = -Math.max(0, bend || 0);
   }
   function legAt(thigh, shin, x, hipY, hipAng, knee) {
     // hipAng: thigh swing (+ forward); knee: bend (>= 0, shin folds back)
@@ -62,39 +71,42 @@
         legAt(parts.rightThigh, parts.rightShin, 0.13 + shift, HIP_Y, 0, 0);
         if (celebrating) lift = Math.max(0, Math.sin(t * 7)) * 0.28;   // jump for joy
       } else {
-        // seated: thighs forward, shins down
-        parts.leftThigh.position.set(-0.13, 0.76, -0.16);
-        parts.rightThigh.position.set(0.13, 0.76, -0.16);
-        parts.leftThigh.rotation.x = Math.PI / 2;
-        parts.rightThigh.rotation.x = Math.PI / 2;
-        parts.leftShin.position.set(-0.13, 0.43, 0.08);
-        parts.rightShin.position.set(0.13, 0.43, 0.08);
-        parts.leftShin.rotation.x = 0;
-        parts.rightShin.rotation.x = 0;
+        // seated (typing fix 2026-10-23): thighs forward (+z, the way the avatar faces), knees bent, shins down.
+        // The old pose laid the thighs out behind the hips (-z), which only looked right with the avatar turned
+        // round (rotation PI) -- and that turned its back, arms and typing away from the monitors.
+        legAt(parts.leftThigh, parts.leftShin, -0.13, SEAT_HIP_Y, Math.PI / 2, Math.PI / 2);
+        legAt(parts.rightThigh, parts.rightShin, 0.13, SEAT_HIP_Y, Math.PI / 2, Math.PI / 2);
         if (act === 'lounge') leanX = -0.18;                           // sink back into the sofa
       }
     }
     if (parts.leftArm && parts.rightArm) {
       var working = state === 'WORKING' || state === 'MOUSE' || state === 'THINKING' || state === 'TESTING';
       var reading = state === 'RESEARCHING' || act === 'read';
-      var la = 0.08, ra = 0.08, lr = 0.18, rr = -0.18, head = 0, headY = 0;
-      if (walking) { la = -Math.sin(ph) * 0.55 * amp; ra = Math.sin(ph) * 0.55 * amp; }  // arms opposite the legs
-      else if (celebrating) { la = ra = 2.9; lr = 0.35 + Math.sin(t * 14) * 0.25; rr = -0.35 - Math.sin(t * 14) * 0.25; head = -0.2; }
-      else if (reading) { la = 0.95; ra = 0.95; lr = -0.25; rr = 0.25; head = 0.32; }    // tablet held in both hands
-      else if (working) { la = 0.95 + Math.sin(t * 13) * 0.12; ra = 0.95 + Math.sin(t * 13 + 1.7) * 0.12; lr = -0.12; rr = 0.12; head = 0.14; } // typing, eyes on the screen
-      else if (act === 'play') { la = 1.1 + Math.sin(t * 16) * 0.1; ra = 1.1 + Math.sin(t * 11 + 1) * 0.12; lr = -0.1; rr = 0.1; head = 0.05; headY = Math.sin(t * 2) * 0.05; }
-      else if (act === 'foosball') { la = 1.2 + Math.sin(t * 9) * 0.15; ra = 1.2 + Math.sin(t * 9 + 2) * 0.15; lr = -0.2; rr = 0.2; head = 0.25; }
-      else if (act === 'pingpong') { la = 0.2; ra = 0.8 + Math.sin(t * 3) * 0.7; rr = -0.3 - Math.sin(t * 3) * 0.3; headY = Math.sin(t * 3) * 0.3; }
-      else if (act === 'coffee' || extra.sip > 0) { var sip = Math.max(Number(extra.sip) || 0, act === 'coffee' ? Math.max(0, Math.sin(t * 0.9)) : 0); ra = 0.75 + sip * 1.15; rr = 0.25; head = -0.15 * sip; }
-      else if (act === 'meet' || act === 'talk') {
-        if (extra.talking) { ra = 0.7 + Math.sin(t * 2.4) * 0.35; rr = -0.2 + Math.sin(t * 1.7) * 0.2; la = 0.45 + Math.sin(t * 2.1 + 1) * 0.2; headY = Math.sin(t * 0.7) * 0.25; }
-        else { la = ra = 0.55; lr = -0.2; rr = 0.2; head = Math.sin(t * 0.6) * 0.06; }  // listening, hands on the table
+      // la / ra: upper-arm swing from hanging (+ = forward, toward +z, the way the avatar faces);
+      // lb / rb: elbow bend (>= 0 always folds the forearm forward/up, never backwards).
+      var la = 0.08, ra = 0.08, lb = 0.15, rb = 0.15, lr = 0.18, rr = -0.18, head = 0, headY = 0;
+      if (walking) { la = -Math.sin(ph) * 0.55 * amp; ra = Math.sin(ph) * 0.55 * amp; lb = 0.25 + Math.max(0, la) * 0.5; rb = 0.25 + Math.max(0, ra) * 0.5; }  // arms opposite the legs
+      else if (celebrating) { la = ra = 2.9; lb = rb = 0.3; lr = 0.35 + Math.sin(t * 14) * 0.25; rr = -0.35 - Math.sin(t * 14) * 0.25; head = -0.2; }
+      else if (reading) { la = ra = 0.5; lb = rb = 1.1; lr = -0.2; rr = 0.2; head = 0.32; }    // tablet held up in both hands
+      else if (working) {
+        // typing: elbows at the sides, forearms level over the keyboard at the desk's front edge, fingers tapping
+        la = 0.75 + Math.sin(t * 13) * 0.04; ra = 0.75 + Math.sin(t * 13 + 1.7) * 0.04;
+        lb = 1.05 + Math.sin(t * 13 + 0.6) * 0.09; rb = 1.05 + Math.sin(t * 13 + 2.3) * 0.09;
+        lr = -0.1; rr = 0.1; head = 0.06;                               // eyes on the screen
       }
-      else if (act === 'watch') { headY = Math.sin(t * 0.8) * 0.35; }
+      else if (act === 'play') { la = 0.7 + Math.sin(t * 16) * 0.06; ra = 0.7 + Math.sin(t * 11 + 1) * 0.08; lb = 0.8; rb = 0.8 + Math.sin(t * 13) * 0.1; lr = -0.1; rr = 0.1; head = 0.05; headY = Math.sin(t * 2) * 0.05; }
+      else if (act === 'foosball') { la = 0.9 + Math.sin(t * 9) * 0.12; ra = 0.9 + Math.sin(t * 9 + 2) * 0.12; lb = rb = 0.5; lr = -0.2; rr = 0.2; head = 0.25; }
+      else if (act === 'pingpong') { la = 0.2; lb = 0.6; ra = 0.6 + Math.sin(t * 3) * 0.6; rb = 0.6; rr = -0.3 - Math.sin(t * 3) * 0.3; headY = Math.sin(t * 3) * 0.3; }
+      else if (act === 'coffee' || extra.sip > 0) { var sip = Math.max(Number(extra.sip) || 0, act === 'coffee' ? Math.max(0, Math.sin(t * 0.9)) : 0); ra = 0.35 + sip * 0.25; rb = 1.0 + sip * 1.0; rr = 0.25; head = -0.15 * sip; if (!standing) { la = 0.35; lb = 0.9; } }
+      else if (act === 'meet' || act === 'talk') {
+        if (extra.talking) { ra = 0.5 + Math.sin(t * 2.4) * 0.3; rb = 0.9 + Math.sin(t * 1.9) * 0.3; rr = -0.2 + Math.sin(t * 1.7) * 0.2; la = 0.35 + Math.sin(t * 2.1 + 1) * 0.15; lb = 0.9; headY = Math.sin(t * 0.7) * 0.25; }
+        else { la = ra = 0.35; lb = rb = 0.9; lr = -0.2; rr = 0.2; head = Math.sin(t * 0.6) * 0.06; }  // listening, forearms on the table
+      }
+      else if (act === 'watch') { headY = Math.sin(t * 0.8) * 0.35; if (!standing) { la = ra = 0.3; lb = rb = 0.9; } }
       else if (state === 'WAITING' || state === 'THINKING') head = -0.12;
-      else if (!standing) { la = ra = 0.45; }
-      limbAt(parts.leftArm, -0.31, ARM_TOP, 0, la, ARM_LEN, lr);
-      limbAt(parts.rightArm, 0.31, ARM_TOP, 0, ra, ARM_LEN, rr);
+      else if (!standing) { la = ra = 0.3; lb = rb = 0.9; }            // seated: hands resting in the lap
+      armAt(parts.leftArm, parts.leftFore, -0.31, la, lb, lr);
+      armAt(parts.rightArm, parts.rightFore, 0.31, ra, rb, rr);
       if (parts.head) { parts.head.rotation.x = head; parts.head.rotation.y = headY; }
     }
     // whole-body bob / lean / weight shift on top of the position applyToScene just set
@@ -137,12 +149,12 @@
     var P = group.userData.props;
     if (!P) return;
     var s = 1 / (group.scale && group.scale.x ? group.scale.x : 1);
-    var seatedDrop = standing ? 0 : -0.18;
+    // in the hands (the capsule's shoulders do not drop when it sits, so neither do its hands)
     var sip = Math.max(Number(extra.sip) || 0, act === 'coffee' ? Math.max(0, Math.sin(t * 0.9)) : 0);
     P.mug.visible = act === 'coffee' || (extra.sip || 0) > 0;
-    if (P.mug.visible) P.mug.position.set(0.28 * s, (1.02 + seatedDrop + sip * 0.42) * s, (0.3 - sip * 0.12) * s);
+    if (P.mug.visible) P.mug.position.set(0.31 * s, (1.02 + sip * 0.3) * s, (0.37 - sip * 0.06) * s);
     P.tablet.visible = !!reading;
-    if (P.tablet.visible) { P.tablet.position.set(0, (1.0 + seatedDrop) * s, 0.36 * s); P.tablet.rotation.x = -0.75; }
+    if (P.tablet.visible) { P.tablet.position.set(0, 1.1 * s, 0.42 * s); P.tablet.rotation.x = -0.75; }
   }
 
   function dispose(obj) {
@@ -465,12 +477,28 @@
         (!entry.movement && entry.lastMovementKey === movementKey && atDestination)) return true;
     // Natural-pace path: already standing / sitting at the final spot (any route) -> nothing to do; and a walk
     // already heading to the same final spot keeps going (a re-planned route must not restart it from rest).
-    if (Motion() && !options.force) {
+    if (Motion() && !options.force && !options.instant && !options.teleport) {
       if (!entry.movement && atDestination) return true;
       if (entry.movement && entry.movement.profile) {
         var mp = entry.movement.points, mf = entry.movement.seatedTarget || mp[mp.length - 1];
         if (Math.hypot(mf.x - finalPosition.x, mf.z - finalPosition.z) < 0.05) return true;
       }
+    }
+    // Instant / teleport (reload first-sync): place at rest with no walk replay. Same honesty as silent seed payload.
+    if (options.instant || options.teleport) {
+      entry.movement = null;
+      entry.position.x = finalPosition.x;
+      entry.position.z = finalPosition.z;
+      entry.lastMovementKey = movementKey;
+      entry.motionState = options.pose === 'sit' ? 'SITTING_DOWN' : (options.pose === 'stand' ? 'STANDING' : null);
+      if (options.pose === 'sit') entry.settleUntil = this._t;
+      entry.holdYaw = options.pose === 'stand' || options.pose === 'sit' || Number.isFinite(Number(options.faceYaw));
+      if (Number.isFinite(Number(options.faceYaw)) && options.faceYaw !== null) entry.yaw = Number(options.faceYaw);
+      entry.activity = options.activity || null;
+      entry.arrivalActivity = null;
+      entry.arrivalSit = options.pose === 'sit';
+      if (entry.group) applyToScene(entry, entry.group, entry.position);
+      return true;
     }
     var M = Motion();
     entry.movement = {

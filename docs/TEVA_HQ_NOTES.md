@@ -373,3 +373,79 @@ rm public/js/teva_spots.js public/js/teva_nav.js tests/test_teva_spots.js tests/
 ```
 Then restart the office and hard-reload (Cmd+Shift+R). This returns to the phase 2 state (zones, Babylon look, natural
 pace).
+
+## Typing fix: seated workers face their monitors, on their chairs, hands on the keyboard (2026-10-23)
+
+**Symptom (Steve, both looks):** seated workers had their backs to the monitors, the chair sat between them and
+the desk, they looked stuck in the desk, and typing looked reversed.
+
+**Root cause.** The avatars, the walk code and the part 2 poses all treat **+z as forward** (walk yaw =
+`atan2(dx, dz)`, arms swing "forward" toward +z, the props sit at +z). The desks did not agree:
+- *Cyberpunk:* `workstation.agentRotation` was `PI` (teva_assets.js and asset-manifest.json), so every seated
+  avatar, the capsules and the GLB alike, faced away from its monitors. `agentLocal.z` was -0.52, which is
+  inside the desk (front edge at -0.64), in front of the chair (-0.9) rather than on it. The old seated legs lay
+  out behind the hips (-z). That only looked right because of the PI turn, and it hid the problem until the
+  part 2 typing pose reached clearly forward, which with the turn meant toward the chair.
+- *Classic:* `createDesk(..., Math.PI)` put the keyboard and the chair on the far side of the desk, with the
+  seat standing on the monitor side facing +z, away from them. The monitor quad's rotation compensated for the
+  PI turn.
+- *Extra pre-existing bugs found by the new test:* `resolveAgentPosition` rotated the seat offset the opposite
+  way to three.js. This only mattered for the 90° desk (needs-steve), whose seat landed beside the desk.
+  needs-steve's `agentLocal.z` was +0.15, the middle of its command desk.
+
+**Fix.**
+- teva_assets.js and assets/asset-manifest.json: `agentLocal {0, -0.85}` (on the chair, clear of the desk) and
+  `agentRotation 0`. A stale manifest that still says PI is read as 0. The seat offset is rotated with the
+  three.js convention.
+- office_layout.js:
+  - needs-steve `agentLocal {0, -1.05}` (on the command chair);
+  - the demo 'meeting' desk uses the default seat.
+- teva_environment.js:
+  - the keyboard and mouse sit at the desk's front edge (`-halfD + 0.3`);
+  - test tags `deskTop`, `keyboard` and `chair`.
+- teva_avatars.js: capsule arms are now an upper arm plus a forearm on an elbow pivot parented to the upper arm,
+  with a hand. Ambient deltas on the upper arm carry the forearm along.
+- teva_avatar_manager.js:
+  - seated thighs point forward (+z) with the knees bent (`legAt`);
+  - every pose has an elbow bend that always folds forward;
+  - typing: upper arm 0.75 rad, elbow about 1.05 rad, with the fingers tapping, so the forearms lie level over
+    the keyboard;
+  - reading, meeting, coffee, play and lap poses are re-tuned for the elbow;
+  - the mug and tablet sit in the hands.
+- office.html (Classic):
+  - `createDesk(p.x, p.z - 0.9, 0, id)`;
+  - the chair sits at the seat (0.9 m from the desk centre) with the backrest away from the desk;
+  - the keyboard and mouse sit at the front edge;
+  - the monitor quad faces the seat;
+  - seats at their own desk sit (`atDesk`) facing `DESK_FACE` (PI, the monitors);
+  - typing, AT_DESK, READING and RUNNING arms reach the keyboard with bent elbows;
+  - typing sparks spawn over the keyboard.
+  Leadership (supervisor, pm, ba) has no Classic desk and is unchanged.
+- The boardroom and lab already used +z-forward facing (zones `face`). With the legs fixed, those sitters now
+  point their knees at the table too.
+
+**Tests:**
+- tests/test_teva_desk_seating.js (+ _node.py), for every desk in both looks:
+  - the seated yaw faces the monitors;
+  - the seat and chair are on the chair side, with the keyboard in front and the monitors beyond it;
+  - the agent sits on the chair;
+  - Cyberpunk: the torso is clear of the desk, the knees are under the desk top, and the real capsule's hands
+    are over the keyboard at keyboard height;
+  - Classic: the screen faces the seat, the backrest is behind the sitter, and the rig's typing hands are on the
+    keyboard with the elbows bent forward.
+- test_teva_interactions.js: elbow typing, and every elbow bend in every pose folds forward.
+- test_teva_assets_node.js: the new seat position, and the yaw equals the desk's.
+
+**Rollback (on the Mac):**
+```
+cd ~/Documents/GitHub/VirtOffice
+for f in public/office.html public/office_layout.js public/assets/asset-manifest.json public/js/teva_assets.js \
+         public/js/teva_environment.js public/js/teva_avatars.js public/js/teva_avatar_manager.js \
+         tests/test_teva_assets_node.js tests/test_teva_interactions.js docs/TEVA_HQ_NOTES.md; do
+  cp -p "$f.bak-typingfix-2026-10-23" "$f"
+done
+rm -f tests/test_teva_desk_seating.js tests/test_teva_desk_seating_node.py
+pkill -f teva_sync_loop.sh; pkill -f 'server.py'; sleep 1; osascript -e 'tell application "Terminal" to do script "cd ~/Documents/GitHub/VirtOffice && ./start_teva_hq.command"'
+```
+
+**Deploy note (2026-10-23 ~11:25 SAST):** commits c129d46 and 143eb85 (messages UI) landed on office.html between the pre-deploy checksum check and the copy. The first copy overwrote them. office.html was then rebuilt with a clean 3-way merge (`git merge-file`: base = the phase-2 file, theirs = HEAD 77f9885, mine = the typing fix). `git diff HEAD -- public/office.html` now shows only the typing-fix lines. `public/office.html.bak-typingfix-2026-10-23` is HEAD 77f9885, the correct rollback target.

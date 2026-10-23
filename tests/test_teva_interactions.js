@@ -18,12 +18,15 @@ let n = 0;
 function t(name, fn) { fn(); n++; console.log('ok', n, name); }
 function v3() { return { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; } }; }
 function part() { return { position: v3(), rotation: { x: 0, y: 0, z: 0 } }; }
-function capsule() {
+function capsule(withElbows) {
   const parts = { head: part(), leftArm: part(), rightArm: part(), leftThigh: part(), rightThigh: part(), leftShin: part(), rightShin: part() };
+  if (withElbows) { parts.leftFore = part(); parts.rightFore = part(); } // makeFallback's capsules (typing fix 2026-10-23)
   return { userData: { fallback: true, parts, baseScale: 1 }, position: v3(), rotation: { x: 0, y: 0, z: 0 }, scale: { set() {} } };
 }
 // arm swing forward = negative rotation.x (see limbAt); thigh forward likewise
 const fwd = p => -p.rotation.x;
+// forearm direction from hanging (+ = forward): upper-arm swing + elbow bend
+const fore = (P, side) => fwd(P[side + 'Arm']) + (P[side + 'Fore'] ? -P[side + 'Fore'].rotation.x : 0);
 
 t('walk cycle: each arm swings opposite its own leg, legs opposite each other, all through a full stride', () => {
   const m = capsule(), P = m.userData.parts;
@@ -71,24 +74,30 @@ t('slower walking = smaller stride swing (eases in and out with the speed profil
 });
 
 t('interactions: typing hands move and look at the screen; reading holds the tablet up; coffee lifts the mug; celebrate raises both arms and jumps', () => {
-  const m = capsule(), P = m.userData.parts;
-  M.proceduralPose(m, 'WORKING', 1.0, 0, {}); const a1 = fwd(P.leftArm);
-  M.proceduralPose(m, 'WORKING', 1.1, 0, {}); const a2 = fwd(P.leftArm);
-  assert.ok(a1 > 0.7 && a2 > 0.7 && Math.abs(a1 - a2) > 0.01, 'typing: forearms forward and moving');
-  assert.ok(P.head.rotation.x > 0.1, 'eyes on the screen');
+  const m = capsule(true), P = m.userData.parts;
+  M.proceduralPose(m, 'WORKING', 1.0, 0, {}); const a1 = fore(P, 'left'), b1 = -P.leftFore.rotation.x;
+  M.proceduralPose(m, 'WORKING', 1.1, 0, {}); const a2 = fore(P, 'left'), b2 = -P.leftFore.rotation.x;
+  assert.ok(fwd(P.leftArm) > 0.5 && fwd(P.leftArm) < 1.0, 'typing: upper arms forward, elbows near the sides');
+  assert.ok(a1 > 1.5 && a1 < 2.1 && a2 > 1.5 && a2 < 2.1, 'typing: forearms about level, over the keyboard');
+  assert.ok(b1 > 0.8 && b2 > 0.8 && Math.abs(b1 - b2) > 0.01, 'typing: elbows bent forward (never backwards) and the hands move');
+  assert.ok(P.head.rotation.x >= 0 && P.head.rotation.x < 0.2, 'eyes on the screen (level, the monitors are at eye height)');
   M.proceduralPose(m, 'IDLE', 1, 0, { activity: 'read', sit: true });
-  assert.ok(fwd(P.leftArm) > 0.8 && fwd(P.rightArm) > 0.8 && P.head.rotation.x > 0.25, 'reading');
+  assert.ok(fore(P, 'left') > 1.4 && fore(P, 'right') > 1.4 && P.head.rotation.x > 0.25, 'reading');
   M.proceduralPose(m, 'IDLE', Math.PI / 1.8, 0, { activity: 'coffee' });
-  assert.ok(fwd(P.rightArm) > 1.2, 'sip');
+  assert.ok(fore(P, 'right') > 2.0, 'sip');
   let top = 0;
   for (let k = 0; k < 20; k++) { m.position.y = 0; m.userData._lift = 0; M.proceduralPose(m, 'IDLE', k * 0.05, 0, { celebrate: true }); top = Math.max(top, m.position.y); }
   assert.ok(fwd(P.leftArm) > 2.5 && fwd(P.rightArm) > 2.5, 'arms up');
   assert.ok(top > 0.2, 'jumps');
-  M.proceduralPose(m, 'IDLE', 2, 0, { activity: 'meet', sit: true, talking: true }); const g1 = fwd(P.rightArm);
+  M.proceduralPose(m, 'IDLE', 2, 0, { activity: 'meet', sit: true, talking: true }); const g1 = fore(P, 'right');
   M.proceduralPose(m, 'IDLE', 2.6, 0, { activity: 'meet', sit: true, talking: true });
-  assert.ok(Math.abs(g1 - fwd(P.rightArm)) > 0.05, 'the speaker gestures');
+  assert.ok(Math.abs(g1 - fore(P, 'right')) > 0.05, 'the speaker gestures');
   M.proceduralPose(m, 'IDLE', 1, 0, { activity: 'play' });
-  assert.ok(fwd(P.leftArm) > 0.9, 'hands on the arcade controls');
+  assert.ok(fore(P, 'left') > 1.3, 'hands on the arcade controls');
+  // every elbow bend in every pose folds forward
+  ['WORKING', 'IDLE', 'WALKING', 'RESEARCHING', 'STANDING'].forEach(st => [null, 'meet', 'play', 'coffee', 'lounge', 'read'].forEach(act => {
+    for (let k = 0; k < 12; k++) { M.proceduralPose(m, st, k * 0.37, k * 0.6, { activity: act, sit: true, speed: 1 }); assert.ok(P.leftFore.rotation.x <= 0 && P.rightFore.rotation.x <= 0, 'elbow bends forward: ' + st + ' ' + act); }
+  }));
 });
 
 t('manager: arriving at a sofa / chair sits down facing faceYaw and starts the spot activity; walking clears it', () => {
