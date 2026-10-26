@@ -111,6 +111,10 @@
     this.spots.forEach(function (s) { self.byId[s.id] = s; });
     this.holderOf = {};  // spotId -> holder
     this.held = {};      // holder -> { slot: spotId | {x,z,point:true} }
+    // nav recovery (2026-10-23): spots the walking grid cannot reach are skipped by claim (and ad-hoc points that
+    // fail pointOk by claimPoint), so a blocked destination falls through to the nearest reachable free spot
+    this.unreachable = {}; // spotId -> true
+    this.pointOk = opts.pointOk || null; // fn({x,z}) -> bool
   }
   var R = Registry.prototype;
   R.spot = function (id) { return this.byId[id] || null; };
@@ -156,7 +160,11 @@
     for (var j = 0; j < this.blocked.length; j++) if (dist(this.blocked[j], p) < gap - 1e-9) return false;
     return true;
   };
+  /** Mark a spot (un)reachable for the current walking grid; clearUnreachable() when the grid changes. */
+  R.setUnreachable = function (spotId, on) { if (!this.byId[spotId]) return false; if (on) this.unreachable[spotId] = true; else delete this.unreachable[spotId]; return true; };
+  R.clearUnreachable = function () { var n = Object.keys(this.unreachable).length; this.unreachable = {}; return n; };
   R.free = function (spot, holder) {
+    if (this.unreachable[spot.id]) return false;
     var h = this.holderOf[spot.id];
     if (h != null && h !== String(holder)) return false;
     return this.clear(spot, holder);
@@ -170,7 +178,8 @@
   };
   /**
    * Reserve a spot for holder in slot. req: { places:[..] | groups:[..], prefer: spotId, near:{x,z},
-   * spread: bool (least-used place first), rand: fn (tie-break), exclude:[place] }.
+   * spread: bool (least-used place first), rand: fn (tie-break), exclude:[place], excludeIds:[spotId] }.
+   * Unreachable spots (setUnreachable) never match, so a held one is dropped for the nearest reachable free spot.
    * Keeps the slot's current spot if it still matches (stable placement). Returns the spot or null (all taken).
    */
   R.claim = function (holder, slot, req) {
@@ -180,7 +189,7 @@
     function match(s) {
       if (places && places.indexOf(s.place) < 0) return false;
       if (groups && !groups.some(function (g) { return s.groups.indexOf(g) >= 0; })) return false;
-      return exclude.indexOf(s.place) < 0;
+      return exclude.indexOf(s.place) < 0 && !self.unreachable[s.id] && (!req.excludeIds || req.excludeIds.indexOf(s.id) < 0);
     }
     var cur = this.of(holder, slot);
     if (cur && !cur.point && match(cur) && (!req.prefer || req.prefer === cur.id || !this.byId[req.prefer] || !this.free(this.byId[req.prefer], holder))) return cur;
@@ -213,7 +222,7 @@
     opts = opts || {};
     p = { x: Number(p.x), z: Number(p.z) };
     var cur = this.of(holder, slot);
-    if (cur && cur.point && dist(cur, p) <= 0.3 && this.clear(cur, holder)) return cur;
+    if (cur && cur.point && dist(cur, p) <= 0.3 && this.clear(cur, holder) && (!this.pointOk || this.pointOk(cur))) return cur;
     var rings = opts.rings || [0, 0.9, 1.4], tries = [];
     rings.forEach(function (r) {
       if (!r) { tries.push(p); return; }
@@ -222,6 +231,7 @@
     for (var i = 0; i < tries.length; i++) {
       var t = tries[i];
       if (!this.clear(t, holder)) continue;
+      if (this.pointOk && !this.pointOk(t)) continue; // nav recovery: not standable / not reachable
       var onSpot = false;
       for (var j = 0; j < this.spots.length; j++) {
         var s = this.spots[j], h = this.holderOf[s.id];
@@ -265,7 +275,7 @@
       out[h] = {};
       Object.keys(self.held[h]).forEach(function (sl) { var v = self.held[h][sl]; out[h][sl] = v.point ? 'point ' + v.x.toFixed(1) + ',' + v.z.toFixed(1) : v; });
     });
-    return { spots: this.spots.length, held: out, conflicts: this.conflicts() };
+    return { spots: this.spots.length, held: out, conflicts: this.conflicts(), unreachable: Object.keys(this.unreachable) };
   };
 
   /** Stable preferred Fun Wing pad for a seat (what idleSpotForAgent used to return, now only a preference). */

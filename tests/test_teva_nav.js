@@ -44,23 +44,43 @@ t('walls are solid except the real openings (Fun Wing corridor, terrace doorway)
   const hw = L.room.width / 2, hd = L.room.depth / 2;
   assert.ok(nav.blockedAt({ x: hw, z: fw.centerZ + 6 }), 'Fun Wing wall');
   assert.ok(!nav.blockedAt({ x: hw, z: fw.centerZ }), 'Fun Wing opening');
+  assert.ok(!nav.blockedAt({ x: hw, z: fw.centerZ + 2.5 }), 'Fun Wing opening (widened ±3 m)');
   assert.ok(nav.blockedAt({ x: -10, z: hd }), 'terrace wall');
   assert.ok(!nav.blockedAt({ x: 2.5, z: hd }), 'terrace doorway (the coffee cart stands in its middle)');
 });
 
-t('desk -> Fun Wing pad: goes through the opening and never through a desk, table or arcade', () => {
+t('cyber pods, Fun Wing glass and glass dividers are solid', () => {
+  const sim = L.anchors.simulationBay, inn = L.anchors.innovationLab;
+  assert.ok(nav.blockedAt({ x: sim.x, z: sim.z }), 'Simulation Bay pod centre');
+  assert.ok(nav.blockedAt({ x: inn.x, z: inn.z }), 'Innovation Lab pod centre');
+  assert.ok(nav.blockedAt({ x: fw.centerX, z: fw.centerZ + fw.depth / 2 - 0.4 }), 'Fun Wing N glass');
+  assert.ok(nav.blockedAt({ x: L.dividers[0].x, z: L.dividers[0].z }), 'glass divider');
+  assert.ok(nav.blockedAt({ x: L.room.width / 2 - 4, z: -L.room.depth / 2 + 12 }), 'phone booth');
+});
+
+t('desk -> Fun Wing pad: goes through the opening and never through a desk, table, arcade or cyber pod', () => {
   const pad = { x: fw.centerX + fw.idleSpots[0].x, z: fw.centerZ + fw.idleSpots[0].z };
+  const sim = L.anchors.simulationBay, inn = L.anchors.innovationLab;
+  function inPod(p, c, w, d) { return Math.abs(p.x - c.x) < w / 2 && Math.abs(p.z - c.z) < d / 2; }
   Object.entries(L.seats).forEach(([id, seat]) => {
     const r = nav.path(seat, pad);
     assert.ok(r && r.length, 'route for ' + id);
     const last = r[r.length - 1]; assert.ok(Math.hypot(last.x - pad.x, last.z - pad.z) < 1e-6, 'ends at the pad');
     assert.deepStrictEqual(crossings(seat, r), [], id + ' walks through furniture');
     const hw = L.room.width / 2;
-    // the crossing into the wing happens in the opening
     const all = [seat].concat(r);
     for (let i = 0; i < all.length - 1; i++) {
       const a = all[i], b = all[i + 1];
-      if ((a.x - hw) * (b.x - hw) < 0) { const z = a.z + (b.z - a.z) * (hw - a.x) / (b.x - a.x); assert.ok(Math.abs(z - fw.centerZ) < 1.6, id + ' crosses the wall at z=' + z.toFixed(1)); }
+      if ((a.x - hw) * (b.x - hw) < 0) {
+        const z = a.z + (b.z - a.z) * (hw - a.x) / (b.x - a.x);
+        assert.ok(Math.abs(z - fw.centerZ) < T.FUN_OPEN + 0.1, id + ' crosses the wall at z=' + z.toFixed(1));
+      }
+      const len = Math.hypot(b.x - a.x, b.z - a.z), k = Math.max(1, Math.ceil(len / 0.2));
+      for (let j = 1; j < k; j++) {
+        const p = { x: a.x + (b.x - a.x) * j / k, z: a.z + (b.z - a.z) * j / k };
+        assert.ok(!inPod(p, sim, 14, 9), id + ' walks under Simulation Bay');
+        assert.ok(!inPod(p, inn, 12, 8), id + ' walks under Innovation Lab');
+      }
     }
   });
 });
@@ -89,10 +109,11 @@ t('random routes across the office never pass through furniture and are reasonab
 
 t('office.html wiring: Classic walkers follow navRoute waypoints; Cyberpunk moves and ambient legs use it too', () => {
   assert.ok(html.indexOf('js/teva_nav.js') > 0);
-  assert.ok(/a\.route = \{ key, pts: dist > 0\.6 \? navRoute\(/.test(html), 'Classic route');
-  assert.ok(/const r = navRoute\(\{ x: Number\(e\.position\.x\)/.test(html), 'Cyberpunk route');
+  // nav recovery (2026-10-23): Classic / Cyberpunk moves go through the guarded plan (navPlan -> RouteGuard)
+  assert.ok(/a\.route = classicRoute\(a, state, key, dist\)/.test(html), 'Classic route');
+  assert.ok(/navPlan\(agent\.id, \{ x: Number\(e\.position\.x\)/.test(html), 'Cyberpunk route');
   assert.ok(/navChain\(\{ x: Number\(entry\.position\.x\)/.test(html), 'ambient legs');
-  assert.ok(/WALKNAV = new TevaNav\.Nav\(LAYOUT, \{ desks \}\)/.test(html), 'desks of the active look');
+  assert.ok(/WALKNAV = new TevaNav\.Nav\(LAYOUT, \{ desks, look \}\)/.test(html), 'desks of the active look');
 });
 
 console.log('TESTS PASSED (' + n + ')');

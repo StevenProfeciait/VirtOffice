@@ -1986,6 +1986,7 @@ function init() {
     setInterval(wanderTick, 3500);
     setInterval(spawnRandomChat, 2500);
     setInterval(ambientTick, 1000); // ambient mode: decorative, opt-out (Settings / A), see ambientTick()
+    setInterval(routeRetryTick, 500); // nav recovery: Cyberpunk route retries after backoff (bounded, see TevaNav.RouteGuard)
     updateBehavior();
     ambientTick();
     renderTicker();
@@ -4386,7 +4387,9 @@ function updateStatusBar() {
     idle: AGENTS.filter(a => agentStates[a.id].status === 'idle').length,
     meeting: AGENTS.filter(a => agentStates[a.id].status === 'meeting').length,
     walking: AGENTS.filter(a => agentStates[a.id].status === 'walking').length,
-    nosignal: AGENTS.filter(a => a.signal === false).length
+    nosignal: AGENTS.filter(a => a.signal === false).length,
+    // nav recovery: seats that gave up on a route (holding a safe spot) - a movement state, never work or idle
+    routeblocked: ROUTES ? AGENTS.filter(a => ROUTES.status(a.id) === 'blocked').length : 0
   };
   
   const items = [
@@ -4395,7 +4398,7 @@ function updateStatusBar() {
     { key: 'meeting', label: 'meeting', color: '#8B5CF6' },
     { key: 'walking', label: 'walking', color: '#7DD3FC' },
     { key: 'nosignal', label: 'no live signal', color: 'rgba(255,255,255,0.55)' }
-  ];
+  ].concat(counts.routeblocked ? [{ key: 'routeblocked', label: 'route blocked', color: '#fbbf24' }] : []);
   
   footer.innerHTML = items.map(item => {
     const count = counts[item.key] || 0;
@@ -4715,6 +4718,17 @@ function updateParticles(delta) {
 // sits facing it. Pure helper, exported on VO for tests.
 const DESK_FACE = Math.PI;
 function classicHasDesk(id) { return !!(TEVA_SEATS && TEVA_SEATS[id]) && !['supervisor', 'pm', 'ba'].includes(id); }
+// Classic: the route for a new target. Short adjusts (<= 0.6 m) still go straight, but only if that leg is a
+// checked seat leg; everything else uses the guarded plan. {key, pts, i, hold?: 'wait'|'blocked', retryAt}.
+function classicRoute(a, state, key, dist) {
+  const from = { x: a.group.position.x, z: a.group.position.z }, to = { x: state.targetX, z: state.targetZ }, n = navInit();
+  if (dist <= 0.6 && (!n || n.legOk(from, to) || n.clear(from, to))) return { key, pts: [to], i: 0 };
+  const kind = state.targetKind || 'desk';
+  const g = navPlan(a.agent.id, from, to, kind === 'ambient' ? { maxTries: 1 } : undefined);
+  if (g.status === 'ok' || g.status === 'snapped') return { key, pts: g.pts && g.pts.length ? g.pts : [to], i: 0 };
+  if (g.status === 'blocked') routeRecover(a.agent.id, to, kind);
+  return { key, pts: [from], i: 0, hold: g.status, retryAt: g.nextAt || Infinity };
+}
 function animateAgents(delta) {
   // Phase 3a: base state (vo_events.js baseState) + one-shot overlay -> procedural pose. No random targets.
   const mm = motionMode(), now = Date.now();
@@ -4728,24 +4742,31 @@ function animateAgents(delta) {
     const t = a.time;
     let dx = state.targetX - a.group.position.x, dz = state.targetZ - a.group.position.z;
     let dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist > 0.03 && mm !== 'full') { a.group.position.x = state.targetX; a.group.position.z = state.targetZ; dist = 0; } // reduced/off: teleport, never walk
+    // nav recovery: every move (walk or reduced-motion teleport) goes through the route guard; no route = hold
+    // position (the spot it stands on is valid), flagged, bounded retries, then routeRecover re-targets
+    let held = false;
+    if (dist > 0.03) {
+      const key = state.targetX.toFixed(2) + ',' + state.targetZ.toFixed(2);
+      if (!a.route || a.route.key !== key || (a.route.hold === 'wait' && now >= a.route.retryAt)) a.route = classicRoute(a, state, key, dist);
+      if (a.route.hold) { held = true; dist = 0; ROUTE_STATS.heldFrames++; }
+    }
+    if (dist > 0.03 && mm !== 'full') { const end = a.route.pts[a.route.pts.length - 1]; a.group.position.x = end.x; a.group.position.z = end.z; dist = 0; a.route.done = true; } // reduced/off: teleport, never walk
     // part 2: walk the furniture-aware route (TevaNav) instead of a straight line through desks and tables
     let seg = dist;
     if (dist > 0.03) {
-      const key = state.targetX.toFixed(2) + ',' + state.targetZ.toFixed(2);
-      if (!a.route || a.route.key !== key) a.route = { key, pts: dist > 0.6 ? navRoute({ x: a.group.position.x, z: a.group.position.z }, { x: state.targetX, z: state.targetZ }) : [{ x: state.targetX, z: state.targetZ }], i: 0 };
       const R = a.route;
       while (R.i < R.pts.length - 1 && Math.hypot(R.pts[R.i].x - a.group.position.x, R.pts[R.i].z - a.group.position.z) < 0.15) R.i++;
       const wp = R.pts[R.i];
       dx = wp.x - a.group.position.x; dz = wp.z - a.group.position.z; seg = Math.max(1e-6, Math.sqrt(dx * dx + dz * dz));
       let rem = seg; for (let q = R.i; q < R.pts.length - 1; q++) rem += Math.hypot(R.pts[q + 1].x - R.pts[q].x, R.pts[q + 1].z - R.pts[q].z);
       dist = rem;
-    } else a.route = null;
+    } else if (!held && !(a.route && a.route.done)) a.route = null;
     const walking = dist > 0.03;
     const ambMove = ambientMotion(a);
     if (walking !== a.walking) { if (!walking && a.walking) a.settle = 0.45; a.walking = walking; state.status = walking && !ambMove ? 'walking' : (a.agent.status || 'idle'); }
-    if (!walking) { a.walkSpeed = 0; if (ZONES && state.targetKind === 'zone') ZONES.arrived(a.agent.id, now); }
-    if (!walking) {
+    state.routeStatus = held ? a.route.hold : null; // 'wait' | 'blocked': unreachable, kept apart from idle
+    if (!walking) { a.walkSpeed = 0; if (ZONES && state.targetKind === 'zone' && !held) ZONES.arrived(a.agent.id, now); }
+    if (!walking && !held) {
       if (a.ambHoming) a.ambHoming = false;
       if (AMB_ON && AMB && AMB.moving(a.agent.id)) { AMB.arrived(a.agent.id, now); const tg = seatTarget(a.agent, a); state.targetX = tg.x; state.targetZ = tg.z; }
     }
@@ -4921,6 +4942,7 @@ function animate(ts) {
   updateCamera();
 
   animateAgents(delta);
+  updateRouteMarks();
   if (modularBridge) ambientModularPose(delta); // ambient in Cyberpunk: bone deltas on top of the mixer pose
   if (modularBridge) {
     Object.values(modularWorkstations).forEach(ws => { if (ws.userData && ws.userData.tick) ws.userData.tick(delta); });
@@ -5311,7 +5333,8 @@ function spotsInit() {
   if (window.TevaAssets && TevaAssets.resolveAgentPosition) AGENTS.forEach(a => { try { const p = TevaAssets.resolveAgentPosition(a); if (p && Number.isFinite(p.x)) blocked.push({ x: p.x, z: p.z }); } catch (e) {} });
   const Z = window.TevaZones;
   const spots = TevaSpots.catalog(LAYOUT, { boardroom: Z ? Z.boardroomSlots(LAYOUT) : [], research: Z ? Z.researchSlots(LAYOUT) : [], blocked });
-  SPOTS = new TevaSpots.Registry(spots, { blocked });
+  // nav recovery: ad-hoc points (hand-off / meeting / chat) must be standable and on the main walkable area
+  SPOTS = new TevaSpots.Registry(spots, { blocked, pointOk: p => { const n = navInit(); return !n || (n.standable(p) && n.componentAt(p) === n.mainComponent()); } });
   return SPOTS;
 }
 VO.spots = () => (SPOTS ? SPOTS.snapshot() : null);
@@ -5359,29 +5382,117 @@ function spotsSync() {
 // ---- Walking routes around furniture (2026-10-22 part 2, Steve: "nobody walks straight through objects") ----
 // public/js/teva_nav.js: occupancy grid of the real floor plan + the desks this look draws, A* + string pulling,
 // solid walls except the real openings. Used by Classic walkers (animateAgents) and Cyberpunk moves alike.
-var WALKNAV = null, WALKNAV_LOOK = null; // (NAV is the camera pointer state)
-function navInit() {
-  if (!window.TevaNav || !LAYOUT) return null;
-  const look = modularAvatarsEnabled() ? 'cyber' : 'classic';
-  if (WALKNAV && WALKNAV_LOOK === look) return WALKNAV;
+var WALKNAV = null, WALKNAV_LOOK = null, WALKNAV_KEY = null; // (NAV is the camera pointer state)
+// Nav recovery (2026-10-23): ROUTES = TevaNav.RouteGuard (bounded retry with backoff, then give up, per seat);
+// ROUTE_STATS = what office.html did about failures. Diagnostics only (VO.routes()), never the feed or statuses.
+var ROUTES = null;
+const ROUTE_STATS = { rebuilds: 0, reclaims: 0, zoneMoves: 0, zoneDrops: 0, ambientCancels: 0, wanderCleared: 0, heldFrames: 0, giveUps: 0 };
+// The desks the active look really draws: Classic legacy desks (TEVA_SEATS minus leadership); Cyberpunk the built
+// modular workstations + expansion stations (was: AGENTS at first call, i.e. the inline demo roster, and never
+// rebuilt - so in Cyberpunk the real roster's desks were not solid; nav recovery audit).
+function navDesks(look) {
   const desks = [];
   if (look === 'cyber' && window.TevaAssets && TevaAssets.resolveWorkstationOrigin) {
-    AGENTS.forEach(a => { try { const ws = TevaAssets.resolveWorkstationOrigin(a), c = ws.config || {}, cmd = ws.style === 'command';
-      desks.push({ x: ws.x, z: ws.z, w: Number(c.deskW) || (ws.style === 'collab' ? 3.4 : cmd ? 4.4 : 2.85), d: Number(c.deskD) || (cmd ? 1.7 : 1.28), rot: ws.rotation, tag: 'desk ' + a.id }); } catch (e) {} });
+    const built = Object.keys(modularWorkstations || {});
+    const ids = built.length ? built : AGENTS.map(a => a.id);
+    ids.forEach(id => { try { const a = AGENTS.find(q => q.id === id) || { id }, ws = TevaAssets.resolveWorkstationOrigin(a), c = ws.config || {}, cmd = ws.style === 'command', m = modularWorkstations && modularWorkstations[id];
+      const x = m ? m.position.x : ws.x, z = m ? m.position.z : ws.z, rot = m ? m.rotation.y : ws.rotation;
+      desks.push({ x, z, w: (Number(c.deskW) || (ws.style === 'collab' ? 3.4 : cmd ? 4.4 : 2.85)) + (cmd ? 1.0 : 0) /* command desk side wings render ~0.5 m past each end (5.4 m group) */, d: Number(c.deskD) || (cmd ? 1.7 : 1.28), rot, tag: 'desk ' + id }); } catch (e) {} });
+    (LAYOUT.expansionStations || []).forEach((st, i) => desks.push({ x: st.x, z: st.z, w: 2.85, d: 1.28, rot: st.rotation || 0, tag: 'expansion desk ' + i }));
   } else {
     Object.entries(TEVA_SEATS || {}).forEach(([id, p]) => { if (!['supervisor', 'pm', 'ba'].includes(id)) desks.push({ x: p.x, z: p.z - 0.9, w: 2.5, d: 1.15, rot: 0, tag: 'desk ' + id }); });
   }
-  try { WALKNAV = new TevaNav.Nav(LAYOUT, { desks }); WALKNAV_LOOK = look; } catch (e) { WALKNAV = null; }
+  return desks;
+}
+function navInit() {
+  if (!window.TevaNav || !LAYOUT) return null;
+  const look = modularAvatarsEnabled() ? 'cyber' : 'classic';
+  const desks = navDesks(look);
+  const key = look + '|' + desks.map(d => d.tag + '@' + Number(d.x).toFixed(2) + ',' + Number(d.z).toFixed(2) + ',' + (Number(d.rot) || 0).toFixed(2)).join(';');
+  if (WALKNAV && WALKNAV_KEY === key) return WALKNAV;
+  // a roster / look change rebuilds the grid; every seat gets a fresh retry budget (recovery path)
+  try { WALKNAV = new TevaNav.Nav(LAYOUT, { desks, look }); WALKNAV_LOOK = look; WALKNAV_KEY = key; } catch (e) { WALKNAV = null; WALKNAV_KEY = null; return null; }
+  const old = ROUTES;
+  ROUTES = TevaNav.RouteGuard ? new TevaNav.RouteGuard(() => WALKNAV) : null;
+  if (old && ROUTES) ROUTES.stats = old.stats;
+  ROUTE_STATS.rebuilds++;
+  if (SPOTS && SPOTS.clearUnreachable) SPOTS.clearUnreachable();
+  agents.forEach(o => { o.route = null; });
   return WALKNAV;
 }
-// Waypoints from -> to (excluding from, ending at to); falls back to the door-only route.
+// Waypoints from -> to (excluding from, ending at to or at the nearest reachable free point when to is blocked).
+// Nav recovery: [] when there is no route - never a straight / door / nearest-cell fallback through obstacles;
+// callers hold position. (Was: TevaAmbient.route door legs, then a nearest-free-cell chain ending at `to`.)
 function navRoute(from, to) {
-  const n = navInit(), r = n ? n.path(from, to) : null;
-  if (r && r.length) return r;
-  return window.TevaAmbient && TevaAmbient.route ? TevaAmbient.route(LAYOUT, from, to) : [{ x: to.x, z: to.z }];
+  const n = navInit();
+  if (!n) return [{ x: Number(to.x), z: Number(to.z) }]; // no grid at all (TevaNav missing): old behaviour
+  const r = n.plan(from, to);
+  return r.ok ? r.pts : [];
 }
-function navChain(from, pts) { const out = []; let p = from; (pts || []).forEach(q => { navRoute(p, q).forEach(w => out.push(w)); p = q; }); return out; }
+// Guarded plan for one seat: {status 'ok'|'snapped'|'wait'|'blocked', pts, reason}. 'wait' / 'blocked' = hold.
+function navPlan(id, from, to, opt) {
+  const n = navInit();
+  if (!n || !ROUTES) return { status: 'ok', pts: [{ x: Number(to.x), z: Number(to.z) }] };
+  const was = ROUTES.status(id), g = ROUTES.request(id, from, to, Date.now(), opt);
+  if (g.status === 'wait' && was === 'ok') console.debug('[nav] no route for', id, 'to', Number(to.x).toFixed(1), Number(to.z).toFixed(1), '-', g.reason, '(retrying with backoff)');
+  if (g.status === 'blocked' && was !== 'blocked') { ROUTE_STATS.giveUps++; console.debug('[nav] route blocked for', id, '-', g.reason, '- holding a safe position', ROUTES.snapshot().agents[id]); }
+  return g;
+}
+// A seat gave up on a target: try the nearest reachable free spot through the reservation system (TevaSpots /
+// TevaZones), cancel an ambient leg, drop a wander point; desk targets just hold (safe, flagged). No feed writes.
+function routeRecover(id, to, kind) {
+  const obj = seatObj(id);
+  let changed = false;
+  if (obj && (kind === 'ambient' || (AMB && AMB.active(id)))) { ambientCancel(obj); ROUTE_STATS.ambientCancels++; changed = true; }
+  const zt = ZONES ? ZONES.target(id) : null;
+  if (zt && Math.hypot(zt.x - to.x, zt.z - to.z) < 0.3) {
+    const zs = SPOTS && SPOTS.of(id, 'zone');
+    if (zs && !zs.point) SPOTS.setUnreachable(zs.id, true);
+    const r = ZONES.reseat ? ZONES.reseat(id) : null;
+    if (r === 'moved') ROUTE_STATS.zoneMoves++; else if (r === 'dropped') ROUTE_STATS.zoneDrops++;
+    changed = changed || !!r;
+  }
+  if (SPOTS) ['home', 'away', 'point'].forEach(slot => {
+    const sp = SPOTS.of(id, slot);
+    if (sp && Math.hypot(sp.x - to.x, sp.z - to.z) < 0.3) { if (!sp.point) SPOTS.setUnreachable(sp.id, true); SPOTS.release(id, slot); ROUTE_STATS.reclaims++; changed = true; }
+  });
+  if (obj && obj.wanderTarget && Math.hypot(obj.wanderTarget.x - to.x, obj.wanderTarget.z - to.z) < 0.3) { obj.wanderTarget = null; ROUTE_STATS.wanderCleared++; changed = true; }
+  if (changed) setTimeout(() => { updateBehavior(); ambientModularSync(); }, 0);
+  return changed;
+}
+// Cyberpunk retries: re-run the destination sync when a held seat's backoff is over (Classic re-plans per frame).
+function routeRetryTick() {
+  if (!ROUTES || paused) return;
+  // roster change: drop guard records for avatars that left (no stale 'route blocked' state / retries for them)
+  Object.keys(ROUTES.agents || {}).forEach(id => { if (!seatObj(id)) { ROUTES.forget(id); if (ROUTE_MARKS[id]) ROUTE_MARKS[id].visible = false; } });
+  if (ROUTES.due(Date.now()).length) { syncModularDestinations(); ambientModularSync(); }
+}
+const ROUTE_MARKS = {};
+function routeMarkTex() {
+  return canvasTex('routeblocked', 256, 64, (ctx, w, h) => {
+    ctx.fillStyle = 'rgba(120,53,15,0.9)'; roundRect(ctx, 2, 2, w - 4, h - 4, 26); ctx.fill();
+    ctx.fillStyle = '#fde68a'; ctx.font = 'bold 28px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('route blocked', w / 2, h / 2 + 1);
+  });
+}
+// A small 'route blocked' tag over a held seat (dim while retrying, solid once it gave up), both looks.
+function updateRouteMarks() {
+  if (!ROUTES) return;
+  const mgr = modularAvatarsEnabled() && modularBridge && modularBridge.manager;
+  agents.forEach(obj => {
+    const id = obj.agent.id, st = ROUTES.status(id), on = st === 'blocked' || st === 'retrying';
+    let m = ROUTE_MARKS[id];
+    if (!on) { if (m) m.visible = false; return; }
+    if (!m) { m = new THREE.Sprite(new THREE.SpriteMaterial({ map: routeMarkTex(), transparent: true, depthTest: false })); m.scale.set(1.15, 0.29, 1); m.renderOrder = 12; scene.add(m); ROUTE_MARKS[id] = m; }
+    const e = mgr && mgr.entries[id], p = e && e.group ? e.group.position : obj.group.position;
+    m.position.set(p.x, 2.6, p.z); m.material.opacity = st === 'blocked' ? 0.95 : 0.55; m.visible = true;
+  });
+}
+function navChain(from, pts) { const out = []; let p = from; for (const q of (pts || [])) { const leg = navRoute(p, q); if (!leg.length) return null; leg.forEach(w => out.push(w)); p = leg[leg.length - 1]; } return out; }
 VO.nav = (a, b) => navRoute(a, b);
+VO.routes = () => ({ guard: ROUTES ? ROUTES.snapshot() : null, office: Object.assign({}, ROUTE_STATS), navKey: WALKNAV_KEY ? WALKNAV_KEY.slice(0, 80) : null, unreachableSpots: SPOTS && SPOTS.unreachable ? Object.keys(SPOTS.unreachable) : [] });
+VO.navBlock = (rect, tag) => { const n = navInit(); if (!n) return null; const v = n.addObstacle(rect, tag); if (SPOTS && SPOTS.clearUnreachable) SPOTS.clearUnreachable(); agents.forEach(o => { o.route = null; }); updateBehavior(); return v; };
+VO.navUnblock = tag => { const n = navInit(); if (!n) return null; const v = n.removeObstacle(tag); if (SPOTS && SPOTS.clearUnreachable) SPOTS.clearUnreachable(); agents.forEach(o => { o.route = null; }); updateBehavior(); return v; };
 function isFunStationIdle(agent, obj) {
   if (!agent || agent.id === 'needs-steve') return false;
   const base = (obj && obj.base) || (window.VOE && VOE.baseState
@@ -5415,7 +5526,11 @@ function syncModularDestinations() {
     if (VO.snapPlacement) {
       opts.instant = true; // first sync / roster: teleport — no Fun Station walk replay
     } else if (e && e.position) {
-      const r = navRoute({ x: Number(e.position.x) || 0, z: Number(e.position.z) || 0 }, dest);
+      // nav recovery: guarded plan; no route -> no move (the avatar keeps its valid spot), retried by routeRetryTick
+      const g = navPlan(agent.id, { x: Number(e.position.x) || 0, z: Number(e.position.z) || 0 }, dest, t.kind === 'ambient' ? { maxTries: 1 } : undefined);
+      if (g.status === 'wait' || g.status === 'blocked') { if (g.status === 'blocked') routeRecover(agent.id, dest, t.kind); return; }
+      const r = g.pts || [dest];
+      if (g.status === 'snapped') dest = { x: r[r.length - 1].x, z: r[r.length - 1].z };
       if (r.length > 1) opts.path = r.slice(0, -1);
     }
     opts.duration = 2.5; // ignored by the natural-pace path (TevaMotion); kept for the no-TevaMotion fallback
@@ -5587,6 +5702,12 @@ function ambientModularSync() {
       r.path.concat([r.dest]).forEach(p => { d += Math.hypot(p.x - px, p.z - pz); px = p.x; pz = p.z; });
       const act = AMB.seats[id] && AMB.seats[id].act, out = /^out:/.test(r.key), home = SPOTS ? SPOTS.of(id, 'home') : null;
       const full = navChain({ x: Number(entry.position.x) || 0, z: Number(entry.position.z) || 0 }, r.path.concat([r.dest]));
+      if (!full || !full.length) { // nav recovery: an unreachable ambient leg is cancelled at once (spot released), never forced
+        ROUTE_STATS.ambientCancels++; if (ROUTES) ROUTES.stats.failures++;
+        console.debug('[nav] ambient leg unreachable for', id, '- cancelled');
+        if (AMB && AMB.active(id)) AMB.cancel(id, Date.now());
+        return;
+      }
       const o = { path: full.slice(0, -1), duration: Math.max(1.5, d / AMB_MOD_SPEED), speed: window.TevaMotion ? TevaMotion.STROLL_SPEED : undefined };
       if (out) { o.pose = act && act.sit ? 'sit' : 'stand'; o.activity = act ? (act.activity || (act.kind === 'visit' ? 'talk' : null)) : null; if (act && act.look) o.faceYaw = Math.atan2(act.look.x - r.dest.x, act.look.z - r.dest.z); }
       else if (home) { o.pose = home.sit ? 'sit' : 'stand'; o.activity = home.activity || null; if (Number.isFinite(home.face)) o.faceYaw = home.face; }
@@ -5597,7 +5718,11 @@ function ambientModularSync() {
       const agent = AGENTS.find(a => a.id === id) || obj.agent, dest = modularRestDest(agent, obj);
       if (dest && Number.isFinite(Number(dest.x)) && Number.isFinite(Number(dest.z))) {
         const d = Math.hypot(Number(dest.x) - (Number(entry.position.x) || 0), Number(dest.z) - (Number(entry.position.z) || 0));
-        mgr.moveAgent(id, { x: Number(dest.x), z: Number(dest.z) }, { duration: Math.max(2.5, d / AMB_MOD_SPEED), speed: window.TevaMotion ? TevaMotion.STROLL_SPEED : undefined });
+        // nav recovery: the walk home follows a guarded route too (was a bare straight line through desks)
+        const g = navPlan(id, { x: Number(entry.position.x) || 0, z: Number(entry.position.z) || 0 }, { x: Number(dest.x), z: Number(dest.z) });
+        if (g.status === 'wait' || g.status === 'blocked') return;
+        const hp = g.pts || [], hd = hp.length ? hp[hp.length - 1] : { x: Number(dest.x), z: Number(dest.z) };
+        mgr.moveAgent(id, { x: hd.x, z: hd.z }, { path: hp.slice(0, -1), duration: Math.max(2.5, d / AMB_MOD_SPEED), speed: window.TevaMotion ? TevaMotion.STROLL_SPEED : undefined });
         AMB_MOD_STATS.homes++;
       }
     }

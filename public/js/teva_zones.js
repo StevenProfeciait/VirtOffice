@@ -163,6 +163,28 @@
     if (all) s.until = Math.min(s.until, now + this.sessionMs);
     return true;
   };
+  /** Nav recovery (2026-10-23): this seat's zone chair cannot be reached (the registry already marks it
+   *  unreachable). Move it to the nearest reachable free chair of the same zone; with none left the seat leaves the
+   *  zone and stays at its desk (a safe place). Returns 'moved' | 'dropped' | null (not in a zone). */
+  P.reseat = function (id) {
+    var s = this.session(id), sp;
+    if (s) {
+      var cur = this.spots && this.spots.spot(s.slotOf[id]);
+      sp = this.spots ? this.spots.claim(id, 'zone', { places: ['boardroom'], near: cur || null }) : null;
+      if (sp && sp.id !== s.slotOf[id]) { s.slotOf[id] = sp.id; return 'moved'; }
+      this._drop(s, id);
+      this.sessions = this.sessions.filter(function (q) { return Object.keys(q.slotOf).length; });
+      return 'dropped';
+    }
+    if (this.atLab[id]) {
+      var was = this.spots && this.spots.of(id, 'zone');
+      sp = this.spots ? this.spots.claim(id, 'zone', { places: ['research'], near: was || null }) : null;
+      if (sp && (!was || sp.id !== was.id)) return 'moved';
+      delete this.atLab[id]; if (this.spots) this.spots.release(id, 'zone');
+      return 'dropped';
+    }
+    return null;
+  };
   P.session = function (id) { for (var i = 0; i < this.sessions.length; i++) if (this.sessions[i].slotOf[id] != null) return this.sessions[i]; return null; };
   /** Where a seat should be because of a zone, or null (desk / idle spot as usual):
    *  {x, z, face, zone, kind, label, sit, activity, speaker, talking}. In the boardroom everyone faces the speaker

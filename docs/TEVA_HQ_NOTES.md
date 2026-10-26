@@ -333,12 +333,15 @@ mixed together) while other spaces stayed free.
 **Walking:**
 - `public/js/teva_nav.js` (`TevaNav`, pure) routes avatars around furniture in both looks. It builds a 0.5 m grid from
   the real floor plan:
-  - boardroom and round tables, dividers, the kitchen counter and fridge, lounge sofas;
+  - boardroom and round tables, dividers (thin glass inflated to ≥0.35 m so the grid never skips them), the kitchen
+    counter and fridge, lounge sofas;
   - the Fun Wing arcade cabinets, ping pong, foosball, vending machines, snack cart and chill-pit sofa;
+  - Fun Wing N/S glass, east rail, and corridor side glass; Simulation Bay and Innovation Lab cyber-pod footprints
+    (full enclosure — paths go around, not under the canopy); phone booths and server-room glass;
   - the terrace sofa, huddle table, coffee cart and hot desks;
   - the desks the active look draws (legacy desks in Classic, modular workstations in Cyberpunk).
-- Walls are solid except the real openings: the Fun Wing corridor and the 7 m terrace doorway, which has the coffee
-  cart in its middle. Routes use A* plus string pulling.
+- Walls are solid except the real openings: the Fun Wing corridor (±3 m, matching the drawn glass) and the 7 m
+  terrace doorway, which has the coffee cart in its middle. Routes use A* plus string pulling.
   - Classic walkers now follow the waypoints instead of walking a straight line.
   - Cyberpunk moves and ambient legs chain the same routes.
   - Falls back to the old door route if no path is found.
@@ -372,9 +375,9 @@ mixed together) while other spaces stayed free.
 - Everything is still driven by real events or the base state. Ambient stays labelled ambient and never touches the
   feed, and every place goes through the seat reservations.
 - Tests:
-  - `tests/test_teva_nav.js` (6 checks): furniture and walls are solid, openings are open, desk → Fun Wing routes cross
-    no furniture and pass through the opening, the straight line through the boardroom table goes around instead, 60
-    random routes, wiring.
+  - `tests/test_teva_nav.js` (7 checks): furniture and walls are solid, openings are open, cyber pods / Fun Wing glass /
+    dividers are solid, desk → Fun Wing routes cross no furniture or pod footprint and pass through the opening, the
+    straight line through the boardroom table goes around instead, 60 random routes, wiring.
   - `tests/test_teva_interactions.js` (8 checks): arms opposite legs, shoulder and hip pivots, bob, lean, sway,
     speed-scaled stride, typing, reading, coffee, celebrate, speaker gestures, play, manager sit / face / activity on
     arrival, rigged clip keys, office.html wiring.
@@ -467,3 +470,86 @@ pkill -f teva_sync_loop.sh; pkill -f 'server.py'; sleep 1; osascript -e 'tell ap
 ```
 
 **Deploy note (2026-10-23 ~11:25 SAST):** commits c129d46 and 143eb85 (messages UI) landed on office.html between the pre-deploy checksum check and the copy. The first copy overwrote them. office.html was then rebuilt with a clean 3-way merge (`git merge-file`: base = the phase-2 file, theirs = HEAD 77f9885, mine = the typing fix). `git diff HEAD -- public/office.html` now shows only the typing-fix lines. `public/office.html.bak-typingfix-2026-10-23` is HEAD 77f9885, the correct rollback target.
+
+## Nav recovery: route failures, nav/visual alignment audit, regression tests (2026-10-23)
+
+Builds on the uncommitted nav-solids work in the Mac tree (Simulation Bay / Innovation Lab pods, Fun Wing glass,
+phone booths, server enclosure, thin dividers, ±3 m Fun Wing opening) and on 1dc2de8 (Cursor-chat correlation).
+
+**Route failures (both looks):**
+- `TevaNav.Nav.plan(from, to)` → `{ok, pts, reason, snapped}`. It never adds an unchecked leg. The first and last
+  step onto a seat may only enter soft furniture (a chair at a desk, a sofa). It never enters a wall, glass, pod,
+  rack or booth.
+- A blocked goal snaps to the nearest reachable free cell within 1.5 m. Otherwise it returns `goal-blocked`.
+  Separate areas return `no-path`. `path()` returns `plan().pts` or null.
+- `navRoute()` in office.html returns `[]` when there is no route. Removed: the TevaAmbient door-route fallback and
+  the nearest-free-cell chain that ended at the target through obstacles.
+- `TevaNav.RouteGuard`: one per seat, with a bounded retry and backoff (1, 2, 4 s), then it gives up. A target it
+  gave up on is re-planned only when the target, the start area or the grid version changes (recovery). Ambient
+  legs get a single try.
+- While a seat is held, its avatar stays where it is (a valid spot). A small "route blocked" tag shows over it,
+  dim while retrying and solid once it gives up. The footer shows "route blocked" as its own count, never as idle
+  or working. A console.debug diagnostic is logged.
+- Debug API: `VO.routes()` returns the guard stats, per-seat status and a log, plus the office counters and the
+  spots marked unreachable. `VO.navBlock(rect, tag)` / `VO.navUnblock(tag)` block an area for a while (tests and
+  manual checks). Route failures never reach the feed.
+- `routeRecover()`, run on give-up:
+  - cancels an ambient trip;
+  - marks the spot unreachable in TevaSpots (`setUnreachable`; `claim` skips it), so the next claim takes the
+    nearest reachable free spot;
+  - moves a zone chair with `TevaZones.reseat()` (the nearest free chair, or it leaves the zone and stays at its
+    desk);
+  - drops a wander point.
+  Ad-hoc points (`claimPoint`) must be standable and on the main walkable area (`pointOk`).
+- The Cyberpunk walk home from ambient trips now follows a guarded route. It used to be a bare straight line.
+- The nav grid rebuilds on a roster or look change (key = look + the desks actually built). Cyberpunk now uses the
+  built modular workstations plus expansion stations. Before, it used the first-call demo roster and never
+  rebuilt, so the real roster's desks were not solid.
+
+**Visual-to-nav audit** (`tests/nav_audit_browser.py`, run with a browser, not auto-discovered): it samples every
+rendered triangle in the body band (0.15–1.6 m) onto a 0.25 m grid and compares it with the live grid.
+- Before: Classic had 65 walk-through clusters (346 samples), Cyberpunk 112 (785). There were also 2 phantom
+  solids: the Simulation Bay and Innovation Lab pods, which are solid in Classic, where no pod is drawn.
+- What was found and fixed (`furniture(L, {look})` + `props()`):
+  - terrace side glass and the terrace corridor glass;
+  - the leadership pod back glass, posts, credenzas and holo screen;
+  - the research manager office (pod glass, board, table, stools, shelf, ottoman);
+  - Steve's command bay (screen wall, stand-up table and seats, sofa, racks, bar);
+  - the main and terrace lounges, the chill-pit sofas, ottomans, table and media wall, the arena stools, the
+    huddle table and stools;
+  - plants and planters, the bookshelf and the water cooler;
+  - Cyberpunk only: the briefing pod, the command-deck core and the cyber lounge (sofas, bar, screen, posts);
+  - round tables are now octagons instead of squares;
+  - the command desk is 1 m wider (its side wings);
+  - the pods are look-specific.
+- After: Classic has 6 clusters (8 samples), Cyberpunk 17 (46), with 0 phantoms. Both openings are traversable
+  (the terrace doorway is 60 % free; its centre is the coffee cart). Reachability: 15 desks × 73 targets, 0
+  failures in both looks.
+- Accepted residuals: the hot-desk stools, the cyber-lounge bar stools (both are places to sit), a wall-mounted
+  whiteboard edge, and the command-deck 2.5 cm floor trim ring.
+
+**Tests:**
+- `tests/test_teva_nav_recovery.js` (+ `_node.py`), 12 checks:
+  - the audit fixes;
+  - the openings;
+  - the reachability matrix (every seat, spot, zone chair and desk chair from every desk, in both looks);
+  - Steve's cases 1–6: desk to Fun Station, the Fun Wing opening without clipping, the canopy, temporarily
+    unreachable then recover, a roster change or new target, and a zone transition;
+  - random routes never cross anything;
+  - the office.html wiring.
+- `tests/test_nav_zone_correlation.py`: a zone transition with a new assignment moves validly, and
+  `message_store` records the right observed outcome (session-bound match, ready ≤ endedAt, idempotent).
+- `tests/test_teva_nav.js`: the wiring check is updated for the guarded plan.
+
+**Rollback (on the Mac):**
+```
+cd ~/Documents/GitHub/VirtOffice
+for f in public/office.html public/js/teva_nav.js public/js/teva_spots.js public/js/teva_zones.js \
+         tests/test_teva_nav.js docs/TEVA_HQ_NOTES.md; do
+  cp -p "$f.bak-navrecovery-2026-10-23" "$f"
+done
+rm -f tests/test_teva_nav_recovery.js tests/test_teva_nav_recovery_node.py tests/test_nav_zone_correlation.py \
+      tests/nav_audit_browser.py
+pkill -f teva_sync_loop.sh; pkill -f 'server.py'; sleep 1; osascript -e 'tell application "Terminal" to do script "cd ~/Documents/GitHub/VirtOffice && ./start_teva_hq.command"'
+```
+The backups are the Mac files as they were right before this deploy, including the uncommitted nav-solids work.
